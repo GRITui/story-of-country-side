@@ -13,6 +13,7 @@ func build_save_data() -> Dictionary:
 		"shipping_bin": ShippingBinManager.to_save_dict(),
 		"relationships": RelationshipManager.to_save_dict(),
 		"quests": QuestManager.to_save_dict(),
+		"skills": SkillManager.to_save_dict(),
 	}
 
 func apply_save_data(data: Dictionary) -> void:
@@ -26,3 +27,5 @@ func apply_save_data(data: Dictionary) -> void:
 		RelationshipManager.from_save_dict(data["relationships"])
 	if data.has("quests"):
 		QuestManager.from_save_dict(data["quests"])
+	if data.has("skills"):
+		SkillManager.from_save_dict(data["skills"])

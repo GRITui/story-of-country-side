@@ -19,6 +19,8 @@ var _payout_fire_count := 0 ## same reason
 var _payout_last_total := -1
 var _payout_last_count := -1
 var _quest_completed_events: Array = [] ## Array[Array] of [quest_id, unlock_flag], same reason
+var _xp_gained_events: Array = [] ## Array[Array] of [skill_name, amount, total_xp], same reason
+var _level_changed_events: Array = [] ## Array[Array] of [skill_name, new_level, old_level], same reason
 var _heart_events: Array = [] ## Array[Array] of [npc_name, heart_level], same reason
 
 func _ready() -> void:
@@ -63,6 +65,14 @@ func _ready() -> void:
 	_test_reregistering_quest_preserves_completion_state()
 	_test_evaluate_skill_level_completes_matching_quest()
 	_test_quest_save_round_trip()
+
+	_test_add_xp_accumulates_and_emits()
+	_test_level_thresholds_match_cumulative_curve()
+	_test_level_changed_fires_once_per_level_on_single_step()
+	_test_level_changed_fires_for_each_crossed_level_on_big_jump()
+	_test_add_xp_non_positive_is_noop()
+	_test_level_up_drives_quest_skill_level_condition()
+	_test_skill_save_round_trip()
 
 	if _failures.is_empty():
 		print("ALL TESTS PASSED (%d checks)" % _pass_count)
@@ -684,3 +694,103 @@ func _test_quest_save_round_trip() -> void:
 	_check(qm.is_unlocked("flag_save_test"), "unlock flag should round-trip through save/load")
 	_check(qm.delivered_count("milk") == 2,
 		"delivered totals should round-trip through save/load, got %d" % qm.delivered_count("milk"))
+
+## --- ENG-25: Skill Leveling ---
+
+func _on_xp_gained_for_test(skill_name: String, amount: int, total_xp: int) -> void:
+	_xp_gained_events.append([skill_name, amount, total_xp])
+
+func _on_level_changed_for_test(skill_name: String, new_level: int, old_level: int) -> void:
+	_level_changed_events.append([skill_name, new_level, old_level])
+
+func _test_add_xp_accumulates_and_emits() -> void:
+	var sm := SkillManager
+	sm._xp = {}
+	_xp_gained_events = []
+	sm.xp_gained.connect(_on_xp_gained_for_test)
+	sm.add_xp("Fishing", 40)
+	sm.add_xp("Fishing", 35)
+	sm.xp_gained.disconnect(_on_xp_gained_for_test)
+
+	_check(sm.get_xp("Fishing") == 75, "XP should accumulate across calls, got %d" % sm.get_xp("Fishing"))
+	_check(_xp_gained_events.size() == 2
+		and _xp_gained_events[0] == ["Fishing", 40, 40]
+		and _xp_gained_events[1] == ["Fishing", 35, 75],
+		"xp_gained should report per-call amount and running total, got %s" % [_xp_gained_events])
+
+func _test_level_thresholds_match_cumulative_curve() -> void:
+	var sm := SkillManager
+	sm._xp = {}
+
+	sm._xp["Farming"] = 99
+	_check(sm.get_level("Farming") == 0, "99 XP should be level 0, got %d" % sm.get_level("Farming"))
+	sm._xp["Farming"] = 100
+	_check(sm.get_level("Farming") == 1, "100 XP should be exactly level 1, got %d" % sm.get_level("Farming"))
+	sm._xp["Farming"] = 299
+	_check(sm.get_level("Farming") == 1, "299 XP should still be level 1, got %d" % sm.get_level("Farming"))
+	sm._xp["Farming"] = 300
+	_check(sm.get_level("Farming") == 2, "300 XP should be exactly level 2, got %d" % sm.get_level("Farming"))
+	sm._xp["Farming"] = 600
+	_check(sm.get_level("Farming") == 3, "600 XP should be exactly level 3, got %d" % sm.get_level("Farming"))
+
+func _test_level_changed_fires_once_per_level_on_single_step() -> void:
+	var sm := SkillManager
+	sm._xp = {}
+	_level_changed_events = []
+	sm.level_changed.connect(_on_level_changed_for_test)
+	sm.add_xp("Mining", 100) # crosses 0 -> 1 exactly
+	sm.level_changed.disconnect(_on_level_changed_for_test)
+
+	_check(_level_changed_events.size() == 1 and _level_changed_events[0] == ["Mining", 1, 0],
+		"a single-level step should fire level_changed once with (new=1, old=0), got %s" % [_level_changed_events])
+
+func _test_level_changed_fires_for_each_crossed_level_on_big_jump() -> void:
+	var sm := SkillManager
+	sm._xp = {}
+	_level_changed_events = []
+	sm.level_changed.connect(_on_level_changed_for_test)
+	sm.add_xp("Foraging", 600) # 0 straight to level 3 in one grant
+	sm.level_changed.disconnect(_on_level_changed_for_test)
+
+	_check(_level_changed_events.size() == 3
+		and _level_changed_events[0] == ["Foraging", 1, 0]
+		and _level_changed_events[1] == ["Foraging", 2, 1]
+		and _level_changed_events[2] == ["Foraging", 3, 2],
+		"a multi-level jump should fire level_changed once per crossed level, in order, got %s" % [_level_changed_events])
+
+func _test_add_xp_non_positive_is_noop() -> void:
+	var sm := SkillManager
+	sm._xp = {}
+	sm.add_xp("Farming", 0)
+	sm.add_xp("Farming", -10)
+	_check(sm.get_xp("Farming") == 0, "non-positive XP grants should be a no-op, got %d" % sm.get_xp("Farming"))
+
+func _test_level_up_drives_quest_skill_level_condition() -> void:
+	_reset_quest_manager()
+	var sm := SkillManager
+	sm._xp = {}
+	var qm := QuestManager
+	var quest := _make_skill_quest("farming_lvl_1", "Farming", 1, "flag_skill_test")
+	qm.register_quest(quest)
+	_check(not qm.is_completed("farming_lvl_1"), "sanity: quest should not be completed before leveling up")
+
+	SkillManager.add_xp("Farming", 100) # crosses to level 1
+
+	_check(qm.is_completed("farming_lvl_1"),
+		"leveling Farming to 1 should complete the matching SKILL_LEVEL quest via SkillManager's QuestManager hook")
+	_check(qm.is_unlocked("flag_skill_test"), "unlock flag should flip as a result of the skill-driven quest completion")
+
+func _test_skill_save_round_trip() -> void:
+	var sm := SkillManager
+	sm._xp = {}
+	sm._xp["Fishing"] = 250 # level 1: >= cumulative(1)=100, < cumulative(2)=300
+
+	var saved := SaveManager.build_save_data()
+
+	sm._xp = {}
+	_check(sm.get_xp("Fishing") == 0, "sanity check: reset should clear XP before applying save data")
+
+	SaveManager.apply_save_data(saved)
+
+	_check(sm.get_xp("Fishing") == 250, "XP should round-trip through save/load, got %d" % sm.get_xp("Fishing"))
+	_check(sm.get_level("Fishing") == 1, "level should be correctly derived after round-trip, got %d" % sm.get_level("Fishing"))
