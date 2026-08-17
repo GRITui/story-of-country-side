@@ -366,4 +366,9 @@ same `<id>`.
     &amp; Family).
   </description>
 </task_item>
-<task_item><id>ENG-20</id><status>READY_FOR_PM</status><description>Unblocked — ENG-19 landed (pending PR #34 review/merge). Marriage &amp; Family: eligible bachelors/bachelorettes, proposal, wedding, children.</description></task_item>
+<task_item><id>ENG-20</id><status>READY_FOR_PM</status><description>Unblocked — PR #34 merged, issue #19 closed by owner. Marriage &amp; Family: eligible bachelors/bachelorettes, proposal, wedding, children.</description></task_item>
+
+<!-- PR #34 merged (2026-08-17T18:01:30Z, merged by repo owner). Issue #19
+     closed by owner directly. PRs #28 and #29 also merged by the owner
+     around the same time. -->
+
