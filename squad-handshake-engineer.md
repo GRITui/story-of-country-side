@@ -2,19 +2,27 @@
 
 <squad_metadata>
   <squad_name>Engineer-Squad</squad_name>
-  <current_status>IDLE</current_status>
-  <active_task_id>none</active_task_id>
-  <sprint_completion_percentage>100</sprint_completion_percentage>
+  <current_status>IN_PROGRESS</current_status>
+  <active_task_id>ENG-13,ENG-26</active_task_id>
+  <sprint_completion_percentage>50</sprint_completion_percentage>
 </squad_metadata>
 
 ## Current Focus
-ENG-23 (Tool Upgrades) shipped and merged — PR #40, squash-merged,
-131/131 tests pass. Scope was discussed with the owner before building:
-kept quest-free (QuestManager stays reserved for #24's automation tiers,
-not core tool progression — Decision C's quest-gating was aimed at
-automation, not basic upgrades), per-tool not global (Hoe/WateringCan/
-Axe/Pickaxe independent). Idle between epochs — next pull should be one
-of the now-unblocked tasks below.
+Epoch 11: dispatched ENG-13 (Agriculture) and ENG-26 (Opening hook / intro
+sequence) as parallel Engineer-Squad subagents, each on its own worktree
+branch (feature/eng-13-agriculture, feature/eng-26-opening-hook). Chosen
+as parallel-safe because they touch disjoint files/systems: ENG-13 owns
+crop/tile logic plus the new InventoryManager autoload; ENG-26 owns a new
+intro scene/sequence and only reads existing autoloads (SaveManager,
+ShippingBinManager, ToolManager). ENG-13 was picked over the other four
+leaf activities (14/15/16/17) specifically because it's the natural place
+to introduce the general InventoryManager gap flagged in ENG-23's PR —
+building it here first (deliberately generalized, not crops-only) means
+Ranching/Fishing/Mining/Foraging can consume one settled interface next
+epoch instead of each inventing their own. ENG-24 (Infrastructure
+Upgrades) was deliberately NOT run in parallel this epoch since it also
+touches crafted/processed items and risks a second competing inventory
+design before ENG-13's lands.
 
 ## Recent Commits / PRs
 * PR #32 (merged): ENG-12 — Godot project bootstrap, TimeManager/
