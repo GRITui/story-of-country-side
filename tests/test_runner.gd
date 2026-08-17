@@ -24,6 +24,7 @@ var _tool_upgraded_events: Array = [] ## Array[Array] of [tool_name, new_tier], 
 var _xp_gained_events: Array = [] ## Array[Array] of [skill_name, amount, total_xp], same reason
 var _level_changed_events: Array = [] ## Array[Array] of [skill_name, new_level, old_level], same reason
 var _heart_events: Array = [] ## Array[Array] of [npc_name, heart_level], same reason
+var _intro_finished_count := 0 ## member, not a local — GDScript lambdas capture locals by value
 
 func _ready() -> void:
 	_test_minute_and_hour_wrap()
@@ -85,6 +86,13 @@ func _ready() -> void:
 	_test_tools_upgrade_independently()
 	_test_cannot_upgrade_past_gold_tier()
 	_test_tool_save_round_trip()
+
+	_test_new_game_resets_state_to_defaults()
+	_test_new_game_grants_starting_gold_and_copper_tools()
+	_test_save_and_load_round_trip_persists_intro_seen()
+	_test_load_game_returns_false_without_save_file()
+	_test_intro_sequence_advances_through_lines_then_finishes()
+	_test_intro_sequence_freezes_and_unfreezes_time_manager()
 
 	if _failures.is_empty():
 		print("ALL TESTS PASSED (%d checks)" % _pass_count)
@@ -940,3 +948,107 @@ func _test_tool_save_round_trip() -> void:
 	_check(tm.get_tool_tier("Hoe") == 1, "tool tier should round-trip through save/load, got %d" % tm.get_tool_tier("Hoe"))
 	_check(tm.get_ore_count("iron_ore") == 5, "remaining ore should round-trip through save/load, got %d" % tm.get_ore_count("iron_ore"))
 	_check(tm.get_ore_count("gold_ore") == 3, "unspent different-ore-type count should round-trip, got %d" % tm.get_ore_count("gold_ore"))
+
+## --- ENG-26: Opening hook (intro sequence + new_game/save/load) ---
+
+func _test_new_game_resets_state_to_defaults() -> void:
+	# Dirty every system's state first.
+	TimeManager.year = 5
+	TimeManager.day_in_season = 20
+	StaminaManager.current_stamina = 1
+	ShippingBinManager.gold = 0
+	ShippingBinManager.ship_item("wool", 1, 1)
+	RelationshipManager._add_points("Elena", 500)
+	SkillManager.add_xp("Farming", 999)
+	ToolManager.add_ore("iron_ore", 10)
+	SaveManager.intro_seen = true
+
+	SaveManager.new_game()
+
+	_check(TimeManager.year == 1 and TimeManager.day_in_season == 1,
+		"new_game should reset TimeManager to defaults, got year=%d day=%d" % [TimeManager.year, TimeManager.day_in_season])
+	_check(StaminaManager.current_stamina == StaminaManager.MAX_STAMINA_DEFAULT,
+		"new_game should reset StaminaManager to full default stamina, got %d" % StaminaManager.current_stamina)
+	_check(RelationshipManager.get_points("Elena") == 0,
+		"new_game should reset RelationshipManager points, got %d" % RelationshipManager.get_points("Elena"))
+	_check(SkillManager.get_xp("Farming") == 0,
+		"new_game should reset SkillManager XP, got %d" % SkillManager.get_xp("Farming"))
+	_check(ToolManager.get_ore_count("iron_ore") == 0,
+		"new_game should reset ToolManager ore counts, got %d" % ToolManager.get_ore_count("iron_ore"))
+	_check(not SaveManager.has_seen_intro(),
+		"new_game should reset intro_seen to false so the intro plays again on a fresh save")
+
+func _test_new_game_grants_starting_gold_and_copper_tools() -> void:
+	ShippingBinManager.gold = 12345
+	SaveManager.new_game()
+	_check(ShippingBinManager.gold == ShippingBinManager.STARTING_GOLD,
+		"new_game should grant STARTING_GOLD, got %d" % ShippingBinManager.gold)
+	_check(ToolManager.get_tool_tier("Hoe") == ToolManager.TIER_COPPER,
+		"new_game should leave tools at their free Copper starting tier, got %d" % ToolManager.get_tool_tier("Hoe"))
+
+func _test_save_and_load_round_trip_persists_intro_seen() -> void:
+	SaveManager.delete_save_file()
+	SaveManager.new_game() # writes a fresh save file with intro_seen = false
+	_check(not SaveManager.has_seen_intro(), "sanity: new_game should start with intro not yet seen")
+
+	SaveManager.mark_intro_seen() # persists intro_seen = true to disk
+	_check(SaveManager.has_seen_intro(), "mark_intro_seen should flip has_seen_intro() immediately")
+
+	# Simulate a fresh boot: clear in-memory state, then reload from disk.
+	SaveManager.intro_seen = false
+	TimeManager.year = 99
+	var loaded := SaveManager.load_game()
+
+	_check(loaded, "load_game should succeed when a save file exists")
+	_check(SaveManager.has_seen_intro(),
+		"intro_seen should round-trip through save/load so the intro doesn't replay on a later boot")
+	_check(TimeManager.year == 1, "load_game should restore other system state alongside intro_seen, got year=%d" % TimeManager.year)
+
+	SaveManager.delete_save_file()
+
+func _test_load_game_returns_false_without_save_file() -> void:
+	SaveManager.delete_save_file()
+	var loaded := SaveManager.load_game()
+	_check(not loaded, "load_game should return false when no save file exists on disk")
+
+func _on_intro_finished_for_test() -> void:
+	_intro_finished_count += 1
+
+func _test_intro_sequence_advances_through_lines_then_finishes() -> void:
+	TimeManager.unfreeze("intro") # in case a prior failing test left this set
+	var intro := IntroSequence.new()
+	intro.lines = ["one", "two", "three"]
+	_intro_finished_count = 0
+	intro.finished.connect(_on_intro_finished_for_test)
+	add_child(intro)
+
+	_check(intro.current_line() == "one", "intro should start on the first line, got '%s'" % intro.current_line())
+	intro.advance()
+	_check(intro.current_line() == "two", "advance() should move to the next line, got '%s'" % intro.current_line())
+	intro.advance()
+	_check(intro.current_line() == "three", "advance() should move to the third line, got '%s'" % intro.current_line())
+	_check(not intro.is_finished(), "intro should not be finished while a line is still showing")
+
+	intro.advance() # advances past the last line -> finishes
+	_check(intro.is_finished(), "intro should be finished once every line has been advanced past")
+	_check(_intro_finished_count == 1, "finished signal should fire exactly once, fired %d times" % _intro_finished_count)
+
+	intro.advance() # should be a no-op once finished
+	_check(_intro_finished_count == 1, "advance() after finishing should not re-fire the finished signal")
+
+	intro.finished.disconnect(_on_intro_finished_for_test)
+	intro.queue_free()
+
+func _test_intro_sequence_freezes_and_unfreezes_time_manager() -> void:
+	TimeManager.unfreeze("intro") # in case a prior failing test left this set
+	var was_frozen_before := TimeManager.is_frozen()
+	var intro := IntroSequence.new()
+	intro.lines = ["only line"]
+	add_child(intro)
+
+	_check(TimeManager.is_frozen(), "starting the intro sequence should freeze TimeManager")
+	intro.advance() # past the only line -> finishes
+	_check(TimeManager.is_frozen() == was_frozen_before,
+		"finishing the intro sequence should unfreeze TimeManager's 'intro' reason")
+
+	intro.queue_free()
