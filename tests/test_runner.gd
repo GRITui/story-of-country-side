@@ -1,16 +1,19 @@
 extends Node
-## Headless test runner for ENG-12 (Time & Stamina foundation).
+## Headless test runner for the Engineer-Squad epics landed so far:
+## ENG-12 (Time & Stamina foundation), ENG-18 (NPC Routines).
 ##
 ## Run as its own scene (not via --script) so the engine's normal startup
 ## registers TimeManager/StaminaManager/SaveManager as autoloads first:
 ##   godot --headless --path . tests/TestRunner.tscn
 ##
-## No test framework dependency — plain assertions, since this is a small,
-## fixed suite for two autoload singletons, not a growing test surface yet.
+## No test framework dependency — plain assertions. Worth switching to a
+## real framework (GUT) once this file covers more than two or three
+## systems; still small enough that the overhead isn't worth it yet.
 
 var _failures: Array[String] = []
 var _pass_count := 0
 var _pass_out_fire_count := 0 ## member, not a local — GDScript lambdas capture locals by value
+var _arrived_fire_count := 0 ## same reason
 
 func _ready() -> void:
 	_test_minute_and_hour_wrap()
@@ -22,6 +25,14 @@ func _ready() -> void:
 	_test_pass_out_reduces_next_day_stamina()
 	_test_normal_day_restores_full_stamina()
 	_test_save_round_trip()
+
+	_test_schedule_picks_current_entry()
+	_test_schedule_wraps_to_previous_day_entry()
+	_test_schedule_season_override_beats_any()
+	_test_schedule_empty_for_no_matching_entries()
+	_test_controller_walks_toward_target_and_arrives()
+	_test_controller_pauses_while_time_frozen()
+	_test_controller_retargets_on_schedule_change()
 
 	if _failures.is_empty():
 		print("ALL TESTS PASSED (%d checks)" % _pass_count)
@@ -153,3 +164,116 @@ func _test_save_round_trip() -> void:
 		and tm.hour == 18 and tm.minute == 30, "TimeManager state should round-trip through save/load")
 	_check(sm.max_stamina == 120 and sm.current_stamina == 45 and sm._passed_out_today == true,
 		"StaminaManager state should round-trip through save/load")
+
+## --- ENG-18: NPC Routines ---
+
+func _on_arrived_for_test(_location_name: String) -> void:
+	_arrived_fire_count += 1
+
+func _make_entry(hour: int, minute: int, pos: Vector2, location: String, season: String = "Any") -> NPCScheduleEntry:
+	var e := NPCScheduleEntry.new()
+	e.hour = hour
+	e.minute = minute
+	e.position = pos
+	e.location_name = location
+	e.season = season
+	return e
+
+func _make_test_schedule() -> NPCSchedule:
+	var s := NPCSchedule.new()
+	s.entries = [
+		_make_entry(6, 0, Vector2(0, 0), "home"),
+		_make_entry(9, 0, Vector2(100, 0), "shop"),
+		_make_entry(17, 0, Vector2(200, 0), "tavern"),
+		_make_entry(22, 0, Vector2(0, 0), "home"),
+	]
+	return s
+
+func _test_schedule_picks_current_entry() -> void:
+	var s := _make_test_schedule()
+	var e := s.get_target_for(10, 30, "Spring")
+	_check(e != null and e.location_name == "shop", "10:30 should pick the 09:00 'shop' entry, got %s" % (e.location_name if e else "null"))
+
+	e = s.get_target_for(17, 0, "Spring")
+	_check(e != null and e.location_name == "tavern", "exact match at 17:00 should pick 'tavern', got %s" % (e.location_name if e else "null"))
+
+func _test_schedule_wraps_to_previous_day_entry() -> void:
+	var s := _make_test_schedule()
+	var e := s.get_target_for(3, 0, "Spring") # before the 06:00 entry -> holds overnight position
+	_check(e != null and e.location_name == "home", "03:00 (before first entry) should wrap to the last entry ('home' at 22:00), got %s" % (e.location_name if e else "null"))
+
+func _test_schedule_season_override_beats_any() -> void:
+	var s := NPCSchedule.new()
+	s.entries = [
+		_make_entry(6, 0, Vector2(0, 0), "home", "Any"),
+		_make_entry(6, 0, Vector2(50, 50), "storm-shelter", "Winter"),
+	]
+	var winter_entry := s.get_target_for(6, 0, "Winter")
+	_check(winter_entry != null and winter_entry.location_name == "storm-shelter",
+		"Winter-specific entry should be findable at the same time slot as an 'Any' entry")
+
+	var spring_entries := s.entries.filter(func(e: NPCScheduleEntry) -> bool: return e.matches("Spring", "Any"))
+	_check(spring_entries.size() == 1 and spring_entries[0].location_name == "home",
+		"Winter-only entry should not match Spring lookups")
+
+func _test_schedule_empty_for_no_matching_entries() -> void:
+	var s := NPCSchedule.new()
+	s.entries = [_make_entry(6, 0, Vector2.ZERO, "home", "Winter")]
+	var e := s.get_target_for(6, 0, "Summer")
+	_check(e == null, "no Winter-only entries should match a Summer lookup")
+
+func _test_controller_walks_toward_target_and_arrives() -> void:
+	var npc := NPCController.new()
+	npc.schedule = _make_test_schedule()
+	npc.move_speed_px_per_sec = 1000.0 # fast, so a handful of frames covers the distance
+	add_child(npc)
+
+	_arrived_fire_count = 0
+	npc.arrived_at.connect(_on_arrived_for_test)
+
+	npc._refresh_target(TimeManager.hour, TimeManager.minute) # picks up whatever the clock is at
+	# Force a known target regardless of the shared TimeManager's current state.
+	npc._current_target = npc.schedule.entries[1] # "shop" at (100, 0)
+	npc._was_at_target = false
+	npc.position = Vector2.ZERO
+
+	for i in range(200):
+		npc._process(0.1)
+
+	_check(npc.is_at_target(), "NPC should reach its target after enough frames, ended at %s (target %s)" % [npc.position, npc._current_target.position])
+	_check(_arrived_fire_count >= 1, "arrived_at should fire once the NPC reaches its target")
+
+	npc.queue_free()
+
+func _test_controller_pauses_while_time_frozen() -> void:
+	var npc := NPCController.new()
+	npc.schedule = _make_test_schedule()
+	npc.move_speed_px_per_sec = 1000.0
+	add_child(npc)
+
+	npc._current_target = npc.schedule.entries[1] # (100, 0)
+	npc.position = Vector2.ZERO
+
+	TimeManager.freeze("test-pause")
+	npc._process(1.0) # would easily cover the distance if not frozen
+	var moved := npc.position != Vector2.ZERO
+	TimeManager.unfreeze("test-pause")
+
+	_check(not moved, "NPC should not move at all while TimeManager is frozen, position was %s" % npc.position)
+	npc.queue_free()
+
+func _test_controller_retargets_on_schedule_change() -> void:
+	var npc := NPCController.new()
+	npc.schedule = _make_test_schedule()
+	add_child(npc)
+
+	npc._refresh_target(8, 0)
+	var target_before := npc._current_target
+	npc._refresh_target(9, 0)
+	var target_after := npc._current_target
+
+	_check(target_before != null and target_before.location_name == "home", "08:00 should still target 'home' (before the 09:00 shop entry)")
+	_check(target_after != null and target_after.location_name == "shop", "09:00 should retarget to 'shop'")
+	_check(target_before != target_after, "retargeting should replace the entry reference, not just mutate in place")
+
+	npc.queue_free()
