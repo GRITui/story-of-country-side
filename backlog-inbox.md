@@ -342,3 +342,28 @@ same `<id>`.
     remains blocked on DEC-E per the original triage.
   </researcher_notes>
 </task_item>
+
+<!-- Epoch 3 (this session, not the scheduled Routine): checked in on the
+     autonomous ai-engineering-loop's progress, rebased/cleaned up PR #29
+     which the loop's own epochs had partially superseded, then claimed and
+     delivered one more Engineer-Squad task. -->
+
+<task_item>
+  <id>ENG-19</id>
+  <status>DONE</status>
+  <description>
+    Claimed via "Claiming this" comment on issue #19, then delivered:
+    RelationshipManager (autoload) with per-NPC friendship points,
+    once-per-day talk/gift caps, point clamping, and threshold-crossing
+    heart events (fires once per newly-crossed heart, including on
+    multi-heart jumps). GiftPreferenceTable (Resource, .tres-authorable
+    like NPCSchedule from #18) for loved/liked/disliked/hated item tables.
+    SaveManager extended to round-trip relationship state (daily flags are
+    intentionally NOT saved — day-scoped, not save-scoped). PR:
+    gritui/story-of-country-side#34 (base:
+    claude/farming-game-pm-requirements-w9ugtk). 53/53 tests pass (22 new)
+    against the real Godot 4.3 engine headless. Unblocks ENG-20 (Marriage
+    &amp; Family).
+  </description>
+</task_item>
+<task_item><id>ENG-20</id><status>READY_FOR_PM</status><description>Unblocked — ENG-19 landed (pending PR #34 review/merge). Marriage &amp; Family: eligible bachelors/bachelorettes, proposal, wedding, children.</description></task_item>
