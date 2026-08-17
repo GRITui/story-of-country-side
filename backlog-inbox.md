@@ -95,6 +95,43 @@ same `<id>`.
   </researcher_notes>
 </task_item>
 
+## Epoch 2 update: ENG-STACK resolved
+
+<task_item>
+  <id>ENG-STACK</id>
+  <source>OWNER_DECISION #30</source>
+  <status>DECIDED</status>
+  <priority>HIGH</priority>
+  <title>Engine / language / repo scaffold — Godot (GDScript)</title>
+  <description>
+    Owner resolved this directly (not via the ai-engineering-loop): Godot
+    Engine, GDScript. Chosen because the game is free-to-play, which removes
+    Unity's licensing/runtime-fee questions entirely by going with a fully
+    open-source engine instead, and Godot's 2D pipeline fits the pending
+    art-style recommendation (DEC-E) on issue #6. Logged and closed as
+    GitHub issue #30. This unblocks ENG-12 — see updated status below.
+  </description>
+</task_item>
+
+<!-- Statuses below supersede the identically-keyed entries above; append-only, do not delete prior entries -->
+
+<task_item><id>ENG-12</id><status>READY_FOR_PM</status><description>Unblocked — Godot/GDScript chosen (ENG-STACK #30). First real Engineer-Squad task for epic #8.</description></task_item>
+<task_item><id>ENG-13</id><status>BLOCKED</status><description>No longer blocked on stack choice; still depends on ENG-12 landing first.</description></task_item>
+<task_item><id>ENG-14</id><status>BLOCKED</status><description>No longer blocked on stack choice; still depends on ENG-12.</description></task_item>
+<task_item><id>ENG-15</id><status>BLOCKED</status><description>No longer blocked on stack choice; still depends on ENG-12.</description></task_item>
+<task_item><id>ENG-16</id><status>BLOCKED</status><description>Stack choice resolved; still blocked on DEC-B (combat scope, issue #3, GitHub label blocked: needs-decision).</description></task_item>
+<task_item><id>ENG-17</id><status>BLOCKED</status><description>No longer blocked on stack choice; still depends on ENG-12.</description></task_item>
+<task_item><id>ENG-18</id><status>BLOCKED</status><description>No longer blocked on stack choice; still depends on ENG-12.</description></task_item>
+<task_item><id>ENG-19</id><status>BLOCKED</status><description>No longer blocked on stack choice; still depends on ENG-18.</description></task_item>
+<task_item><id>ENG-20</id><status>BLOCKED</status><description>No longer blocked on stack choice; still depends on ENG-19.</description></task_item>
+<task_item><id>ENG-21</id><status>BLOCKED</status><description>No longer blocked on stack choice; still depends on ENG-12 and ENG-18.</description></task_item>
+<task_item><id>ENG-22</id><status>BLOCKED</status><description>No longer blocked on stack choice; still depends on ENG-12.</description></task_item>
+<task_item><id>ENG-23</id><status>BLOCKED</status><description>Stack choice resolved; still blocked on DEC-C (automation scope, issue #4, GitHub label blocked: needs-decision).</description></task_item>
+<task_item><id>ENG-24</id><status>BLOCKED</status><description>Stack choice resolved; still blocked on DEC-C.</description></task_item>
+<task_item><id>ENG-25</id><status>BLOCKED</status><description>No longer blocked on stack choice; still depends on ENG-12+.</description></task_item>
+<task_item><id>ENG-26</id><status>BLOCKED</status><description>No longer blocked on stack choice; not yet in queue order (low priority).</description></task_item>
+<task_item><id>ENG-27</id><status>BLOCKED</status><description>Stack choice resolved; still blocked on DEC-A (narrative pacing, issue #2, GitHub label blocked: needs-decision).</description></task_item>
+
 ## Engineering sub-issues (Engineer squad backlog — status mirrors GitHub)
 
 <task_item><id>ENG-12</id><source>GITHUB_ISSUE #12</source><status>BLOCKED</status><priority>HIGH</priority><title>Time &amp; Stamina foundation</title><description>Blocked on ENG-STACK — no repo scaffold to build against yet. Otherwise first in queue for epic #8.</description></task_item>
