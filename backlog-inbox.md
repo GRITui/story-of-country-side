@@ -95,6 +95,20 @@ same `<id>`.
   </researcher_notes>
 </task_item>
 
+## Epoch 2 update: DEC-B resolved
+
+<task_item>
+  <id>DEC-B</id>
+  <status>DECIDED</status>
+  <description>
+    Owner resolved: peaceful mines, no combat (HMBtN model). Closed issue
+    #3. Unblocks sub-issue #16 (Mining) — scope fixed to procedural floors,
+    rock-breaking, ore/gem gathering, ladder descent; combat dropped from
+    scope.
+  </description>
+</task_item>
+<task_item><id>ENG-16</id><status>BLOCKED</status><description>DEC-B resolved (peaceful); no longer decision-blocked. Still queued behind ENG-12 (low priority, sequencing only).</description></task_item>
+
 ## Epoch 2 update: DEC-A resolved
 
 <task_item>
