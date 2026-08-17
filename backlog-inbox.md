@@ -95,6 +95,31 @@ same `<id>`.
   </researcher_notes>
 </task_item>
 
+## Epoch 2 update: DEC-E resolved
+
+<task_item>
+  <id>DEC-E</id>
+  <status>DECIDED</status>
+  <description>
+    Owner resolved: 2.5D isometric — deviates from the flat-2D
+    recommendation. Closed issue #6. Flagged for Art Director: isometric
+    tilesets need more edge/corner/transition variants than flat top-down
+    (size the environment art backlog accordingly); genre precedent for
+    isometric specifically is thin, more UX design risk to budget for; lock
+    the isometric grid ratio (2:1 typical) early since it constrains every
+    environment asset after. Still compatible with Godot (native isometric
+    TileMap mode) — no reopening of ENG-STACK.
+  </description>
+</task_item>
+<task_item>
+  <id>UX-GRID</id>
+  <source>DEC-E follow-up</source>
+  <status>READY_FOR_PM</status>
+  <priority>MEDIUM</priority>
+  <title>Lock isometric grid ratio and tile dimensions</title>
+  <description>UX-UI-Designer/Art squad: define the isometric grid ratio (2:1 typical) and base tile pixel dimensions before any environment art or tilemap work starts in ENG-13/14/16/17 (farm, ranch, mine, foraging environments). Blocking dependency for those, not formally a GitHub-blocked issue.</description>
+</task_item>
+
 ## Epoch 2 update: DEC-D resolved
 
 <task_item>
