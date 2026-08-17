@@ -95,6 +95,27 @@ same `<id>`.
   </researcher_notes>
 </task_item>
 
+## Epoch 2 update: DEC-F resolved — all six decisions + ENG-STACK now closed
+
+<task_item>
+  <id>DEC-F</id>
+  <status>DECIDED</status>
+  <description>
+    Owner resolved: free-to-play, PC first (Steam). Reconciled with earlier
+    research — the flagged genre risk was energy timers/pay-to-win, not
+    "free" itself. Monetization limited to cosmetic-only DLC/tip-jar, no
+    gameplay-affecting purchases; every system stays fully playable at zero
+    spend. Closed issue #7. Console port stays a near-term follow-up.
+    Monetization-store implementation not yet backlogged — low priority,
+    revisit once epic #8 is further along.
+  </description>
+</task_item>
+
+<!-- All of ENG-STACK, DEC-A, DEC-B, DEC-C, DEC-D, DEC-E, DEC-F are now DECIDED.
+     Only remaining blockers on the Engineer-Squad queue are sequencing
+     dependencies (ENG-13+ depend on ENG-12 landing) and the new ENG-31
+     (quest system) gating ENG-23/24. Next epoch: Engineer-Squad pulls ENG-12. -->
+
 ## Epoch 2 update: DEC-E resolved
 
 <task_item>
