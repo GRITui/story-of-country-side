@@ -95,6 +95,39 @@ same `<id>`.
   </researcher_notes>
 </task_item>
 
+## Epoch 3 update: ENG-12 shipped — dependents unblocked
+
+<task_item>
+  <id>ENG-12</id>
+  <status>DONE</status>
+  <description>
+    Merged via PR #32 (squash merge to base branch). TimeManager,
+    StaminaManager, SaveManager autoloads live. 19/19 tests passed against
+    the real Godot 4.3 engine before merge. Issue #12 closed.
+  </description>
+</task_item>
+
+<task_item><id>ENG-13</id><status>READY_FOR_PM</status><description>Unblocked — ENG-12 landed. Agriculture: seasonal crops.</description></task_item>
+<task_item><id>ENG-14</id><status>READY_FOR_PM</status><description>Unblocked — ENG-12 landed. Ranching: livestock.</description></task_item>
+<task_item><id>ENG-15</id><status>READY_FOR_PM</status><description>Unblocked — ENG-12 landed. Fishing mini-game + fish pools.</description></task_item>
+<task_item><id>ENG-16</id><status>READY_FOR_PM</status><description>Unblocked — ENG-12 landed, DEC-B already resolved (peaceful). Mining: procedural floors, no combat.</description></task_item>
+<task_item><id>ENG-17</id><status>READY_FOR_PM</status><description>Unblocked — ENG-12 landed. Foraging: seasonal wild goods.</description></task_item>
+<task_item><id>ENG-18</id><status>READY_FOR_PM</status><description>Unblocked — ENG-12 landed. NPC Routines.</description></task_item>
+<task_item><id>ENG-22</id><status>READY_FOR_PM</status><description>Unblocked — ENG-12 landed. Shipping Bin economy.</description></task_item>
+<task_item><id>ENG-25</id><status>READY_FOR_PM</status><description>Unblocked — ENG-12 landed. Skill Leveling.</description></task_item>
+<task_item><id>ENG-26</id><status>READY_FOR_PM</status><description>Unblocked — ENG-12 landed. Opening hook / intro sequence.</description></task_item>
+<task_item><id>ENG-31</id><status>READY_FOR_PM</status><description>Unblocked — ENG-12 landed (was already READY_FOR_PM as new scope from DEC-C). Quest system foundation.</description></task_item>
+
+<!-- Still sequenced behind other in-flight work, not just ENG-12:
+     ENG-19 depends on ENG-18 (Relationship System needs NPC Routines first).
+     ENG-20 depends on ENG-19 (Marriage needs Relationship System first).
+     ENG-21 depends on ENG-12 and ENG-18 (Festivals needs NPC Routines too).
+     ENG-23/24 depend on ENG-31 (quest system) for the unlock-flag hook.
+     ENG-27 has no hard code dependency left but is low priority (ultimate-goal
+     structure) — fine to pick up whenever a squad has room.
+     UX-GRID (isometric grid ratio) should land before any of ENG-13/14/16/17
+     touch environment art, per DEC-E follow-up. -->
+
 ## Epoch 2 update: DEC-F resolved — all six decisions + ENG-STACK now closed
 
 <task_item>
