@@ -8,18 +8,14 @@
 </squad_metadata>
 
 ## Current Focus
-ENG-22 (Shipping Bin economy) shipped and merged — PR #36, squash-merged
-to the base branch, 69/69 tests pass. ShippingBinManager now owns the
-wallet and consumes StaminaManager's pass-out penalty signal (dangling
-since #12). Idle between epochs — next pull should be one of the
-now-unblocked tasks below.
+ENG-31 (Quest system foundation) shipped and merged — PR #37,
+squash-merged, 88/88 tests pass. QuestManager now listens to
+ShippingBinManager and RelationshipManager to gate automation-tier
+unlocks. Idle between epochs — next pull should be one of the now-unblocked
+tasks below.
 
-Note: another session (session_019dLCj2rGD4v9BJDxig6fBa) is actively
-working this repo in parallel. PR #35 from that session (a state-sync fix
-for ENG-19, opened right as this session's own reconciliation commit
-landed the same fix) was closed as superseded — verified via diff, no
-unique content lost. Check backlog-inbox.md's most recent epoch entries
-before claiming a task; the other session may pick one between epochs too.
+No open PRs from the parallel session this epoch, and Step 0 discovery
+found no new GitHub issues beyond what's already tracked.
 
 ## Recent Commits / PRs
 * PR #32 (merged): ENG-12 — Godot project bootstrap, TimeManager/
@@ -30,17 +26,22 @@ before claiming a task; the other session may pick one between epochs too.
   RelationshipManager + GiftPreferenceTable.
 * PR #36 (merged): ENG-22 — ShippingBinManager (wallet, overnight payout,
   pass-out penalty consumer).
+* PR #37 (merged): ENG-31 — QuestManager/QuestCondition/QuestDefinition.
 
 ## Blockers & QA Failures
 None currently blocking. Sequencing notes for the next pull:
-- ENG-31 (Quest system) is READY_FOR_PM and now has a real wallet
-  (ShippingBinManager.spend()) to hook an unlock-flag check against.
-- ENG-23/ENG-24 (Tool Upgrades, Infrastructure) still need ENG-31 for the
-  unlock-flag hook, but can now also assume ShippingBinManager.spend() as
-  their gold-cost mechanism.
+- ENG-23 (Tool Upgrades) and ENG-24 (Infrastructure Upgrades) are both
+  READY_FOR_PM now — gate their automation tiers behind
+  QuestManager.is_unlocked(flag), use ShippingBinManager.spend() for cost.
+  Whichever squad picks these up needs actual QuestDefinition content
+  (item/quantity/flag choices) — not specified anywhere yet, will need
+  reasonable defaults chosen and documented in the PR, not left as TODOs.
 - ENG-20 (Marriage), ENG-21 (Festivals), ENG-13/14/15/16/17
   (Agriculture/Ranching/Fishing/Mining/Foraging), ENG-25 (Skill Leveling),
   ENG-26 (intro hook) remain READY_FOR_PM, untouched.
+- ENG-25 (Skill Leveling), once built, should call
+  QuestManager.evaluate_skill_level() on level-up to wire up the
+  SKILL_LEVEL quest condition type that's currently dead code.
 
 ## Cross-Squad Requests
 * To UX-UI-Designer squad: UX-GRID (locking the isometric grid ratio, 2:1
@@ -48,6 +49,5 @@ None currently blocking. Sequencing notes for the next pull:
   ENG-13/14/16/17 — still not confirmed done.
 * No WeatherManager exists yet, but NPCSchedule has a weather field ready
   for one (from #18).
-* HUD binding conventions are in design/ui-flows/menu-hud-flow-spec.md
-  (PR #28) — §2 already references gold (now real, via ShippingBinManager)
-  and stamina (from #12) as HUD-bound state.
+* No SkillManager exists yet — QuestManager.evaluate_skill_level() has no
+  caller until #25 is built (from #31).

@@ -95,6 +95,27 @@ same `<id>`.
   </researcher_notes>
 </task_item>
 
+## Epoch 7 update: ENG-31 shipped — Tool/Infrastructure Upgrades unblocked
+
+<task_item>
+  <id>ENG-31</id>
+  <status>DONE</status>
+  <description>
+    Merged via PR #37 (squash merge to base branch). QuestManager,
+    QuestCondition, QuestDefinition live in scripts/quests/ and
+    scripts/autoload/. Listens to ShippingBinManager.item_shipped and
+    RelationshipManager.points_changed; SKILL_LEVEL condition type is
+    forward-compatible scaffolding only (no SkillManager exists yet, #25
+    not built). 88/88 tests pass (19 new). Issue #31 closed.
+  </description>
+</task_item>
+<task_item><id>ENG-23</id><status>READY_FOR_PM</status><description>Unblocked — ENG-31 landed. Tool Upgrades can now gate automation tiers behind QuestManager.is_unlocked(flag) and use ShippingBinManager.spend() for gold cost.</description></task_item>
+<task_item><id>ENG-24</id><status>READY_FOR_PM</status><description>Unblocked — ENG-31 landed. Infrastructure Upgrades, same unlock-flag + spend() pattern as ENG-23.</description></task_item>
+
+<!-- Step 0 discovery this epoch: no new GitHub issues found beyond what's
+     already tracked (18 open, all represented). No open PRs from the
+     parallel session this time either. -->
+
 ## Epoch 6 update: ENG-22 shipped — wallet exists, PR #35 closed as superseded
 
 <task_item>
