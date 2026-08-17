@@ -95,6 +95,27 @@ same `<id>`.
   </researcher_notes>
 </task_item>
 
+## Epoch 6 update: ENG-22 shipped — wallet exists, PR #35 closed as superseded
+
+<task_item>
+  <id>ENG-22</id>
+  <status>DONE</status>
+  <description>
+    Merged via PR #36 (squash merge to base branch). ShippingBinManager
+    live in scripts/autoload/ — owns the wallet, pays out shipments on
+    TimeManager.day_started, consumes StaminaManager.passed_out (a signal
+    that's existed since #12 with no listener until now). 69/69 tests pass
+    (16 new). Issue #22 closed.
+  </description>
+</task_item>
+
+<!-- Also this epoch: the parallel session (session_019dLCj2rGD4v9BJDxig6fBa)
+     opened PR #35, a state-sync PR for ENG-19's merge, right as this
+     session's own Epoch 5 reconciliation commit landed the same fix plus
+     more. Closed #35 as superseded (not merged) rather than risk
+     conflicting with content already two commits ahead. No unique content
+     was lost — verified via diff before closing. -->
+
 ## Epoch 5: reconciled with a second session working this repo in parallel
 
 Discovered mid-epoch that another session (session_019dLCj2rGD4v9BJDxig6fBa,
