@@ -44,10 +44,9 @@ None currently blocking. Sequencing notes for the next pull:
   READY_FOR_PM, untouched.
 
 ## Cross-Squad Requests
-* To UX-UI-Designer squad: UX-GRID (locking the isometric grid ratio, 2:1
-  typical) should land before any environment-tilemap work in
-  ENG-13/14/16/17 — still not confirmed done. This is now the single
-  biggest gap blocking those five activity sub-issues from actually being
-  picked up, even though nothing else blocks them anymore.
+* UX-GRID landed this epoch (design/art/isometric-grid-spec.md, PR #39) —
+  ENG-13/14/16/17 have no structural blockers left at all now. Whoever
+  picks these up next should read that doc's §3 (coordinate transform)
+  before writing environment placement code.
 * No WeatherManager exists yet, but NPCSchedule has a weather field ready
   for one (from #18).

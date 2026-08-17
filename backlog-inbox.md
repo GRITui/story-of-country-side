@@ -95,6 +95,32 @@ same `<id>`.
   </researcher_notes>
 </task_item>
 
+## Epoch 9 update: UX-GRID shipped — the last real blocker on the five activities is gone
+
+<task_item>
+  <id>UX-GRID</id>
+  <status>DONE</status>
+  <description>
+    Merged via PR #39 (squash merge to base branch). This session claimed
+    and delivered it directly as UX-UI-Designer-Squad rather than waiting
+    another epoch for the parallel session — treated as a standard
+    implementation convention (2:1 isometric ratio, 64x32px tile,
+    coordinate transform, YSort depth convention), not a new game-design
+    decision, so it didn't need to go back to the owner. Doc at
+    design/art/isometric-grid-spec.md. Confirmed NPCController (#18)
+    needs no changes. No GitHub issue tracks this item directly (it's a
+    backlog-inbox.md-only entry from DEC-E's resolution), so nothing to
+    close there.
+  </description>
+</task_item>
+
+<!-- ENG-13/14/15/16/17 now have every foundational system AND the grid
+     convention they need. Nothing structural blocks them anymore --
+     picking one up is purely a matter of a squad claiming it next epoch. -->
+
+<!-- Step 0 discovery this epoch: no new GitHub issues found (16 open, all
+     represented). No open PRs from the parallel session either. -->
+
 ## Epoch 8 update: ENG-25 shipped — shared XP hook exists ahead of the five activities
 
 <task_item>
