@@ -95,6 +95,19 @@ same `<id>`.
   </researcher_notes>
 </task_item>
 
+## Epoch 2 update: DEC-A resolved
+
+<task_item>
+  <id>DEC-A</id>
+  <status>DECIDED</status>
+  <description>
+    Owner resolved: open-ended (SDV model) with an optional Homestead
+    Challenge toggle at new-game creation. Closed issue #2. Unblocks epic
+    #11 and sub-issue #27 (blocked: needs-decision label removed).
+  </description>
+</task_item>
+<task_item><id>ENG-27</id><status>BLOCKED</status><description>DEC-A resolved; no longer decision-blocked. Still queued behind ENG-12+ (low priority, sequencing only).</description></task_item>
+
 ## Epoch 2 update: ENG-STACK resolved
 
 <task_item>
