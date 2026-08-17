@@ -1,0 +1,144 @@
+extends Node
+## Autoload: ToolManager
+##
+## Per-tool upgrade economy (ENG-23): Copper (free start) -> Iron -> Gold,
+## each tier bigger AoE + lower stamina cost. Deliberately NOT quest-gated
+## -- re-reading #23 against #24 (Infrastructure Upgrades), Decision C's
+## quest-gating (#4) was aimed at automation tiers (sprinklers, auto-
+## feeders), which is #24's scope. Gating basic tool progression behind
+## quests would be bad pacing and isn't what #23 itself describes -- pure
+## gold+ore economy here, same as the genre's own precedent (SDV/HMBtN
+## blacksmith upgrades require no quests).
+##
+## Per-tool, not global -- an AoE upgrade means something different per
+## tool (hoe/watering-can vs. axe/pickaxe), matching genre precedent.
+##
+## Owns a minimal ore ledger sized to its own needs, not a general
+## inventory system -- no InventoryManager exists anywhere in this repo
+## yet (nothing produces "items you hold," only ShippingBinManager's
+## sell-queue). Flagging that gap rather than building a general inventory
+## system as unrequested scope; a real InventoryManager, once it exists,
+## would likely supersede this local ledger.
+
+signal ore_added(item_id: String, quantity: int, total: int)
+signal tool_upgraded(tool_name: String, new_tier: int)
+
+const TIER_COPPER := 0
+
+## Copper's AoE/stamina cost aren't ToolUpgradeTier content since Copper
+## has no cost to reach -- every tool starts here for free.
+const COPPER_AOE_OFFSETS: Array[Vector2i] = [Vector2i.ZERO]
+const COPPER_STAMINA_COST := 5
+
+var _tool_tiers: Dictionary = {}       ## tool_name -> int (current tier, default TIER_COPPER)
+var _tier_definitions: Dictionary = {} ## tool_name -> Dictionary[int tier_index -> ToolUpgradeTier]
+var _ore_counts: Dictionary = {}       ## item_id -> int
+
+func _ready() -> void:
+	_register_default_content()
+
+## MVP placeholder balance, not final game numbers -- same honesty as the
+## quest-content and gift-preference defaults from #31/#19. Same cost
+## structure across all four tools for simplicity; real balance would
+## likely differentiate (e.g. pickaxe costing more than a hoe).
+func _register_default_content() -> void:
+	for tool_name in ["Hoe", "WateringCan", "Axe", "Pickaxe"]:
+		register_tier(tool_name, _make_tier(1, "iron_ore", 5, 200,
+			[Vector2i(0, 0), Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)], 4))
+		register_tier(tool_name, _make_tier(2, "gold_ore", 5, 500,
+			_full_3x3_offsets(), 3))
+
+func _make_tier(tier_index: int, ore_item_id: String, ore_quantity: int, gold_cost: int,
+	aoe_offsets: Array[Vector2i], stamina_cost: int) -> ToolUpgradeTier:
+	var t := ToolUpgradeTier.new()
+	t.tier_index = tier_index
+	t.ore_item_id = ore_item_id
+	t.ore_quantity = ore_quantity
+	t.gold_cost = gold_cost
+	t.aoe_offsets = aoe_offsets
+	t.stamina_cost = stamina_cost
+	return t
+
+func _full_3x3_offsets() -> Array[Vector2i]:
+	var offsets: Array[Vector2i] = []
+	for x in range(-1, 2):
+		for y in range(-1, 2):
+			offsets.append(Vector2i(x, y))
+	return offsets
+
+## Re-registering the same tool_name/tier_index is a content overwrite
+## (last write wins), not additive -- lets a later boot's content reload
+## fix balance numbers without needing a separate "update" API.
+func register_tier(tool_name: String, tier: ToolUpgradeTier) -> void:
+	if tool_name.is_empty() or tier == null:
+		return
+	if not _tier_definitions.has(tool_name):
+		_tier_definitions[tool_name] = {}
+	_tier_definitions[tool_name][tier.tier_index] = tier
+
+func get_tool_tier(tool_name: String) -> int:
+	return _tool_tiers.get(tool_name, TIER_COPPER)
+
+func add_ore(item_id: String, quantity: int) -> void:
+	if quantity <= 0:
+		return
+	var total: int = get_ore_count(item_id) + quantity
+	_ore_counts[item_id] = total
+	ore_added.emit(item_id, quantity, total)
+
+func get_ore_count(item_id: String) -> int:
+	return _ore_counts.get(item_id, 0)
+
+func can_upgrade(tool_name: String) -> bool:
+	var def := _next_tier_def(tool_name)
+	if def == null:
+		return false
+	return get_ore_count(def.ore_item_id) >= def.ore_quantity and ShippingBinManager.gold >= def.gold_cost
+
+## Spends ore and gold and advances the tool's tier on success. On any
+## failure (no next tier, insufficient ore, insufficient gold), nothing
+## is deducted -- ore is checked before gold is spent, so a failed gold
+## spend never leaves ore partially consumed.
+func upgrade_tool(tool_name: String) -> bool:
+	var def := _next_tier_def(tool_name)
+	if def == null:
+		return false
+	if get_ore_count(def.ore_item_id) < def.ore_quantity:
+		return false
+	if not ShippingBinManager.spend(def.gold_cost):
+		return false
+	_ore_counts[def.ore_item_id] = get_ore_count(def.ore_item_id) - def.ore_quantity
+	_tool_tiers[tool_name] = def.tier_index
+	tool_upgraded.emit(tool_name, def.tier_index)
+	return true
+
+func get_aoe_offsets(tool_name: String) -> Array[Vector2i]:
+	var tier := get_tool_tier(tool_name)
+	if tier == TIER_COPPER:
+		return COPPER_AOE_OFFSETS
+	var def := _tier_def(tool_name, tier)
+	return def.aoe_offsets if def else COPPER_AOE_OFFSETS
+
+func get_stamina_cost(tool_name: String) -> int:
+	var tier := get_tool_tier(tool_name)
+	if tier == TIER_COPPER:
+		return COPPER_STAMINA_COST
+	var def := _tier_def(tool_name, tier)
+	return def.stamina_cost if def else COPPER_STAMINA_COST
+
+func _next_tier_def(tool_name: String) -> ToolUpgradeTier:
+	return _tier_def(tool_name, get_tool_tier(tool_name) + 1)
+
+func _tier_def(tool_name: String, tier_index: int) -> ToolUpgradeTier:
+	var tiers: Dictionary = _tier_definitions.get(tool_name, {})
+	return tiers.get(tier_index, null)
+
+func to_save_dict() -> Dictionary:
+	return {
+		"tool_tiers": _tool_tiers.duplicate(),
+		"ore_counts": _ore_counts.duplicate(),
+	}
+
+func from_save_dict(data: Dictionary) -> void:
+	_tool_tiers = (data.get("tool_tiers", {}) as Dictionary).duplicate()
+	_ore_counts = (data.get("ore_counts", {}) as Dictionary).duplicate()

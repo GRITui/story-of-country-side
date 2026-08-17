@@ -19,6 +19,8 @@ var _payout_fire_count := 0 ## same reason
 var _payout_last_total := -1
 var _payout_last_count := -1
 var _quest_completed_events: Array = [] ## Array[Array] of [quest_id, unlock_flag], same reason
+var _ore_added_events: Array = [] ## Array[Array] of [item_id, quantity, total], same reason
+var _tool_upgraded_events: Array = [] ## Array[Array] of [tool_name, new_tier], same reason
 var _xp_gained_events: Array = [] ## Array[Array] of [skill_name, amount, total_xp], same reason
 var _level_changed_events: Array = [] ## Array[Array] of [skill_name, new_level, old_level], same reason
 var _heart_events: Array = [] ## Array[Array] of [npc_name, heart_level], same reason
@@ -73,6 +75,16 @@ func _ready() -> void:
 	_test_add_xp_non_positive_is_noop()
 	_test_level_up_drives_quest_skill_level_condition()
 	_test_skill_save_round_trip()
+
+	_test_new_tool_starts_at_copper_defaults()
+	_test_add_ore_accumulates_and_emits()
+	_test_cannot_upgrade_without_enough_ore()
+	_test_cannot_upgrade_without_enough_gold()
+	_test_failed_gold_spend_does_not_consume_ore()
+	_test_successful_upgrade_deducts_costs_and_advances_tier()
+	_test_tools_upgrade_independently()
+	_test_cannot_upgrade_past_gold_tier()
+	_test_tool_save_round_trip()
 
 	if _failures.is_empty():
 		print("ALL TESTS PASSED (%d checks)" % _pass_count)
@@ -794,3 +806,137 @@ func _test_skill_save_round_trip() -> void:
 
 	_check(sm.get_xp("Fishing") == 250, "XP should round-trip through save/load, got %d" % sm.get_xp("Fishing"))
 	_check(sm.get_level("Fishing") == 1, "level should be correctly derived after round-trip, got %d" % sm.get_level("Fishing"))
+
+## --- ENG-23: Tool Upgrades ---
+
+func _reset_tool_manager() -> void:
+	var tm := ToolManager
+	tm._tool_tiers = {}
+	tm._ore_counts = {}
+
+func _on_ore_added_for_test(item_id: String, quantity: int, total: int) -> void:
+	_ore_added_events.append([item_id, quantity, total])
+
+func _on_tool_upgraded_for_test(tool_name: String, new_tier: int) -> void:
+	_tool_upgraded_events.append([tool_name, new_tier])
+
+func _test_new_tool_starts_at_copper_defaults() -> void:
+	_reset_tool_manager()
+	var tm := ToolManager
+	_check(tm.get_tool_tier("Hoe") == ToolManager.TIER_COPPER,
+		"an unregistered tool should default to Copper, got %d" % tm.get_tool_tier("Hoe"))
+	_check(tm.get_aoe_offsets("Hoe") == ToolManager.COPPER_AOE_OFFSETS,
+		"Copper AoE should be the single-tile default")
+	_check(tm.get_stamina_cost("Hoe") == ToolManager.COPPER_STAMINA_COST,
+		"Copper stamina cost should be the default, got %d" % tm.get_stamina_cost("Hoe"))
+
+func _test_add_ore_accumulates_and_emits() -> void:
+	_reset_tool_manager()
+	var tm := ToolManager
+	_ore_added_events = []
+	tm.ore_added.connect(_on_ore_added_for_test)
+	tm.add_ore("iron_ore", 3)
+	tm.add_ore("iron_ore", 2)
+	tm.ore_added.disconnect(_on_ore_added_for_test)
+
+	_check(tm.get_ore_count("iron_ore") == 5, "ore should accumulate across calls, got %d" % tm.get_ore_count("iron_ore"))
+	_check(_ore_added_events.size() == 2
+		and _ore_added_events[0] == ["iron_ore", 3, 3]
+		and _ore_added_events[1] == ["iron_ore", 2, 5],
+		"ore_added should report per-call amount and running total, got %s" % [_ore_added_events])
+
+func _test_cannot_upgrade_without_enough_ore() -> void:
+	_reset_tool_manager()
+	var tm := ToolManager
+	ShippingBinManager.gold = 1000 # gold is not the limiting factor here
+	tm.add_ore("iron_ore", 2) # Iron tier needs 5
+
+	_check(not tm.can_upgrade("Hoe"), "can_upgrade should be false with insufficient ore")
+	var ok := tm.upgrade_tool("Hoe")
+	_check(not ok, "upgrade_tool should fail with insufficient ore")
+	_check(tm.get_tool_tier("Hoe") == ToolManager.TIER_COPPER, "tier should remain unchanged on a failed upgrade")
+
+func _test_cannot_upgrade_without_enough_gold() -> void:
+	_reset_tool_manager()
+	var tm := ToolManager
+	ShippingBinManager.gold = 0
+	tm.add_ore("iron_ore", 10) # plenty of ore
+
+	_check(not tm.can_upgrade("Hoe"), "can_upgrade should be false with insufficient gold")
+	var ok := tm.upgrade_tool("Hoe")
+	_check(not ok, "upgrade_tool should fail with insufficient gold")
+
+func _test_failed_gold_spend_does_not_consume_ore() -> void:
+	_reset_tool_manager()
+	var tm := ToolManager
+	ShippingBinManager.gold = 0
+	tm.add_ore("iron_ore", 10)
+	tm.upgrade_tool("Hoe")
+
+	_check(tm.get_ore_count("iron_ore") == 10,
+		"a failed upgrade (insufficient gold) should not consume any ore, got %d" % tm.get_ore_count("iron_ore"))
+
+func _test_successful_upgrade_deducts_costs_and_advances_tier() -> void:
+	_reset_tool_manager()
+	var tm := ToolManager
+	var sb := ShippingBinManager
+	sb.gold = 1000
+	tm.add_ore("iron_ore", 10)
+	_tool_upgraded_events = []
+	tm.tool_upgraded.connect(_on_tool_upgraded_for_test)
+	var ok := tm.upgrade_tool("Hoe")
+	tm.tool_upgraded.disconnect(_on_tool_upgraded_for_test)
+
+	_check(ok, "upgrade should succeed with sufficient ore and gold")
+	_check(tm.get_tool_tier("Hoe") == 1, "tier should advance to Iron (1), got %d" % tm.get_tool_tier("Hoe"))
+	_check(tm.get_ore_count("iron_ore") == 5, "ore should be deducted by the tier's cost, got %d" % tm.get_ore_count("iron_ore"))
+	_check(sb.gold == 800, "gold should be deducted by the tier's cost, got %d" % sb.gold)
+	_check(_tool_upgraded_events.size() == 1 and _tool_upgraded_events[0] == ["Hoe", 1],
+		"tool_upgraded should fire once with (Hoe, 1), got %s" % [_tool_upgraded_events])
+	_check(tm.get_aoe_offsets("Hoe").size() == 5,
+		"Iron tier AoE should be the 5-tile cross pattern, got %d tiles" % tm.get_aoe_offsets("Hoe").size())
+	_check(tm.get_stamina_cost("Hoe") == 4, "Iron tier stamina cost should be 4, got %d" % tm.get_stamina_cost("Hoe"))
+
+func _test_tools_upgrade_independently() -> void:
+	_reset_tool_manager()
+	var tm := ToolManager
+	ShippingBinManager.gold = 1000
+	tm.add_ore("iron_ore", 10)
+	tm.upgrade_tool("Hoe")
+
+	_check(tm.get_tool_tier("Hoe") == 1, "sanity: Hoe should be upgraded")
+	_check(tm.get_tool_tier("Pickaxe") == ToolManager.TIER_COPPER,
+		"Pickaxe should remain at Copper -- tools upgrade independently, got %d" % tm.get_tool_tier("Pickaxe"))
+
+func _test_cannot_upgrade_past_gold_tier() -> void:
+	_reset_tool_manager()
+	var tm := ToolManager
+	ShippingBinManager.gold = 100000
+	tm.add_ore("iron_ore", 100)
+	tm.add_ore("gold_ore", 100)
+	tm.upgrade_tool("Hoe") # -> Iron
+	tm.upgrade_tool("Hoe") # -> Gold
+	_check(tm.get_tool_tier("Hoe") == 2, "sanity: Hoe should be at Gold tier, got %d" % tm.get_tool_tier("Hoe"))
+
+	var ok := tm.upgrade_tool("Hoe") # no tier 3 defined
+	_check(not ok, "upgrading past Gold (no further tier defined) should fail")
+	_check(tm.get_tool_tier("Hoe") == 2, "tier should remain at Gold after a failed further-upgrade attempt")
+
+func _test_tool_save_round_trip() -> void:
+	_reset_tool_manager()
+	var tm := ToolManager
+	ShippingBinManager.gold = 1000
+	tm.add_ore("iron_ore", 10)
+	tm.upgrade_tool("Hoe")
+	tm.add_ore("gold_ore", 3) # leftover unspent ore of a different type
+
+	var saved := SaveManager.build_save_data()
+
+	_reset_tool_manager()
+	_check(tm.get_tool_tier("Hoe") == ToolManager.TIER_COPPER, "sanity: reset should clear tier before applying save data")
+
+	SaveManager.apply_save_data(saved)
+
+	_check(tm.get_tool_tier("Hoe") == 1, "tool tier should round-trip through save/load, got %d" % tm.get_tool_tier("Hoe"))
+	_check(tm.get_ore_count("iron_ore") == 5, "remaining ore should round-trip through save/load, got %d" % tm.get_ore_count("iron_ore"))
+	_check(tm.get_ore_count("gold_ore") == 3, "unspent different-ore-type count should round-trip, got %d" % tm.get_ore_count("gold_ore"))
