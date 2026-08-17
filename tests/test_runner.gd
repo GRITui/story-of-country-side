@@ -18,6 +18,7 @@ var _arrived_fire_count := 0 ## same reason
 var _payout_fire_count := 0 ## same reason
 var _payout_last_total := -1
 var _payout_last_count := -1
+var _quest_completed_events: Array = [] ## Array[Array] of [quest_id, unlock_flag], same reason
 var _heart_events: Array = [] ## Array[Array] of [npc_name, heart_level], same reason
 
 func _ready() -> void:
@@ -54,6 +55,14 @@ func _ready() -> void:
 	_test_pass_out_penalty_deducts_gold_and_clamps_at_zero()
 	_test_spend_succeeds_and_fails_correctly()
 	_test_shipping_bin_save_round_trip()
+
+	_test_deliver_item_quest_completes_at_target()
+	_test_deliver_item_quest_ignores_other_items()
+	_test_deliver_item_quest_does_not_re_fire_after_completion()
+	_test_friendship_quest_completes_at_target_hearts()
+	_test_reregistering_quest_preserves_completion_state()
+	_test_evaluate_skill_level_completes_matching_quest()
+	_test_quest_save_round_trip()
 
 	if _failures.is_empty():
 		print("ALL TESTS PASSED (%d checks)" % _pass_count)
@@ -522,3 +531,156 @@ func _test_shipping_bin_save_round_trip() -> void:
 		and sb._pending_shipments[0]["quantity"] == 4
 		and sb._pending_shipments[0]["unit_price"] == 15,
 		"pending shipments should round-trip through save/load, got %s" % [sb._pending_shipments])
+
+## --- ENG-31: Quest system foundation ---
+
+func _reset_quest_manager() -> void:
+	var qm := QuestManager
+	qm._quests = {}
+	qm._completed = {}
+	qm._delivered_totals = {}
+	qm._unlocked_flags = {}
+
+func _reset_relationship_manager_for_quests() -> void:
+	var rm := RelationshipManager
+	rm._points = {}
+	rm._highest_triggered_heart = {}
+	rm._talked_today = {}
+	rm._gifted_today = {}
+
+func _make_deliver_quest(id: String, item_id: String, qty: int, flag: String) -> QuestDefinition:
+	var cond := QuestCondition.new()
+	cond.type = QuestCondition.ConditionType.DELIVER_ITEM
+	cond.item_id = item_id
+	cond.target_quantity = qty
+	var q := QuestDefinition.new()
+	q.quest_id = id
+	q.condition = cond
+	q.unlock_flag = flag
+	return q
+
+func _make_friendship_quest(id: String, npc: String, hearts: int, flag: String) -> QuestDefinition:
+	var cond := QuestCondition.new()
+	cond.type = QuestCondition.ConditionType.FRIENDSHIP_LEVEL
+	cond.npc_name = npc
+	cond.target_hearts = hearts
+	var q := QuestDefinition.new()
+	q.quest_id = id
+	q.condition = cond
+	q.unlock_flag = flag
+	return q
+
+func _make_skill_quest(id: String, skill: String, level: int, flag: String) -> QuestDefinition:
+	var cond := QuestCondition.new()
+	cond.type = QuestCondition.ConditionType.SKILL_LEVEL
+	cond.skill_name = skill
+	cond.target_level = level
+	var q := QuestDefinition.new()
+	q.quest_id = id
+	q.condition = cond
+	q.unlock_flag = flag
+	return q
+
+func _on_quest_completed_for_test(quest_id: String, unlock_flag: String) -> void:
+	_quest_completed_events.append([quest_id, unlock_flag])
+
+func _test_deliver_item_quest_completes_at_target() -> void:
+	_reset_quest_manager()
+	_reset_shipping_bin()
+	var qm := QuestManager
+	var quest := _make_deliver_quest("deliver_10_wool", "wool", 10, "sprinkler_tier_1")
+	qm.register_quest(quest)
+	_check(not qm.is_unlocked("sprinkler_tier_1"), "flag should start locked")
+
+	ShippingBinManager.ship_item("wool", 6, 5)
+	_check(not qm.is_completed("deliver_10_wool"), "quest should not complete before target reached")
+
+	ShippingBinManager.ship_item("wool", 4, 5) # cumulative 10
+	_check(qm.is_completed("deliver_10_wool"), "quest should complete once target quantity is delivered")
+	_check(qm.is_unlocked("sprinkler_tier_1"), "unlock flag should flip on completion")
+
+func _test_deliver_item_quest_ignores_other_items() -> void:
+	_reset_quest_manager()
+	_reset_shipping_bin()
+	var qm := QuestManager
+	var quest := _make_deliver_quest("deliver_5_egg", "egg", 5, "auto_feeder_tier_1")
+	qm.register_quest(quest)
+	ShippingBinManager.ship_item("wool", 100, 5) # unrelated item, large quantity
+	_check(not qm.is_completed("deliver_5_egg"), "shipping an unrelated item should not progress or complete this quest")
+
+func _test_deliver_item_quest_does_not_re_fire_after_completion() -> void:
+	_reset_quest_manager()
+	_reset_shipping_bin()
+	var qm := QuestManager
+	var quest := _make_deliver_quest("deliver_3_apple", "apple", 3, "flag_x")
+	qm.register_quest(quest)
+	_quest_completed_events = []
+	qm.quest_completed.connect(_on_quest_completed_for_test)
+	ShippingBinManager.ship_item("apple", 3, 2)
+	ShippingBinManager.ship_item("apple", 5, 2) # already completed, should not re-fire
+	qm.quest_completed.disconnect(_on_quest_completed_for_test)
+	_check(_quest_completed_events.size() == 1,
+		"quest_completed should fire exactly once, fired %d times" % _quest_completed_events.size())
+
+func _test_friendship_quest_completes_at_target_hearts() -> void:
+	_reset_quest_manager()
+	_reset_relationship_manager_for_quests()
+	var rm := RelationshipManager
+	var qm := QuestManager
+	var quest := _make_friendship_quest("elena_2_hearts", "Elena", 2, "collection_hub_tier_1")
+	qm.register_quest(quest)
+
+	rm._add_points("Elena", RelationshipManager.POINTS_PER_HEART) # 1 heart
+	_check(not qm.is_completed("elena_2_hearts"), "should not complete at 1 heart when target is 2")
+
+	rm._add_points("Elena", RelationshipManager.POINTS_PER_HEART) # 2 hearts
+	_check(qm.is_completed("elena_2_hearts"), "should complete once target hearts is reached")
+	_check(qm.is_unlocked("collection_hub_tier_1"), "unlock flag should flip on completion")
+
+func _test_reregistering_quest_preserves_completion_state() -> void:
+	_reset_quest_manager()
+	_reset_shipping_bin()
+	var qm := QuestManager
+	var quest := _make_deliver_quest("deliver_1_stone", "stone", 1, "flag_y")
+	qm.register_quest(quest)
+	ShippingBinManager.ship_item("stone", 1, 1)
+	_check(qm.is_completed("deliver_1_stone"), "sanity: quest should be completed before re-registering")
+
+	qm.register_quest(quest) # simulate re-registering the same content on a later boot
+	_check(qm.is_completed("deliver_1_stone"), "re-registering an already-completed quest should not reset its completion")
+
+func _test_evaluate_skill_level_completes_matching_quest() -> void:
+	_reset_quest_manager()
+	var qm := QuestManager
+	var quest := _make_skill_quest("farming_lvl_5", "Farming", 5, "flag_z")
+	qm.register_quest(quest)
+
+	qm.evaluate_skill_level("Fishing", 10) # wrong skill
+	_check(not qm.is_completed("farming_lvl_5"), "a different skill's level-up should not complete this quest")
+
+	qm.evaluate_skill_level("Farming", 3) # below target
+	_check(not qm.is_completed("farming_lvl_5"), "a below-target level should not complete the quest")
+
+	qm.evaluate_skill_level("Farming", 5)
+	_check(qm.is_completed("farming_lvl_5"), "matching skill at/above target level should complete the quest")
+
+func _test_quest_save_round_trip() -> void:
+	_reset_quest_manager()
+	_reset_shipping_bin()
+	var qm := QuestManager
+	var quest := _make_deliver_quest("deliver_2_milk", "milk", 2, "flag_save_test")
+	qm.register_quest(quest)
+	ShippingBinManager.ship_item("milk", 2, 3)
+	_check(qm.is_completed("deliver_2_milk"), "sanity check before save")
+
+	var saved := SaveManager.build_save_data()
+
+	_reset_quest_manager()
+	_check(not qm.is_completed("deliver_2_milk"), "sanity check: reset should clear completion before applying save data")
+
+	SaveManager.apply_save_data(saved)
+
+	_check(qm.is_completed("deliver_2_milk"), "completion should round-trip through save/load")
+	_check(qm.is_unlocked("flag_save_test"), "unlock flag should round-trip through save/load")
+	_check(qm.delivered_count("milk") == 2,
+		"delivered totals should round-trip through save/load, got %d" % qm.delivered_count("milk"))
