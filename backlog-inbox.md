@@ -316,3 +316,29 @@ same `<id>`.
 <task_item><id>ENG-25</id><source>GITHUB_ISSUE #25</source><status>BLOCKED</status><priority>LOW</priority><title>Skill Leveling</title><description>Blocked on ENG-STACK.</description></task_item>
 <task_item><id>ENG-26</id><source>GITHUB_ISSUE #26</source><status>BLOCKED</status><priority>LOW</priority><title>Opening hook / intro sequence</title><description>Blocked on ENG-STACK.</description></task_item>
 <task_item><id>ENG-27</id><source>GITHUB_ISSUE #27</source><status>BLOCKED</status><priority>LOW</priority><title>Ultimate-goal structure</title><description>Blocked on ENG-STACK and DEC-A (GitHub label blocked: needs-decision).</description></task_item>
+
+<!-- Epoch 2 -->
+
+## UX-UI-Designer squad backlog
+
+<task_item>
+  <id>UX-FLOW-01</id>
+  <source>UXUI_SQUAD</source>
+  <status>DONE</status>
+  <priority>MEDIUM</priority>
+  <title>Menu structure &amp; HUD layout logic flow spec</title>
+  <description>
+    Navigation flow (title screen, pause menu) and always-on HUD layout
+    logic, traced to backing system issues (#12, #22, #25) and the still-open
+    decisions that gate optional UI branches (#2 Homestead Challenge toggle,
+    #5 co-op mode select). Deliberately stack- and art-style-agnostic per the
+    run brief — does not wait on Decision E (#6).
+  </description>
+  <researcher_notes>
+    Claimed and delivered this epoch by UX-UI-Designer squad. Doc at
+    design/ui-flows/menu-hud-flow-spec.md. PR:
+    gritui/story-of-country-side#28 (base:
+    claude/farming-game-pm-requirements-w9ugtk). Final visual-asset work
+    remains blocked on DEC-E per the original triage.
+  </researcher_notes>
+</task_item>

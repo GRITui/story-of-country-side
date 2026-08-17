@@ -39,3 +39,7 @@ None currently blocking. Sequencing notes for the next pull:
   has a weather field ready for one. Not blocking anything now — flagging
   so a future weather-system task doesn't have to retrofit the schedule
   model.
+* From UX-UI squad (PR #28): HUD binding conventions are drafted in
+  design/ui-flows/menu-hud-flow-spec.md — read §2/§4 before implementing
+  any HUD-facing state (already relevant to ENG-12's stamina/clock/gold
+  values, landed in PR #32).

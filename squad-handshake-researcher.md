@@ -2,10 +2,18 @@
 
 <squad_metadata>
   <squad_name>Researcher-Squad</squad_name>
-  <current_status>EXECUTING</current_status>
-  <active_task_id>DEC-A,DEC-B,DEC-C,DEC-D,DEC-E,DEC-F</active_task_id>
+  <current_status>IDLE</current_status>
+  <active_task_id>none</active_task_id>
   <sprint_completion_percentage>100</sprint_completion_percentage>
 </squad_metadata>
+
+## Epoch 2 update
+All six decision writeups from epoch 1 (DEC-A through DEC-F) remain posted
+on issues #2–#7 and still open — no human action yet, nothing new to
+re-triage. ENG-STACK remains NEEDS_OWNER_REVIEW and is the single blocker
+for Engineer squad this epoch; flagged again to the owner this cycle rather
+than resolved unilaterally. No new un-triaged backlog items surfaced this
+epoch.
 
 ## Current Focus
 Triaged backlog-inbox.md from the 6 open PM decisions and 16 sub-issues on
