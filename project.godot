@@ -18,6 +18,7 @@ ShippingBinManager="*res://scripts/autoload/shipping_bin_manager.gd"
 RelationshipManager="*res://scripts/autoload/relationship_manager.gd"
 QuestManager="*res://scripts/autoload/quest_manager.gd"
 SkillManager="*res://scripts/autoload/skill_manager.gd"
+ToolManager="*res://scripts/autoload/tool_manager.gd"
 SaveManager="*res://scripts/autoload/save_manager.gd"
 
 [rendering]

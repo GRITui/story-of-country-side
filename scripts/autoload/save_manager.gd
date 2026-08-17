@@ -14,6 +14,7 @@ func build_save_data() -> Dictionary:
 		"relationships": RelationshipManager.to_save_dict(),
 		"quests": QuestManager.to_save_dict(),
 		"skills": SkillManager.to_save_dict(),
+		"tools": ToolManager.to_save_dict(),
 	}
 
 func apply_save_data(data: Dictionary) -> void:
@@ -29,3 +30,5 @@ func apply_save_data(data: Dictionary) -> void:
 		QuestManager.from_save_dict(data["quests"])
 	if data.has("skills"):
 		SkillManager.from_save_dict(data["skills"])
+	if data.has("tools"):
+		ToolManager.from_save_dict(data["tools"])
