@@ -95,6 +95,21 @@ same `<id>`.
   </researcher_notes>
 </task_item>
 
+## Epoch 2 update: DEC-D resolved
+
+<task_item>
+  <id>DEC-D</id>
+  <status>DECIDED</status>
+  <description>
+    Owner resolved: single-player for v1, co-op scoped as a post-launch
+    update (mirrors SDV's own sequencing). Closed issue #5. No sub-issue
+    was formally GitHub-blocked on this, but it's a direct build note for
+    ENG-12: per-client clock, no server-authority layer now; keep world
+    state in one serializable save object as light future-proofing without
+    building any netcode yet.
+  </description>
+</task_item>
+
 ## Epoch 2 update: DEC-C resolved
 
 <task_item>
