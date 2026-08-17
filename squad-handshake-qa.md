@@ -9,7 +9,8 @@
 
 ## Current Focus
 Idle — nothing to test until Engineer-Squad opens its first PR (blocked on
-ENG-STACK this epoch).
+ENG-STACK). UX-UI squad's PR #28 this epoch is a design-spec doc, not code;
+no automated tests apply, and PR #28 says so explicitly in its test plan.
 
 ## Recent Commits / PRs
 None.

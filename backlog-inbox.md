@@ -316,3 +316,54 @@ same `<id>`.
 <task_item><id>ENG-25</id><source>GITHUB_ISSUE #25</source><status>BLOCKED</status><priority>LOW</priority><title>Skill Leveling</title><description>Blocked on ENG-STACK.</description></task_item>
 <task_item><id>ENG-26</id><source>GITHUB_ISSUE #26</source><status>BLOCKED</status><priority>LOW</priority><title>Opening hook / intro sequence</title><description>Blocked on ENG-STACK.</description></task_item>
 <task_item><id>ENG-27</id><source>GITHUB_ISSUE #27</source><status>BLOCKED</status><priority>LOW</priority><title>Ultimate-goal structure</title><description>Blocked on ENG-STACK and DEC-A (GitHub label blocked: needs-decision).</description></task_item>
+
+<!-- Epoch 2 -->
+
+## UX-UI-Designer squad backlog
+
+<task_item>
+  <id>UX-FLOW-01</id>
+  <source>UXUI_SQUAD</source>
+  <status>DONE</status>
+  <priority>MEDIUM</priority>
+  <title>Menu structure &amp; HUD layout logic flow spec</title>
+  <description>
+    Navigation flow (title screen, pause menu) and always-on HUD layout
+    logic, traced to backing system issues (#12, #22, #25) and the still-open
+    decisions that gate optional UI branches (#2 Homestead Challenge toggle,
+    #5 co-op mode select). Deliberately stack- and art-style-agnostic per the
+    run brief — does not wait on Decision E (#6).
+  </description>
+  <researcher_notes>
+    Claimed and delivered this epoch by UX-UI-Designer squad. Doc at
+    design/ui-flows/menu-hud-flow-spec.md. PR:
+    gritui/story-of-country-side#28 (base:
+    claude/farming-game-pm-requirements-w9ugtk). Final visual-asset work
+    remains blocked on DEC-E per the original triage.
+  </researcher_notes>
+</task_item>
+
+<!-- Epoch 3 (this session, not the scheduled Routine): checked in on the
+     autonomous ai-engineering-loop's progress, rebased/cleaned up PR #29
+     which the loop's own epochs had partially superseded, then claimed and
+     delivered one more Engineer-Squad task. -->
+
+<task_item>
+  <id>ENG-19</id>
+  <status>DONE</status>
+  <description>
+    Claimed via "Claiming this" comment on issue #19, then delivered:
+    RelationshipManager (autoload) with per-NPC friendship points,
+    once-per-day talk/gift caps, point clamping, and threshold-crossing
+    heart events (fires once per newly-crossed heart, including on
+    multi-heart jumps). GiftPreferenceTable (Resource, .tres-authorable
+    like NPCSchedule from #18) for loved/liked/disliked/hated item tables.
+    SaveManager extended to round-trip relationship state (daily flags are
+    intentionally NOT saved — day-scoped, not save-scoped). PR:
+    gritui/story-of-country-side#34 (base:
+    claude/farming-game-pm-requirements-w9ugtk). 53/53 tests pass (22 new)
+    against the real Godot 4.3 engine headless. Unblocks ENG-20 (Marriage
+    &amp; Family).
+  </description>
+</task_item>
+<task_item><id>ENG-20</id><status>READY_FOR_PM</status><description>Unblocked — ENG-19 landed (pending PR #34 review/merge). Marriage &amp; Family: eligible bachelors/bachelorettes, proposal, wedding, children.</description></task_item>
