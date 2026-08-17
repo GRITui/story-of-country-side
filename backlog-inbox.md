@@ -95,6 +95,33 @@ same `<id>`.
   </researcher_notes>
 </task_item>
 
+## Epoch 8 update: ENG-25 shipped — shared XP hook exists ahead of the five activities
+
+<task_item>
+  <id>ENG-25</id>
+  <status>DONE</status>
+  <description>
+    Merged via PR #38 (squash merge to base branch). SkillManager live in
+    scripts/autoload/ — add_xp(skill_name, amount) is the shared event
+    hook Agriculture/Ranching/Fishing/Mining/Foraging should emit into.
+    Ranching feeds the Farming skill (documented decision, matches SDV
+    precedent). Wires QuestManager.evaluate_skill_level() on every level
+    crossed. 104/104 tests pass (16 new, including a real integration test
+    proving the SkillManager -> QuestManager hook fires end-to-end).
+    Issue #25 closed.
+  </description>
+</task_item>
+
+<!-- Interface note for whoever picks up ENG-13/14/15/16/17: call
+     SkillManager.add_xp("Farming"|"Fishing"|"Mining"|"Foraging", amount)
+     on activity completion. Ranching -> "Farming", not a separate skill.
+     No fixed XP-per-action values exist anywhere yet -- pick reasonable
+     defaults and document them in the PR, same pattern as quest content
+     (#31) and gift preferences (#19). -->
+
+<!-- Step 0 discovery this epoch: no new GitHub issues found (17 open, all
+     represented). No open PRs from the parallel session either. -->
+
 ## Epoch 7 update: ENG-31 shipped — Tool/Infrastructure Upgrades unblocked
 
 <task_item>

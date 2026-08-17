@@ -8,14 +8,13 @@
 </squad_metadata>
 
 ## Current Focus
-ENG-31 (Quest system foundation) shipped and merged — PR #37,
-squash-merged, 88/88 tests pass. QuestManager now listens to
-ShippingBinManager and RelationshipManager to gate automation-tier
-unlocks. Idle between epochs — next pull should be one of the now-unblocked
-tasks below.
+ENG-25 (Skill Leveling) shipped and merged — PR #38, squash-merged,
+104/104 tests pass. SkillManager's add_xp() is now the shared event hook
+the five activity sub-issues should emit into. Idle between epochs — next
+pull should be one of the now-unblocked tasks below.
 
-No open PRs from the parallel session this epoch, and Step 0 discovery
-found no new GitHub issues beyond what's already tracked.
+No open PRs from the parallel session this epoch; Step 0 discovery found
+no new GitHub issues beyond what's already tracked.
 
 ## Recent Commits / PRs
 * PR #32 (merged): ENG-12 — Godot project bootstrap, TimeManager/
@@ -27,27 +26,28 @@ found no new GitHub issues beyond what's already tracked.
 * PR #36 (merged): ENG-22 — ShippingBinManager (wallet, overnight payout,
   pass-out penalty consumer).
 * PR #37 (merged): ENG-31 — QuestManager/QuestCondition/QuestDefinition.
+* PR #38 (merged): ENG-25 — SkillManager (shared XP hook, level curve,
+  QuestManager.evaluate_skill_level() now has a caller).
 
 ## Blockers & QA Failures
 None currently blocking. Sequencing notes for the next pull:
-- ENG-23 (Tool Upgrades) and ENG-24 (Infrastructure Upgrades) are both
-  READY_FOR_PM now — gate their automation tiers behind
-  QuestManager.is_unlocked(flag), use ShippingBinManager.spend() for cost.
-  Whichever squad picks these up needs actual QuestDefinition content
-  (item/quantity/flag choices) — not specified anywhere yet, will need
-  reasonable defaults chosen and documented in the PR, not left as TODOs.
-- ENG-20 (Marriage), ENG-21 (Festivals), ENG-13/14/15/16/17
-  (Agriculture/Ranching/Fishing/Mining/Foraging), ENG-25 (Skill Leveling),
-  ENG-26 (intro hook) remain READY_FOR_PM, untouched.
-- ENG-25 (Skill Leveling), once built, should call
-  QuestManager.evaluate_skill_level() on level-up to wire up the
-  SKILL_LEVEL quest condition type that's currently dead code.
+- ENG-13/14/15/16/17 (Agriculture/Ranching/Fishing/Mining/Foraging) are
+  READY_FOR_PM and now have both TimeManager (day/season) and SkillManager
+  (add_xp hook) to build against — no more foundational systems blocking
+  them. Whoever picks these up should call SkillManager.add_xp("Farming",
+  amount) for Ranching activities too, not a separate skill (see #25's PR
+  for why).
+- ENG-23 (Tool Upgrades) and ENG-24 (Infrastructure Upgrades) remain
+  READY_FOR_PM — need quest content decided (flagged in prior epochs, not
+  yet picked up by any squad).
+- ENG-20 (Marriage), ENG-21 (Festivals), ENG-26 (intro hook) remain
+  READY_FOR_PM, untouched.
 
 ## Cross-Squad Requests
 * To UX-UI-Designer squad: UX-GRID (locking the isometric grid ratio, 2:1
   typical) should land before any environment-tilemap work in
-  ENG-13/14/16/17 — still not confirmed done.
+  ENG-13/14/16/17 — still not confirmed done. This is now the single
+  biggest gap blocking those five activity sub-issues from actually being
+  picked up, even though nothing else blocks them anymore.
 * No WeatherManager exists yet, but NPCSchedule has a weather field ready
   for one (from #18).
-* No SkillManager exists yet — QuestManager.evaluate_skill_level() has no
-  caller until #25 is built (from #31).
