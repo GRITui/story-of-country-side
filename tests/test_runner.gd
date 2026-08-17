@@ -1,6 +1,7 @@
 extends Node
 ## Headless test runner for the Engineer-Squad epics landed so far:
-## ENG-12 (Time & Stamina foundation), ENG-18 (NPC Routines).
+## ENG-12 (Time & Stamina foundation), ENG-18 (NPC Routines),
+## ENG-19 (Relationship System).
 ##
 ## Run as its own scene (not via --script) so the engine's normal startup
 ## registers TimeManager/StaminaManager/SaveManager as autoloads first:
@@ -14,6 +15,7 @@ var _failures: Array[String] = []
 var _pass_count := 0
 var _pass_out_fire_count := 0 ## member, not a local — GDScript lambdas capture locals by value
 var _arrived_fire_count := 0 ## same reason
+var _heart_events: Array = [] ## Array[Array] of [npc_name, heart_level], same reason
 
 func _ready() -> void:
 	_test_minute_and_hour_wrap()
@@ -33,6 +35,14 @@ func _ready() -> void:
 	_test_controller_walks_toward_target_and_arrives()
 	_test_controller_pauses_while_time_frozen()
 	_test_controller_retargets_on_schedule_change()
+
+	_test_talk_awards_points_once_per_day()
+	_test_gift_applies_preference_deltas()
+	_test_gift_once_per_day()
+	_test_points_clamp_between_zero_and_max()
+	_test_heart_event_fires_once_per_threshold_crossed()
+	_test_heart_event_handles_multi_threshold_jump()
+	_test_relationship_save_round_trip()
 
 	if _failures.is_empty():
 		print("ALL TESTS PASSED (%d checks)" % _pass_count)
@@ -277,3 +287,126 @@ func _test_controller_retargets_on_schedule_change() -> void:
 	_check(target_before != target_after, "retargeting should replace the entry reference, not just mutate in place")
 
 	npc.queue_free()
+
+## --- ENG-19: Relationship System ---
+
+func _reset_relationship_manager() -> void:
+	var rm := RelationshipManager
+	rm._points = {}
+	rm._highest_triggered_heart = {}
+	rm._talked_today = {}
+	rm._gifted_today = {}
+
+func _make_gift_table() -> GiftPreferenceTable:
+	var t := GiftPreferenceTable.new()
+	t.loved_items = ["apple_pie"]
+	t.liked_items = ["egg"]
+	t.disliked_items = ["quartz"]
+	t.hated_items = ["trash"]
+	return t
+
+func _on_heart_event_for_test(npc_name: String, heart_level: int) -> void:
+	_heart_events.append([npc_name, heart_level])
+
+func _test_talk_awards_points_once_per_day() -> void:
+	_reset_relationship_manager()
+	var rm := RelationshipManager
+	var accepted := rm.talk_to("Elena")
+	_check(accepted, "first talk_to() today should be accepted")
+	_check(rm.get_points("Elena") == RelationshipManager.TALK_POINTS,
+		"talking once should award TALK_POINTS, got %d" % rm.get_points("Elena"))
+
+	var accepted_again := rm.talk_to("Elena")
+	_check(not accepted_again, "second talk_to() the same day should be rejected")
+	_check(rm.get_points("Elena") == RelationshipManager.TALK_POINTS,
+		"a rejected same-day talk should not add more points, got %d" % rm.get_points("Elena"))
+
+	rm._on_day_started(1, "Spring", "Mon")
+	var accepted_next_day := rm.talk_to("Elena")
+	_check(accepted_next_day, "talk_to() should be accepted again after a day rollover")
+	_check(rm.get_points("Elena") == RelationshipManager.TALK_POINTS * 2,
+		"a second day's talk should add another TALK_POINTS, got %d" % rm.get_points("Elena"))
+
+func _test_gift_applies_preference_deltas() -> void:
+	_reset_relationship_manager()
+	var rm := RelationshipManager
+	var table := _make_gift_table()
+
+	rm.give_gift("Elena", "apple_pie", table)
+	_check(rm.get_points("Elena") == 80, "a loved gift should add 80 points, got %d" % rm.get_points("Elena"))
+
+	rm.give_gift("Marcus", "quartz", table)
+	_check(rm.get_points("Marcus") == 0,
+		"a disliked gift (-20) from 0 points should clamp at 0, got %d" % rm.get_points("Marcus"))
+
+func _test_gift_once_per_day() -> void:
+	_reset_relationship_manager()
+	var rm := RelationshipManager
+	var table := _make_gift_table()
+
+	var first := rm.give_gift("Elena", "egg", table)
+	_check(first, "first gift today should be accepted")
+	var second := rm.give_gift("Elena", "apple_pie", table)
+	_check(not second, "a second gift the same day should be rejected")
+	_check(rm.get_points("Elena") == 45,
+		"a rejected second gift should not add its points, got %d" % rm.get_points("Elena"))
+
+func _test_points_clamp_between_zero_and_max() -> void:
+	_reset_relationship_manager()
+	var rm := RelationshipManager
+	rm._add_points("Elena", -1000)
+	_check(rm.get_points("Elena") == 0, "points should clamp at 0, got %d" % rm.get_points("Elena"))
+	rm._add_points("Elena", 1000000)
+	_check(rm.get_points("Elena") == RelationshipManager.MAX_POINTS,
+		"points should clamp at MAX_POINTS, got %d" % rm.get_points("Elena"))
+
+func _test_heart_event_fires_once_per_threshold_crossed() -> void:
+	_reset_relationship_manager()
+	var rm := RelationshipManager
+	_heart_events = []
+	rm.heart_event_triggered.connect(_on_heart_event_for_test)
+
+	rm._add_points("Elena", RelationshipManager.POINTS_PER_HEART) # exactly 1 heart
+	_check(_heart_events.size() == 1 and _heart_events[0] == ["Elena", 1],
+		"crossing into heart 1 should fire exactly once, got %s" % [_heart_events])
+
+	rm._add_points("Elena", 10) # still within heart 1, no new crossing
+	_check(_heart_events.size() == 1,
+		"points that don't cross a new heart threshold should not re-fire, got %d events" % _heart_events.size())
+
+	rm.heart_event_triggered.disconnect(_on_heart_event_for_test)
+
+func _test_heart_event_handles_multi_threshold_jump() -> void:
+	_reset_relationship_manager()
+	var rm := RelationshipManager
+	_heart_events = []
+	rm.heart_event_triggered.connect(_on_heart_event_for_test)
+
+	rm._add_points("Marcus", RelationshipManager.POINTS_PER_HEART * 3) # jump straight to 3 hearts
+	_check(_heart_events.size() == 3, "a multi-heart jump should fire once per crossed heart, got %d" % _heart_events.size())
+	_check(_heart_events[0] == ["Marcus", 1] and _heart_events[1] == ["Marcus", 2] and _heart_events[2] == ["Marcus", 3],
+		"multi-heart jump should fire hearts in order 1,2,3, got %s" % [_heart_events])
+
+	rm.heart_event_triggered.disconnect(_on_heart_event_for_test)
+
+func _test_relationship_save_round_trip() -> void:
+	_reset_relationship_manager()
+	var rm := RelationshipManager
+	rm._add_points("Elena", 500)
+	rm.talk_to("Elena")
+	rm.give_gift("Marcus", "trash", _make_gift_table())
+
+	var saved := SaveManager.build_save_data()
+
+	_reset_relationship_manager()
+	_check(rm.get_points("Elena") == 0, "sanity check: reset should clear points before applying save data")
+
+	SaveManager.apply_save_data(saved)
+
+	_check(rm.get_points("Elena") == 520,
+		"RelationshipManager points should round-trip through save/load, got %d" % rm.get_points("Elena"))
+	_check(rm.get_hearts("Elena") == 2, "hearts should be derivable from restored points, got %d" % rm.get_hearts("Elena"))
+	_check(rm.get_points("Marcus") == 0,
+		"Marcus's hated-gift points should round-trip clamped at 0 (started at 0, -40 delta), got %d" % rm.get_points("Marcus"))
+	_check(not rm.has_talked_today("Elena"),
+		"daily talk/gift flags should NOT round-trip through save/load — they're day-scoped, not save-scoped")
