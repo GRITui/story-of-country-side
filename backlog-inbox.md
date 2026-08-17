@@ -95,6 +95,30 @@ same `<id>`.
   </researcher_notes>
 </task_item>
 
+## Epoch 10 update: ENG-23 shipped, discussed with owner before building
+
+<task_item>
+  <id>ENG-23</id>
+  <status>DONE</status>
+  <description>
+    Merged via PR #40 (squash merge to base branch). Discussed scope with
+    owner first: kept quest-free (Decision C's quest-gating belongs to
+    #24's automation tiers, not core tool progression), per-tool not
+    global (Hoe/WateringCan/Axe/Pickaxe independent), Copper free start.
+    ToolManager/ToolUpgradeTier live in scripts/autoload/ and
+    scripts/economy/. Raised a new gap: no general InventoryManager
+    exists anywhere -- ToolManager owns a minimal ore ledger sized to its
+    own needs instead. 131/131 tests pass (27 new). Issue #23 closed.
+  </description>
+</task_item>
+
+<!-- Also this epoch: user asked mid-build to check on ENG-19's PR status.
+     Clarified there were two different PRs -- #34 (the actual feature,
+     merged and verified) and #35 (a redundant coordination-state PR from
+     the parallel session, correctly closed unmerged as superseded by this
+     session's own earlier reconciliation commit). No reopening needed;
+     confirmed and moved on. -->
+
 ## Epoch 9 update: UX-GRID shipped — the last real blocker on the five activities is gone
 
 <task_item>

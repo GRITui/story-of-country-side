@@ -8,13 +8,13 @@
 </squad_metadata>
 
 ## Current Focus
-ENG-25 (Skill Leveling) shipped and merged — PR #38, squash-merged,
-104/104 tests pass. SkillManager's add_xp() is now the shared event hook
-the five activity sub-issues should emit into. Idle between epochs — next
-pull should be one of the now-unblocked tasks below.
-
-No open PRs from the parallel session this epoch; Step 0 discovery found
-no new GitHub issues beyond what's already tracked.
+ENG-23 (Tool Upgrades) shipped and merged — PR #40, squash-merged,
+131/131 tests pass. Scope was discussed with the owner before building:
+kept quest-free (QuestManager stays reserved for #24's automation tiers,
+not core tool progression — Decision C's quest-gating was aimed at
+automation, not basic upgrades), per-tool not global (Hoe/WateringCan/
+Axe/Pickaxe independent). Idle between epochs — next pull should be one
+of the now-unblocked tasks below.
 
 ## Recent Commits / PRs
 * PR #32 (merged): ENG-12 — Godot project bootstrap, TimeManager/
@@ -26,27 +26,35 @@ no new GitHub issues beyond what's already tracked.
 * PR #36 (merged): ENG-22 — ShippingBinManager (wallet, overnight payout,
   pass-out penalty consumer).
 * PR #37 (merged): ENG-31 — QuestManager/QuestCondition/QuestDefinition.
-* PR #38 (merged): ENG-25 — SkillManager (shared XP hook, level curve,
-  QuestManager.evaluate_skill_level() now has a caller).
+* PR #38 (merged): ENG-25 — SkillManager (shared XP hook, level curve).
+* PR #39 (merged, this session as UX-UI squad): UX-GRID — isometric grid
+  spec (design/art/isometric-grid-spec.md).
+* PR #40 (merged): ENG-23 — ToolManager/ToolUpgradeTier (per-tool
+  Copper->Iron->Gold, deliberately no quest gate).
 
 ## Blockers & QA Failures
 None currently blocking. Sequencing notes for the next pull:
-- ENG-13/14/15/16/17 (Agriculture/Ranching/Fishing/Mining/Foraging) are
-  READY_FOR_PM and now have both TimeManager (day/season) and SkillManager
-  (add_xp hook) to build against — no more foundational systems blocking
-  them. Whoever picks these up should call SkillManager.add_xp("Farming",
-  amount) for Ranching activities too, not a separate skill (see #25's PR
-  for why).
-- ENG-23 (Tool Upgrades) and ENG-24 (Infrastructure Upgrades) remain
-  READY_FOR_PM — need quest content decided (flagged in prior epochs, not
-  yet picked up by any squad).
+- ENG-24 (Infrastructure Upgrades) is READY_FOR_PM — THIS is where
+  Decision C's quest-gating actually belongs (sprinklers, auto-feeders,
+  collection hub behind QuestManager.is_unlocked(flag)), per ENG-23's own
+  PR discussion. Needs actual QuestDefinition content chosen and
+  documented, same as ENG-23/ENG-31 did.
+- ENG-13/14/15/16/17 (Agriculture/Ranching/Fishing/Mining/Foraging) have
+  zero structural blockers left (TimeManager, SkillManager, UX-GRID all
+  shipped) and can now also consume ToolManager.get_aoe_offsets()/
+  get_stamina_cost() for tool-use actions.
 - ENG-20 (Marriage), ENG-21 (Festivals), ENG-26 (intro hook) remain
   READY_FOR_PM, untouched.
+- No general InventoryManager exists anywhere (flagged in #40) — whoever
+  builds the first activity that produces real items (#13/#16/#17) will
+  hit this gap directly; ToolManager's local ore ledger is not meant to
+  generalize into one.
 
 ## Cross-Squad Requests
-* UX-GRID landed this epoch (design/art/isometric-grid-spec.md, PR #39) —
-  ENG-13/14/16/17 have no structural blockers left at all now. Whoever
-  picks these up next should read that doc's §3 (coordinate transform)
-  before writing environment placement code.
 * No WeatherManager exists yet, but NPCSchedule has a weather field ready
   for one (from #18).
+* HUD binding conventions are in design/ui-flows/menu-hud-flow-spec.md
+  (PR #28) — §2 already references gold (via ShippingBinManager) and
+  stamina (from #12) as HUD-bound state; could extend to tool tier display.
+* Isometric grid math is in design/art/isometric-grid-spec.md (PR #39) —
+  ToolManager's AoE offsets use this coordinate system directly.
