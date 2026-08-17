@@ -1,0 +1,22 @@
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are defined by the engine.
+
+config_version=5
+
+[application]
+
+config/name="Story of Country Side"
+config/features=PackedStringArray("4.3", "GL Compatibility")
+run/main_scene="res://scenes/Main.tscn"
+
+[autoload]
+
+TimeManager="*res://scripts/autoload/time_manager.gd"
+StaminaManager="*res://scripts/autoload/stamina_manager.gd"
+SaveManager="*res://scripts/autoload/save_manager.gd"
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
