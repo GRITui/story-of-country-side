@@ -95,6 +95,27 @@ same `<id>`.
   </researcher_notes>
 </task_item>
 
+## Epoch 4 update: ENG-18 shipped — Relationship System unblocked
+
+<task_item>
+  <id>ENG-18</id>
+  <status>DONE</status>
+  <description>
+    Merged via PR #33 (squash merge to base branch). NPCScheduleEntry,
+    NPCSchedule, NPCController live in scripts/npc/. 31/31 tests pass
+    against the real Godot 4.3 engine before merge (12 new checks for
+    schedule lookup, day-boundary wrap-around, season overrides,
+    controller movement/pause/retarget). Issue #18 closed.
+  </description>
+</task_item>
+<task_item><id>ENG-19</id><status>READY_FOR_PM</status><description>Unblocked — ENG-18 landed. Relationship System: friendship/romance points, gifting, heart events.</description></task_item>
+
+<!-- ENG-20 (Marriage) still needs ENG-19 first. ENG-21 (Festivals) needs
+     ENG-18 (done) — check whether it also needs anything from ENG-19
+     before picking it up; the epic notes said Festivals and Relationship
+     System could run in parallel, so ENG-21 may already be pickable too. -->
+<task_item><id>ENG-21</id><status>READY_FOR_PM</status><description>Unblocked — ENG-18 (NPC Routines) landed, which is its only hard dependency per epic #9's sequencing note. Festivals.</description></task_item>
+
 ## Epoch 3 update: ENG-12 shipped — dependents unblocked
 
 <task_item>
