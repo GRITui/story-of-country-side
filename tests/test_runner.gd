@@ -15,6 +15,9 @@ var _failures: Array[String] = []
 var _pass_count := 0
 var _pass_out_fire_count := 0 ## member, not a local — GDScript lambdas capture locals by value
 var _arrived_fire_count := 0 ## same reason
+var _payout_fire_count := 0 ## same reason
+var _payout_last_total := -1
+var _payout_last_count := -1
 var _heart_events: Array = [] ## Array[Array] of [npc_name, heart_level], same reason
 
 func _ready() -> void:
@@ -43,6 +46,14 @@ func _ready() -> void:
 	_test_heart_event_fires_once_per_threshold_crossed()
 	_test_heart_event_handles_multi_threshold_jump()
 	_test_relationship_save_round_trip()
+
+	_test_ship_item_does_not_pay_out_immediately()
+	_test_day_rollover_pays_out_and_clears_bin()
+	_test_different_items_and_prices_sum_correctly()
+	_test_no_payout_signal_when_bin_empty()
+	_test_pass_out_penalty_deducts_gold_and_clamps_at_zero()
+	_test_spend_succeeds_and_fails_correctly()
+	_test_shipping_bin_save_round_trip()
 
 	if _failures.is_empty():
 		print("ALL TESTS PASSED (%d checks)" % _pass_count)
@@ -410,3 +421,104 @@ func _test_relationship_save_round_trip() -> void:
 		"Marcus's hated-gift points should round-trip clamped at 0 (started at 0, -40 delta), got %d" % rm.get_points("Marcus"))
 	_check(not rm.has_talked_today("Elena"),
 		"daily talk/gift flags should NOT round-trip through save/load — they're day-scoped, not save-scoped")
+
+## --- ENG-22: Shipping Bin economy ---
+
+func _on_payout_for_test(total_earned: int, item_count: int) -> void:
+	_payout_fire_count += 1
+	_payout_last_total = total_earned
+	_payout_last_count = item_count
+
+func _reset_shipping_bin() -> void:
+	var sb := ShippingBinManager
+	sb.gold = 0
+	sb._pending_shipments = []
+
+func _test_ship_item_does_not_pay_out_immediately() -> void:
+	_reset_shipping_bin()
+	var sb := ShippingBinManager
+	sb.ship_item("turnip", 5, 10)
+	_check(sb.gold == 0, "shipping an item should not add gold until day rollover, gold=%d" % sb.gold)
+	_check(sb.pending_item_count() == 5, "pending_item_count should reflect shipped quantity, got %d" % sb.pending_item_count())
+
+func _test_day_rollover_pays_out_and_clears_bin() -> void:
+	_reset_shipping_bin()
+	var sb := ShippingBinManager
+	sb.ship_item("turnip", 5, 10) # 50
+	sb.ship_item("egg", 3, 20)    # 60
+	_payout_fire_count = 0
+	_payout_last_total = -1
+	_payout_last_count = -1
+	sb.payout_processed.connect(_on_payout_for_test)
+	sb._on_day_started(1, "Spring", "Mon")
+	sb.payout_processed.disconnect(_on_payout_for_test)
+
+	_check(sb.gold == 110, "day rollover should pay out the sum of shipments, got gold=%d" % sb.gold)
+	_check(sb._pending_shipments.is_empty(), "bin should clear after payout, still has %d entries" % sb._pending_shipments.size())
+	_check(_payout_fire_count == 1, "payout_processed should fire exactly once, fired %d times" % _payout_fire_count)
+	_check(_payout_last_total == 110 and _payout_last_count == 8,
+		"payout_processed should report total=110/count=8, got total=%d count=%d" % [_payout_last_total, _payout_last_count])
+
+func _test_different_items_and_prices_sum_correctly() -> void:
+	_reset_shipping_bin()
+	var sb := ShippingBinManager
+	sb.ship_item("turnip", 2, 10) # normal-quality turnip: 20
+	sb.ship_item("turnip", 1, 20) # gold-quality turnip, same item_id, different price: 20
+	sb._on_day_started(1, "Spring", "Mon")
+	_check(sb.gold == 40, "same item_id at two different quality-tier prices should sum, not average or collapse, got %d" % sb.gold)
+
+func _test_no_payout_signal_when_bin_empty() -> void:
+	_reset_shipping_bin()
+	var sb := ShippingBinManager
+	sb.gold = 100
+	_payout_fire_count = 0
+	sb.payout_processed.connect(_on_payout_for_test)
+	sb._on_day_started(2, "Spring", "Tue")
+	sb.payout_processed.disconnect(_on_payout_for_test)
+	_check(_payout_fire_count == 0, "an empty bin should not emit payout_processed, fired %d times" % _payout_fire_count)
+	_check(sb.gold == 100, "gold should be unchanged when there's nothing to pay out, got %d" % sb.gold)
+
+func _test_pass_out_penalty_deducts_gold_and_clamps_at_zero() -> void:
+	_reset_shipping_bin()
+	var sb := ShippingBinManager
+	sb.gold = 30
+	sb._on_passed_out(100)
+	_check(sb.gold == 0, "pass-out penalty larger than current gold should clamp at 0, got %d" % sb.gold)
+
+	sb.gold = 200
+	sb._on_passed_out(50)
+	_check(sb.gold == 150, "pass-out penalty should deduct normally when gold is sufficient, got %d" % sb.gold)
+
+func _test_spend_succeeds_and_fails_correctly() -> void:
+	_reset_shipping_bin()
+	var sb := ShippingBinManager
+	sb.gold = 100
+
+	var ok := sb.spend(40)
+	_check(ok and sb.gold == 60, "spend(40) from 100 should succeed leaving 60, got ok=%s gold=%d" % [ok, sb.gold])
+
+	var ok2 := sb.spend(1000)
+	_check(not ok2 and sb.gold == 60, "spending more than available should fail and leave gold unchanged, got ok=%s gold=%d" % [ok2, sb.gold])
+
+	var ok3 := sb.spend(-5)
+	_check(not ok3, "spending a non-positive amount should fail")
+
+func _test_shipping_bin_save_round_trip() -> void:
+	_reset_shipping_bin()
+	var sb := ShippingBinManager
+	sb.gold = 250
+	sb.ship_item("wool", 4, 15)
+
+	var saved := SaveManager.build_save_data()
+
+	sb.gold = 0
+	sb._pending_shipments = []
+
+	SaveManager.apply_save_data(saved)
+
+	_check(sb.gold == 250, "gold should round-trip through save/load, got %d" % sb.gold)
+	_check(sb._pending_shipments.size() == 1
+		and sb._pending_shipments[0]["item_id"] == "wool"
+		and sb._pending_shipments[0]["quantity"] == 4
+		and sb._pending_shipments[0]["unit_price"] == 15,
+		"pending shipments should round-trip through save/load, got %s" % [sb._pending_shipments])
