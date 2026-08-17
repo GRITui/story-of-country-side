@@ -95,6 +95,30 @@ same `<id>`.
   </researcher_notes>
 </task_item>
 
+## Epoch 2 update: DEC-C resolved
+
+<task_item>
+  <id>DEC-C</id>
+  <status>DECIDED</status>
+  <description>
+    Owner resolved: tiered automation, unlocked per-tier by completing a
+    quest (in addition to existing material/gold cost), not gold-gating
+    alone. Closed issue #4. Unblocks #23/#24, but introduces new scope:
+    the design doc has no quest system defined anywhere — opened #31
+    (Quest system foundation) as a sub-issue of epic #10 to cover it.
+  </description>
+</task_item>
+<task_item>
+  <id>ENG-31</id>
+  <source>GITHUB_ISSUE #31</source>
+  <status>READY_FOR_PM</status>
+  <priority>MEDIUM</priority>
+  <title>Quest system foundation</title>
+  <description>New scope raised by DEC-C. Minimal objective/trigger/reward-flag system sized only to gate automation tiers. Depends on ENG-12. Blocks ENG-23 and ENG-24.</description>
+</task_item>
+<task_item><id>ENG-23</id><status>BLOCKED</status><description>DEC-C resolved; no longer decision-blocked. Now depends on ENG-31 (quest system) for the unlock-flag hook.</description></task_item>
+<task_item><id>ENG-24</id><status>BLOCKED</status><description>DEC-C resolved; no longer decision-blocked. Now depends on ENG-31 (quest system) for the unlock-flag hook.</description></task_item>
+
 ## Epoch 2 update: DEC-B resolved
 
 <task_item>
