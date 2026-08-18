@@ -38,6 +38,7 @@ func build_save_data() -> Dictionary:
 		"infrastructure": InfrastructureManager.to_save_dict(),
 		"marriage": MarriageManager.to_save_dict(),
 		"mining": MiningManager.to_save_dict(),
+		"community_goals": CommunityGoalManager.to_save_dict(),
 		"intro_seen": intro_seen,
 	}
 
@@ -70,6 +71,8 @@ func apply_save_data(data: Dictionary) -> void:
 		MarriageManager.from_save_dict(data["marriage"])
 	if data.has("mining"):
 		MiningManager.from_save_dict(data["mining"])
+	if data.has("community_goals"):
+		CommunityGoalManager.from_save_dict(data["community_goals"])
 	if data.has("intro_seen"):
 		intro_seen = data["intro_seen"]
 
@@ -97,6 +100,7 @@ func new_game() -> void:
 	InfrastructureManager.from_save_dict({})
 	MarriageManager.from_save_dict({})
 	MiningManager.from_save_dict({})
+	CommunityGoalManager.from_save_dict({})
 	intro_seen = false
 	save_game()
 

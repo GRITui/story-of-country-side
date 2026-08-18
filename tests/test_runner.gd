@@ -39,6 +39,10 @@ var _child_born_events: Array = [] ## Array[Array] of [npc_name, total_children]
 var _festival_started_events: Array = [] ## Array[String] of festival_id, same reason
 var _festival_ended_events: Array = [] ## Array[String] of festival_id, same reason
 var _mini_game_result_events: Array = [] ## Array[Array] of [festival_id, score, success], same reason
+var _bundle_contribution_events: Array = [] ## Array[Array] of [bundle_id, item_id, quantity], same reason
+var _bundle_completed_events: Array = [] ## Array[String] of bundle_id, same reason
+var _year_three_evaluation_events: Array = [] ## Array[Array] of [challenge_mode, completed, total, passed], same reason
+var _game_over_events: Array = [] ## Array[String] of reason, same reason
 
 func _ready() -> void:
 	_test_minute_and_hour_wrap()
@@ -207,6 +211,18 @@ func _ready() -> void:
 	_test_roll_ore_respects_min_floor_gating()
 	_test_descend_ladder_advances_floor_and_regenerates()
 	_test_mining_save_round_trip()
+
+	_test_bundle_registration_preserves_progress_on_reregister()
+	_test_contribute_item_success_and_clamps_to_remaining()
+	_test_contribute_item_fails_unknown_bundle()
+	_test_contribute_item_fails_bundle_not_owning_item()
+	_test_contribute_item_fails_insufficient_inventory_stock()
+	_test_contribute_item_fails_once_bundle_complete()
+	_test_bundle_completion_fires_signal_once()
+	_test_year_three_evaluation_open_ended_is_non_terminal()
+	_test_year_three_evaluation_challenge_mode_pass()
+	_test_year_three_evaluation_challenge_mode_fail_triggers_game_over()
+	_test_community_goal_save_round_trip()
 
 	if _failures.is_empty():
 		print("ALL TESTS PASSED (%d checks)" % _pass_count)
@@ -2457,3 +2473,250 @@ func _test_mining_save_round_trip() -> void:
 	_check(MiningManager.floor_index == floor_before,
 		"floor_index should round-trip through save/load, got %d" % MiningManager.floor_index)
 	_check(not MiningManager.has_rock(tile), "the broken tile's state should round-trip through save/load")
+
+## --- ENG-27: Ultimate-goal structure (Community Goal bundles) ---
+
+func _on_bundle_contribution_added_for_test(bundle_id: String, item_id: String, quantity: int) -> void:
+	_bundle_contribution_events.append([bundle_id, item_id, quantity])
+
+func _on_bundle_completed_for_test(bundle_id: String) -> void:
+	_bundle_completed_events.append(bundle_id)
+
+func _on_year_three_evaluation_for_test(challenge_mode: bool, completed: int, total: int, passed: bool) -> void:
+	_year_three_evaluation_events.append([challenge_mode, completed, total, passed])
+
+func _on_game_over_for_test(reason: String) -> void:
+	_game_over_events.append(reason)
+
+## Resets CommunityGoalManager to a fresh-boot-equivalent state without
+## touching InventoryManager -- individual tests reset InventoryManager
+## themselves via _reset_inventory_manager() when they need clean stock.
+func _reset_community_goal_manager() -> void:
+	CommunityGoalManager.challenge_mode = false
+	CommunityGoalManager._bundles = {}
+	CommunityGoalManager._contributions = {}
+	CommunityGoalManager._completed = {}
+	CommunityGoalManager._evaluation_fired = false
+	CommunityGoalManager._is_game_over = false
+	CommunityGoalManager._register_default_content()
+
+func _test_bundle_registration_preserves_progress_on_reregister() -> void:
+	_reset_community_goal_manager()
+	_reset_inventory_manager()
+	InventoryManager.add_item("parsnip", 5)
+	CommunityGoalManager.contribute_item("pantry_bundle", "parsnip", 2)
+	_check(CommunityGoalManager.contributed_count("pantry_bundle", "parsnip") == 2,
+		"sanity: contribution should be recorded before re-registration")
+
+	CommunityGoalManager.register_bundle(CommunityGoalManager._make_bundle(
+		"pantry_bundle", "Pantry Bundle", {"parsnip": 3, "tomato": 2, "pumpkin": 1}))
+
+	_check(CommunityGoalManager.contributed_count("pantry_bundle", "parsnip") == 2,
+		"re-registering an already-known bundle_id should preserve existing contribution progress, got %d" \
+		% CommunityGoalManager.contributed_count("pantry_bundle", "parsnip"))
+	_check(not CommunityGoalManager.is_bundle_complete("pantry_bundle"),
+		"re-registration should not falsely mark an incomplete bundle complete")
+
+func _test_contribute_item_success_and_clamps_to_remaining() -> void:
+	_reset_community_goal_manager()
+	_reset_inventory_manager()
+	InventoryManager.add_item("parsnip", 10)
+	_bundle_contribution_events = []
+	CommunityGoalManager.bundle_contribution_added.connect(_on_bundle_contribution_added_for_test)
+
+	var ok := CommunityGoalManager.contribute_item("pantry_bundle", "parsnip", 10)
+	CommunityGoalManager.bundle_contribution_added.disconnect(_on_bundle_contribution_added_for_test)
+
+	_check(ok, "contributing to a valid bundle/item should succeed")
+	_check(CommunityGoalManager.contributed_count("pantry_bundle", "parsnip") == 3,
+		"contribution should clamp to the 3 parsnip pantry_bundle actually requires, got %d" \
+		% CommunityGoalManager.contributed_count("pantry_bundle", "parsnip"))
+	_check(InventoryManager.get_count("parsnip") == 7,
+		"only the clamped amount (3) should be removed from inventory, 10 - 3 = 7 expected, got %d" \
+		% InventoryManager.get_count("parsnip"))
+	_check(_bundle_contribution_events.size() == 1 and _bundle_contribution_events[0] == ["pantry_bundle", "parsnip", 3],
+		"bundle_contribution_added should fire once with the clamped quantity, got %s" % [_bundle_contribution_events])
+
+func _test_contribute_item_fails_unknown_bundle() -> void:
+	_reset_community_goal_manager()
+	_reset_inventory_manager()
+	InventoryManager.add_item("parsnip", 5)
+	var ok := CommunityGoalManager.contribute_item("no_such_bundle", "parsnip", 1)
+	_check(not ok, "contributing to an unregistered bundle_id should fail")
+	_check(InventoryManager.get_count("parsnip") == 5,
+		"a failed contribution must not remove anything from inventory")
+
+func _test_contribute_item_fails_bundle_not_owning_item() -> void:
+	_reset_community_goal_manager()
+	_reset_inventory_manager()
+	InventoryManager.add_item("copper_ore", 5)
+	var ok := CommunityGoalManager.contribute_item("pantry_bundle", "copper_ore", 1)
+	_check(not ok, "contributing an item_id the bundle doesn't require should fail")
+	_check(InventoryManager.get_count("copper_ore") == 5,
+		"a failed contribution must not remove anything from inventory")
+
+func _test_contribute_item_fails_insufficient_inventory_stock() -> void:
+	_reset_community_goal_manager()
+	_reset_inventory_manager()
+	InventoryManager.add_item("parsnip", 1)
+	var ok := CommunityGoalManager.contribute_item("pantry_bundle", "parsnip", 3)
+	_check(not ok, "contributing more than InventoryManager actually has should fail")
+	_check(InventoryManager.get_count("parsnip") == 1,
+		"a failed contribution due to insufficient stock must not partially remove inventory, got %d" \
+		% InventoryManager.get_count("parsnip"))
+	_check(CommunityGoalManager.contributed_count("pantry_bundle", "parsnip") == 0,
+		"a failed contribution must not credit any progress")
+
+func _test_contribute_item_fails_once_bundle_complete() -> void:
+	_reset_community_goal_manager()
+	_reset_inventory_manager()
+	InventoryManager.add_item("parsnip", 10)
+	InventoryManager.add_item("tomato", 10)
+	InventoryManager.add_item("pumpkin", 10)
+	CommunityGoalManager.contribute_item("pantry_bundle", "parsnip", 3)
+	CommunityGoalManager.contribute_item("pantry_bundle", "tomato", 2)
+	CommunityGoalManager.contribute_item("pantry_bundle", "pumpkin", 1)
+	_check(CommunityGoalManager.is_bundle_complete("pantry_bundle"), "sanity: bundle should be complete now")
+
+	var ok := CommunityGoalManager.contribute_item("pantry_bundle", "parsnip", 1)
+	_check(not ok, "contributing to an already-complete bundle should fail")
+	_check(InventoryManager.get_count("parsnip") == 7,
+		"a rejected post-completion contribution must not remove anything further from inventory, got %d" \
+		% InventoryManager.get_count("parsnip"))
+
+func _test_bundle_completion_fires_signal_once() -> void:
+	_reset_community_goal_manager()
+	_reset_inventory_manager()
+	InventoryManager.add_item("egg", 10)
+	InventoryManager.add_item("milk", 10)
+	InventoryManager.add_item("wool", 10)
+	_bundle_completed_events = []
+	CommunityGoalManager.bundle_completed.connect(_on_bundle_completed_for_test)
+
+	CommunityGoalManager.contribute_item("coop_bundle", "egg", 3)
+	_check(_bundle_completed_events.is_empty(), "bundle_completed should not fire before every required item is met")
+	CommunityGoalManager.contribute_item("coop_bundle", "milk", 2)
+	CommunityGoalManager.contribute_item("coop_bundle", "wool", 2)
+
+	CommunityGoalManager.bundle_completed.disconnect(_on_bundle_completed_for_test)
+
+	_check(_bundle_completed_events == ["coop_bundle"],
+		"bundle_completed should fire exactly once for coop_bundle once all required items are met, got %s" \
+		% [_bundle_completed_events])
+
+func _test_year_three_evaluation_open_ended_is_non_terminal() -> void:
+	_reset_community_goal_manager()
+	CommunityGoalManager.challenge_mode = false
+	_year_three_evaluation_events = []
+	_game_over_events = []
+	CommunityGoalManager.year_three_evaluation.connect(_on_year_three_evaluation_for_test)
+	CommunityGoalManager.game_over.connect(_on_game_over_for_test)
+
+	CommunityGoalManager._on_day_started(1, "Spring", "Mon")
+	# not year 3 yet -- should be a no-op
+	_check(_year_three_evaluation_events.is_empty(), "day_started before year 3 spring day 1 should not fire the evaluation")
+
+	TimeManager.year = 3
+	CommunityGoalManager._on_day_started(1, "Spring", "Mon")
+
+	CommunityGoalManager.year_three_evaluation.disconnect(_on_year_three_evaluation_for_test)
+	CommunityGoalManager.game_over.disconnect(_on_game_over_for_test)
+	TimeManager.year = 1
+
+	_check(_year_three_evaluation_events.size() == 1 and _year_three_evaluation_events[0][0] == false \
+		and _year_three_evaluation_events[0][3] == true,
+		"open-ended mode (challenge_mode=false) should fire year_three_evaluation as a non-terminal, always-passed beat, got %s" \
+		% [_year_three_evaluation_events])
+	_check(_game_over_events.is_empty(), "open-ended mode should never emit game_over")
+	_check(not CommunityGoalManager.is_game_over(), "open-ended mode should never flip is_game_over()")
+
+func _test_year_three_evaluation_challenge_mode_pass() -> void:
+	_reset_community_goal_manager()
+	_reset_inventory_manager()
+	CommunityGoalManager.challenge_mode = true
+	for bundle_id_and_items in [
+		["pantry_bundle", {"parsnip": 3, "tomato": 2, "pumpkin": 1}],
+		["coop_bundle", {"egg": 3, "milk": 2, "wool": 2}],
+		["fish_tank_bundle", {"carp": 2, "trout": 1, "salmon": 1}],
+		["boiler_room_bundle", {"copper_ore": 5, "iron_ore": 3, "gold_ore": 1}],
+		["forager_bundle", {"wild_berries": 3, "mushroom": 2, "snow_truffle": 1}],
+	]:
+		var bundle_id: String = bundle_id_and_items[0]
+		var items: Dictionary = bundle_id_and_items[1]
+		for item_id in items.keys():
+			var qty: int = items[item_id]
+			InventoryManager.add_item(item_id, qty)
+			CommunityGoalManager.contribute_item(bundle_id, item_id, qty)
+	_check(CommunityGoalManager.all_bundles_completed(), "sanity: every bundle should be complete before the pass-path evaluation")
+
+	_year_three_evaluation_events = []
+	_game_over_events = []
+	CommunityGoalManager.year_three_evaluation.connect(_on_year_three_evaluation_for_test)
+	CommunityGoalManager.game_over.connect(_on_game_over_for_test)
+
+	TimeManager.year = 3
+	CommunityGoalManager._on_day_started(1, "Spring", "Mon")
+
+	CommunityGoalManager.year_three_evaluation.disconnect(_on_year_three_evaluation_for_test)
+	CommunityGoalManager.game_over.disconnect(_on_game_over_for_test)
+	TimeManager.year = 1
+
+	_check(_year_three_evaluation_events.size() == 1 and _year_three_evaluation_events[0][3] == true,
+		"challenge_mode with every bundle complete should evaluate as passed, got %s" % [_year_three_evaluation_events])
+	_check(_game_over_events.is_empty(), "a passing challenge-mode evaluation should not emit game_over")
+	_check(not CommunityGoalManager.is_game_over(), "a passing challenge-mode evaluation should not flip is_game_over()")
+
+func _test_year_three_evaluation_challenge_mode_fail_triggers_game_over() -> void:
+	_reset_community_goal_manager()
+	_reset_inventory_manager()
+	CommunityGoalManager.challenge_mode = true
+	_check(not CommunityGoalManager.all_bundles_completed(), "sanity: no bundles contributed yet, should not be complete")
+
+	_year_three_evaluation_events = []
+	_game_over_events = []
+	CommunityGoalManager.year_three_evaluation.connect(_on_year_three_evaluation_for_test)
+	CommunityGoalManager.game_over.connect(_on_game_over_for_test)
+
+	TimeManager.year = 3
+	CommunityGoalManager._on_day_started(1, "Spring", "Mon")
+
+	CommunityGoalManager.year_three_evaluation.disconnect(_on_year_three_evaluation_for_test)
+	CommunityGoalManager.game_over.disconnect(_on_game_over_for_test)
+	TimeManager.year = 1
+
+	_check(_year_three_evaluation_events.size() == 1 and _year_three_evaluation_events[0][3] == false,
+		"challenge_mode with bundles incomplete should evaluate as failed, got %s" % [_year_three_evaluation_events])
+	_check(_game_over_events.size() == 1,
+		"a failing challenge-mode evaluation should emit game_over exactly once, got %d" % _game_over_events.size())
+	_check(CommunityGoalManager.is_game_over(), "a failing challenge-mode evaluation should flip is_game_over()")
+
+	# evaluation should be a one-shot per save -- firing day_started again on
+	# the same day must not re-evaluate or re-emit game_over.
+	_game_over_events = []
+	CommunityGoalManager.game_over.connect(_on_game_over_for_test)
+	CommunityGoalManager._on_day_started(1, "Spring", "Mon")
+	CommunityGoalManager.game_over.disconnect(_on_game_over_for_test)
+	_check(_game_over_events.is_empty(), "the year-3 evaluation should only ever fire once (_evaluation_fired guard)")
+
+func _test_community_goal_save_round_trip() -> void:
+	_reset_community_goal_manager()
+	_reset_inventory_manager()
+	InventoryManager.add_item("parsnip", 5)
+	CommunityGoalManager.challenge_mode = true
+	CommunityGoalManager.contribute_item("pantry_bundle", "parsnip", 2)
+
+	var saved := SaveManager.build_save_data()
+
+	CommunityGoalManager.challenge_mode = false
+	CommunityGoalManager._contributions = {}
+	CommunityGoalManager._completed = {}
+	_check(CommunityGoalManager.contributed_count("pantry_bundle", "parsnip") == 0,
+		"sanity check: perturbing should clear contributed progress before applying save data")
+
+	SaveManager.apply_save_data(saved)
+
+	_check(CommunityGoalManager.challenge_mode == true,
+		"challenge_mode should round-trip through save/load")
+	_check(CommunityGoalManager.contributed_count("pantry_bundle", "parsnip") == 2,
+		"bundle contribution progress should round-trip through save/load, got %d" \
+		% CommunityGoalManager.contributed_count("pantry_bundle", "parsnip"))
