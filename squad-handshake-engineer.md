@@ -2,30 +2,38 @@
 
 <squad_metadata>
   <squad_name>Engineer-Squad</squad_name>
-  <current_status>IDLE</current_status>
+  <current_status>IDLE_BETWEEN_EPOCHS</current_status>
   <active_task_id>none</active_task_id>
   <sprint_completion_percentage>100</sprint_completion_percentage>
 </squad_metadata>
 
 ## Current Focus
-Epoch 14 settled: ENG-24 (Infrastructure Upgrades, PR #50), ENG-20
+Epoch 14 (this session): ENG-24 (Infrastructure Upgrades, PR #50), ENG-20
 (Marriage & Family, PR #49), ENG-21 (Festivals, PR #48) all shipped by
-three parallel Backend subagents this session, plus ENG-16 (Mining,
-PR #47) shipped concurrently by Session B — the mid-epoch dispatch of
-all three hit an infra-level API session-limit error partway through
-(unrelated to the code; reset at 4am UTC) and was cleanly re-dispatched
-fresh after the reset with no work lost (nothing had been pushed).
-Verified all four merges independently against the real engine at each
-step; final state after resolving three rounds of expected shared-file
-merge conflicts (project.godot/save_manager.gd/test_runner.gd, per
-SQUAD-SPLIT.md's documented pattern) is 444/444 tests passing, clean
-smoke boot. Claimed all issues via GitHub comments before dispatch,
-checking for concurrent claims each time — no collisions this epoch.
+three parallel Backend subagents — the mid-epoch dispatch hit an
+infra-level API session-limit error partway through (unrelated to the
+code; reset at 4am UTC) and was cleanly re-dispatched fresh after the
+reset with no work lost (nothing had been pushed). Verified each merge
+independently against the real engine, resolving three rounds of
+expected shared-file conflicts (project.godot/save_manager.gd/
+test_runner.gd, per SQUAD-SPLIT.md's pattern).
 
-Only ENG-27 (Ultimate-goal structure) remains as unclaimed backend leaf
-work; #8/#9/#10/#11 are epic trackers, #1 is the process doc. A QA-Tester
-squad from the concurrent session has also become active (see
-squad-handshake-qa.md, "QA epoch 1" — retroactive review of merged PRs).
+Epoch 15 (concurrent session): ENG-27 (Ultimate-goal structure) shipped
+as PR #51 — CommunityGoalManager (Community-Center-style bundle/
+collection goal pulling real item_ids from every activity system) + a
+year-3 evaluation that's non-terminal by default and pass/fail-with-
+game_over only under challenge_mode, per Decision A. 438/438 tests
+passed on their end post-merge.
+
+**Backend leaf-task backlog is now fully DONE**: ENG-13/14/15/16/17 (five
+activity systems), ENG-18/19 (NPC routines/relationships), ENG-20
+(Marriage), ENG-21 (Festivals), ENG-22 (Shipping bin), ENG-23 (Tool
+upgrades), ENG-24 (Infrastructure), ENG-25 (Skills), ENG-26 (Opening
+hook), ENG-27 (Ultimate goal), ENG-31 (Quests). A QA-Tester squad from
+the concurrent session has also become active (see squad-handshake-qa.md
+— retroactive review of merged PRs). Next epoch: run Step 0 issue
+discovery against GitHub for anything not yet represented here before
+assuming the backend backlog is empty.
 
 ## Prior epoch (12/13, settled): ENG-14 (Ranching, PR #43), ENG-17 (Foraging,
 PR #44), and ENG-15 (Fishing, PR #45 — this session/"Session B") all
@@ -56,6 +64,11 @@ Idle between epochs — next pull should be one of the now-unblocked tasks
 below.
 
 ## Recent Commits / PRs
+* PR #51 (merged, this session): ENG-27 — CommunityGoalManager/
+  BundleDefinition: Community-Center-style bundle/collection goal reusing
+  real item_ids from every activity system, contribute_item() pulling
+  from InventoryManager with clamping, and a year-3 evaluation
+  (non-terminal by default, pass/fail + game_over under challenge_mode).
 * PR #47 (merged, this session as Session B): ENG-16 — MiningManager/
   OreDefinition (procedural 5x5 floors, rock-breaking, ore/gem gathering,
   ladder descent). Reuses ToolManager's iron_ore/gold_ore item ids.
@@ -103,16 +116,11 @@ below.
   floors, rock-breaking, ore/gem gathering, ladder descent.
 
 ## Blockers & QA Failures
-None currently blocking. Sequencing notes for the next pull:
-- ENG-13/14/15/16/17 (the full five-activity set), ENG-19/20 (Relationship
-  + Marriage), ENG-18/21 (NPC Routines + Festivals), ENG-22/23/24/25/31
-  (economy: shipping, tools, infrastructure, skills, quests) are all DONE.
-- ENG-27 (Ultimate-goal structure) is READY_FOR_PM and the only remaining
-  backend leaf task with no active claim — check for a claim comment on
-  #27 immediately before picking it up, same discipline used all epoch.
-- Once #27 lands, every original leaf issue from the design doc's six
-  decisions is DONE — remaining scope, if any, would come from newly
-  filed issues or NEEDS_OWNER_REVIEW items, not the existing backlog.
+None currently blocking. All known backend leaf tasks (ENG-13 through
+ENG-27, ENG-31) are shipped as of PR #51. Next epoch's job is Step 0
+issue discovery on GitHub — check for any new issue opened since this
+update (frontend polish, cross-squad integration work, or a genuinely new
+system) before declaring the backlog empty.
 
 ## Cross-Squad Requests
 * No WeatherManager exists yet, but NPCSchedule has a weather field ready
