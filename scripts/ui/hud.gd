@@ -17,9 +17,6 @@ class_name HUD
 ## binding logic below.
 ##
 ## Content gaps, called out rather than fabricated:
-## - Weather isn't tracked by any backend system yet (no WeatherManager
-##   exists), so the top-left cluster only shows date/season, not weather,
-##   even though the spec's §2 diagram lists it.
 ## - The hotbar has no real item-slot binding: InventoryManager is a plain
 ##   item_id -> count ledger with no "assigned to hotbar slot N" concept and
 ##   no item metadata (icon/display name). §4 leaves slot count as an open
@@ -29,7 +26,8 @@ class_name HUD
 
 const HOTBAR_SLOT_COUNT := 8
 
-@onready var _date_label: Label = $TopBar/DateCluster/DateLabel
+@onready var _date_label: Label = $TopBar/DateCluster/Row/DateLabel
+@onready var _weather_label: Label = $TopBar/DateCluster/Row/WeatherLabel
 @onready var _gold_label: Label = $TopBar/GoldClockCluster/GoldLabel
 @onready var _clock_label: Label = $TopBar/GoldClockCluster/ClockLabel
 @onready var _stamina_bar: ProgressBar = $BottomBar/StaminaCluster/StaminaBar
@@ -42,6 +40,7 @@ func _ready() -> void:
 	TimeManager.day_started.connect(_on_day_started)
 	StaminaManager.stamina_changed.connect(_on_stamina_changed)
 	ShippingBinManager.gold_changed.connect(_on_gold_changed)
+	WeatherManager.weather_changed.connect(_on_weather_changed)
 
 	# Prime every cluster with current state immediately -- don't wait for
 	# the first signal fire after the HUD enters the tree, or the player
@@ -50,6 +49,7 @@ func _ready() -> void:
 	_refresh_date()
 	_on_stamina_changed(StaminaManager.current_stamina, StaminaManager.max_stamina)
 	_on_gold_changed(ShippingBinManager.gold)
+	_on_weather_changed(WeatherManager.get_current_weather())
 
 func _build_hotbar_placeholder() -> void:
 	for i in range(HOTBAR_SLOT_COUNT):
@@ -76,6 +76,9 @@ func _on_minute_passed(_hour: int, _minute: int) -> void:
 
 func _on_day_started(_day_in_season: int, _season: String, _day_of_week: String) -> void:
 	_refresh_date()
+
+func _on_weather_changed(weather: String) -> void:
+	_weather_label.text = weather
 
 func _refresh_clock() -> void:
 	_clock_label.text = format_clock(TimeManager.hour, TimeManager.minute)

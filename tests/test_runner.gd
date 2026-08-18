@@ -162,6 +162,8 @@ func _ready() -> void:
 	_test_hud_stamina_bar_updates_on_signal()
 	_test_hud_clock_label_updates_on_minute_passed()
 	_test_hud_initial_state_reflects_current_backend_values()
+	_test_hud_weather_label_primed_on_ready()
+	_test_hud_weather_label_updates_on_signal()
 
 	_test_pause_menu_open_and_close_toggle_state()
 	_test_pause_menu_freezes_and_unfreezes_time_manager()
@@ -1875,6 +1877,22 @@ func _test_hud_initial_state_reflects_current_backend_values() -> void:
 		"gold label should be primed from current ShippingBinManager.gold on _ready(), got '%s'" % hud.get_node("TopBar/GoldClockCluster/GoldLabel").text)
 	var bar: ProgressBar = hud.get_node("BottomBar/StaminaCluster/StaminaBar")
 	_check(bar.value == 55, "stamina bar should be primed from current StaminaManager.current_stamina on _ready(), got %s" % bar.value)
+	hud.queue_free()
+
+func _test_hud_weather_label_primed_on_ready() -> void:
+	var hud := _make_hud() # _ready() should prime the label from WeatherManager.get_current_weather(), not wait for a signal
+	_check(hud.get_node("TopBar/DateCluster/Row/WeatherLabel").text == WeatherManager.get_current_weather(),
+		"weather label should be primed from current WeatherManager.get_current_weather() on _ready(), got '%s'" % hud.get_node("TopBar/DateCluster/Row/WeatherLabel").text)
+	hud.queue_free()
+
+func _test_hud_weather_label_updates_on_signal() -> void:
+	var hud := _make_hud()
+	WeatherManager.weather_changed.emit("Rainy")
+	_check(hud.get_node("TopBar/DateCluster/Row/WeatherLabel").text == "Rainy",
+		"weather label should update when weather_changed fires, got '%s'" % hud.get_node("TopBar/DateCluster/Row/WeatherLabel").text)
+	WeatherManager.weather_changed.emit("Sunny")
+	_check(hud.get_node("TopBar/DateCluster/Row/WeatherLabel").text == "Sunny",
+		"weather label should update again on a second weather_changed emission, got '%s'" % hud.get_node("TopBar/DateCluster/Row/WeatherLabel").text)
 	hud.queue_free()
 
 ## --- Frontend: Pause menu + Inventory overlay (menu-hud-flow-spec.md §1/§3) ---
