@@ -1225,3 +1225,32 @@ either, so the remote branches remain as harmless merged-and-stale refs).
     Festivals/Community-Goal.
   </description>
 </task_item>
+
+<task_item>
+  <id>FRONTEND-MAP-OVERLAY-WORLD-NAV</id>
+  <status>DONE</status>
+  <description>
+    New scenes/ui/MapOverlay.tscn + scripts/ui/map_overlay.gd: fills the
+    pause menu's "Map" gap, disabled since PR #54. Also fixed a real
+    integration gap found while starting this: RanchScene/ForageScene/
+    MineScene (this epoch's earlier PRs #64/#65/#66) were never wired
+    into main_controller.gd's boot flow the way FarmScene was -- tested,
+    working .tscn files nobody could actually reach while playing.
+    main_controller.gd now owns one active world scene, swapped via a
+    new travel_to(location) (free(), not queue_free(), immediate swap)
+    the Map overlay drives through PauseMenu's own forwarded
+    travel_requested signal (closes the whole menu on travel). Added
+    class_name MainController (previously untested). PR:
+    gritui/story-of-country-side#70 (base:
+    claude/farming-game-pm-requirements-w9ugtk). 783/783 tests pass
+    against the real Godot 4.3 engine headless (16 new), clean smoke
+    boot against the real Main.tscn boot flow. Self-merged per standing
+    authorization.
+
+    Remaining per #52: Settings full-screen overlay (blocked on a
+    backend settings system that doesn't exist), and scenes for
+    Fishing/Festivals (mini-game contracts, genuinely design-open) and
+    Community Goal (blocked on a Cross-Squad Request -- see
+    squad-handshake-frontend.md).
+  </description>
+</task_item>

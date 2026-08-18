@@ -128,6 +128,28 @@ Remaining per #52: Map/Settings full-screen overlays (blocked on a
 backend system), and scenes for Fishing (mini-game contract),
 Festivals/Community-Goal.
 
+Shipped an eighth sub-scope same epoch: real Map overlay + world-scene
+location switching (`scenes/ui/MapOverlay.tscn` +
+`scripts/ui/map_overlay.gd`), via PR #70 (squash-merged). Fills the
+pause menu's last remaining unimplemented spec item. While starting
+this, found that RanchScene/ForageScene/MineScene (this epoch's earlier
+PRs #64/#65/#66) were never wired into main_controller.gd's boot flow
+the way FarmScene was -- they existed as tested, working .tscn files
+nobody could actually reach while playing. Fixed as part of this same
+PR: main_controller.gd now owns one active world scene, swapped via a
+new travel_to(location) the Map overlay drives (through PauseMenu's own
+forwarded travel_requested signal, closing the whole menu on travel).
+Also added class_name MainController (previously untested) so the boot
+flow itself is now covered. 783/783 tests pass (16 new), clean smoke
+boot against the real Main.tscn flow. Self-merged per standing
+authorization.
+
+Remaining per #52: Settings full-screen overlay (blocked on a backend
+settings system that doesn't exist), and scenes for Fishing/Festivals
+(both mini-game contracts, genuinely design-open per their own
+managers' "input/skill-check design TBD" disclosures) and Community
+Goal (blocked -- see this epoch's Cross-Squad Request below).
+
 ## Epoch 20 note (this session, PM/Backend, log sync only)
 This file was stale as of epoch 20 — Epoch 18's FarmScene sub-scope had
 already shipped and merged (PR #57, squash-merged, 508/508 tests passing
@@ -188,6 +210,10 @@ InventoryManager has no hotbar-slot/item-metadata concept yet (hotbar
 ships as an empty 8-slot placeholder strip, not a real item binding).
 
 ## Recent Commits / PRs
+* PR #70 (merged, this session): Frontend — real Map overlay +
+  world-scene location switching (scenes/ui/MapOverlay.tscn,
+  scripts/ui/map_overlay.gd, main_controller.gd travel_to(),
+  pause_menu.gd wiring).
 * PR #69 (merged, this session): Frontend — Infrastructure Upgrades
   overlay (scenes/ui/InfrastructureOverlay.tscn,
   scripts/ui/infrastructure_overlay.gd, pause_menu.gd wiring).
@@ -237,3 +263,20 @@ None. Nothing structural blocks a first HUD/menu scene implementation.
   they commit. A getter like get_house_tier_definition(tier_index) /
   get_machine_recipe(machine_type) returning the InfrastructureTier/
   ArtisanMachineRecipe Resource (or its relevant fields) would close this.
+* To Backend squad (epoch 24): CommunityGoalManager has no public getter
+  to enumerate registered bundle_ids or read a bundle's title/
+  required_items composition -- only per-bundle-id/item-id queries
+  (is_bundle_complete(bundle_id), contributed_count(bundle_id, item_id))
+  that require already knowing which bundle_ids and item_ids exist, plus
+  aggregate counts (bundles_completed_count()/bundles_total_count()).
+  This blocks a real Community Goal contribution UI against
+  contribute_item(): hardcoding all 10 bundles' title/required_items from
+  _register_default_content() into frontend code was considered and
+  rejected -- unlike the small, stable lists SkillsOverlay/
+  InfrastructureOverlay hardcode (4 skill names, 3 machine types),
+  bundle contents are exactly the kind of thing Content-Squad actively
+  retunes (see backlog-inbox.md's CONTENT-COMMUNITY-GOAL-BUNDLES entry),
+  so a frontend-side copy would silently drift stale after any content
+  edit. A getter like list_bundle_ids() + get_bundle_definition(bundle_id)
+  returning the BundleDefinition (or bundle_id/title/required_items)
+  would unblock this sub-scope.
