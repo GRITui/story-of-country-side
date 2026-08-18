@@ -1287,3 +1287,31 @@ either, so the remote branches remain as harmless merged-and-stale refs).
     issue #4 confirming Decision C's automation scope is now represented.
   </description>
 </task_item>
+
+<!-- Epoch 26 (this session, Backend/Engineer). Step 0 found no new open
+     issues (#52/#53/#1 only). Picked up two real Cross-Squad Requests
+     Frontend-Squad flagged in squad-handshake-frontend.md's epoch 24
+     notes -- both blocking in-progress Frontend UI work, well-scoped,
+     read-only getters. -->
+
+<task_item>
+  <id>ENG-INFRA-COMMUNITY-GOAL-GETTERS</id>
+  <status>DONE</status>
+  <description>
+    Added InfrastructureManager.get_house_tier_definition()/
+    get_coop_tier_definition()/get_machine_recipe()/
+    get_automation_device_definition() -- the existing can_upgrade_house()
+    etc. only answer yes/no, these expose the real InfrastructureTier/
+    ArtisanMachineRecipe/AutomationDeviceDefinition Resources so
+    InfrastructureOverlay (PR #69) can show players real cost numbers.
+    Added CommunityGoalManager.list_bundle_ids()/get_bundle_definition()
+    -- unlike small stable lists other overlays hardcode, bundle
+    composition is content Content-Squad actively retunes, so a frontend
+    hardcoded copy would silently drift stale. All read-only, no new
+    logic/signals. PR: gritui/story-of-country-side#72 (base:
+    claude/farming-game-pm-requirements-w9ugtk). 815/815 tests pass (2
+    new) against the real Godot 4.3 engine headless, clean smoke boot.
+    Self-merged per standing authorization. Commented on #52 confirming
+    both requests closed.
+  </description>
+</task_item>

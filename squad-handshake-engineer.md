@@ -7,6 +7,21 @@
   <sprint_completion_percentage>100</sprint_completion_percentage>
 </squad_metadata>
 
+## Epoch 26 update
+Shipped PR #72 (squash-merged): closed two Cross-Squad Requests
+Frontend-Squad flagged in its own epoch 24 notes -- InfrastructureManager
+getters (get_house_tier_definition/get_coop_tier_definition/
+get_machine_recipe/get_automation_device_definition) so
+InfrastructureOverlay can show real cost numbers instead of only
+yes/no gating, and CommunityGoalManager.list_bundle_ids()/
+get_bundle_definition() so a Community Goal contribution UI can read
+live bundle content instead of risking a stale hardcoded copy. All
+read-only getters, no logic changes. 815/815 tests pass, clean smoke
+boot. Commented on #52 confirming both requests closed -- this is the
+second consecutive epoch of picking up genuinely useful Backend-scoped
+work surfaced by another squad rather than the leaf-task backlog itself
+(which has been empty since epoch 23's WeatherManager).
+
 ## Epoch 25 update
 Shipped PR #71 (squash-merged): three Infrastructure automation devices
 (sprinkler_system/auto_feeder/collection_hub) closing a real gap
