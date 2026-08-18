@@ -8,6 +8,74 @@ same `<id>`.
 
 <!-- Seed epoch: Researcher-Squad, run 1 -->
 
+## Epoch 11 update: ENG-13 + ENG-26 shipped in parallel — InventoryManager gap closed
+
+<task_item>
+  <id>ENG-13</id>
+  <status>DONE</status>
+  <description>
+    Merged via PR #42 (base claude/farming-game-pm-requirements-w9ugtk).
+    FarmPlotManager (plant/water/harvest, season validity, day-clock-driven
+    growth, regrowth, season-end withering) + CropDefinition/FarmPlot
+    content types in scripts/farming/. Also ships the general-purpose
+    InventoryManager autoload flagged as a gap in ENG-23's PR (#23) --
+    item_id -> quantity ledger, add_item/remove_item/get_count/has_item/
+    sell_item(forwards to ShippingBinManager.ship_item)/item_changed
+    signal/to_save_dict/from_save_dict. Deliberately generalized beyond
+    crops so Ranching/Fishing/Mining/Foraging (#14/#15/#16/#17) consume
+    this same interface next epoch instead of forking their own.
+    Placeholder crop content: Parsnip (Spring, 4d, 35g), Tomato (Summer,
+    5d/3d regrow, 45g), Pumpkin (Fall, 7d, 120g); quality tiers normal/
+    silver/gold at 1x/1.25x/1.5x sell price, 70/20/10 roll odds (SDV
+    precedent) -- documented as placeholder, not final balance. Verified
+    independently against the real merged state: 208/208 checks pass.
+    Issue #13 closed.
+  </description>
+</task_item>
+<task_item>
+  <id>ENG-26</id>
+  <status>DONE</status>
+  <description>
+    Merged via PR #41 (squash, base claude/farming-game-pm-requirements-w9ugtk).
+    IntroSequence (linear data-driven narration controller, freezes
+    TimeManager during playback) + scenes/intro/IntroSequence.tscn +
+    main_controller.gd (minimal boot-time new-game entry point -- no real
+    title screen exists yet, this is a stand-in per the issue's own scope
+    note). SaveManager gained the repo's first real disk persistence
+    (new_game()/save_game()/load_game(), user://savegame.json) plus
+    intro_seen tracking. Placeholder 6-line narration, clearly marked for
+    a writer to replace. Starting resources deliberately limited to what
+    ShippingBinManager/ToolManager already track (500 gold, free Copper
+    tools) -- a fuller starting-inventory grant is a documented follow-up
+    now that InventoryManager exists. Issue #26 closed.
+  </description>
+</task_item>
+
+<!-- Coordination note: dispatched as two parallel Engineer-Squad
+     subagents on isolated worktree branches (feature/eng-13-agriculture,
+     feature/eng-26-opening-hook), chosen because they touch disjoint
+     primary systems (crop/inventory logic vs. intro scene/save
+     persistence). Both PRs opened within the same minute and both
+     touched scripts/autoload/save_manager.gd + tests/test_runner.gd
+     (SaveManager growing two independent extensions at once, plus two
+     independent blocks of new tests appended to the same file) --
+     PR #41 merged clean; PR #42 then showed a real (expected, additive)
+     merge conflict against the now-moved base. While resolving that
+     conflict locally to verify-then-merge it myself, a concurrent
+     process/session resolved the same conflict (identical default
+     merge-commit message, i.e. a plain `git merge --no-edit`) and merged
+     PR #42 first, mid-resolution on my end. Did not overwrite anything --
+     abandoned my in-progress local resolution once I saw the merge had
+     already landed, and independently re-verified the actual merged
+     result on the base branch (not trusting either side's or my own
+     unverified fix): 208/208 checks pass, clean smoke boot. No content
+     was lost or duplicated in the real merge. -->
+
+<!-- Step 0 discovery this epoch: 15 open issues, all represented in this
+     ledger already (no new GitHub issues found). No open PRs left after
+     merging #41/#42. -->
+
+
 ## PM Decisions (Researcher squad backlog)
 
 <task_item>

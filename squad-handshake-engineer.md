@@ -2,29 +2,31 @@
 
 <squad_metadata>
   <squad_name>Engineer-Squad</squad_name>
-  <current_status>IN_PROGRESS</current_status>
-  <active_task_id>ENG-13,ENG-26</active_task_id>
-  <sprint_completion_percentage>50</sprint_completion_percentage>
+  <current_status>IDLE</current_status>
+  <active_task_id>none</active_task_id>
+  <sprint_completion_percentage>100</sprint_completion_percentage>
 </squad_metadata>
 
 ## Current Focus
-Epoch 11: dispatched ENG-13 (Agriculture) and ENG-26 (Opening hook / intro
-sequence) as parallel Engineer-Squad subagents, each on its own worktree
-branch (feature/eng-13-agriculture, feature/eng-26-opening-hook). Chosen
-as parallel-safe because they touch disjoint files/systems: ENG-13 owns
-crop/tile logic plus the new InventoryManager autoload; ENG-26 owns a new
-intro scene/sequence and only reads existing autoloads (SaveManager,
-ShippingBinManager, ToolManager). ENG-13 was picked over the other four
-leaf activities (14/15/16/17) specifically because it's the natural place
-to introduce the general InventoryManager gap flagged in ENG-23's PR —
-building it here first (deliberately generalized, not crops-only) means
-Ranching/Fishing/Mining/Foraging can consume one settled interface next
-epoch instead of each inventing their own. ENG-24 (Infrastructure
-Upgrades) was deliberately NOT run in parallel this epoch since it also
-touches crafted/processed items and risks a second competing inventory
-design before ENG-13's lands.
+ENG-13 (Agriculture) and ENG-26 (Opening hook) both shipped this epoch —
+PR #42 and PR #41, 208/208 tests pass (independently re-verified against
+the real merged base branch). InventoryManager now exists
+(scripts/autoload/inventory_manager.gd) as a general item_id->quantity
+ledger — Ranching/Fishing/Mining/Foraging should consume it directly
+rather than invent their own. SaveManager gained real disk persistence
+(user://savegame.json) via ENG-26. Both PRs touched save_manager.gd and
+test_runner.gd concurrently (expected, additive — SaveManager growing two
+independent extensions); resolved as a real merge conflict, see
+backlog-inbox.md's Epoch 11 coordination note for how that was
+reconciled with a concurrent session that merged PR #42 mid-resolution.
+Idle between epochs — next pull should be one of the now-unblocked tasks
+below.
 
 ## Recent Commits / PRs
+* PR #41 (merged): ENG-26 — Opening hook intro sequence, SaveManager
+  disk persistence (new_game/save_game/load_game).
+* PR #42 (merged): ENG-13 — Agriculture (FarmPlotManager/CropDefinition/
+  FarmPlot) + general InventoryManager autoload.
 * PR #32 (merged): ENG-12 — Godot project bootstrap, TimeManager/
   StaminaManager/SaveManager autoloads.
 * PR #33 (merged): ENG-18 — NPCScheduleEntry/NPCSchedule + NPCController.
@@ -42,21 +44,23 @@ design before ENG-13's lands.
 
 ## Blockers & QA Failures
 None currently blocking. Sequencing notes for the next pull:
+- ENG-14/15/16/17 (Ranching/Fishing/Mining/Foraging) now have zero
+  structural blockers AND a settled InventoryManager to consume
+  (add_item/remove_item/get_count/has_item/sell_item) — should call that
+  directly instead of forking their own ledger. These four are good
+  parallel-dispatch candidates next epoch since they touch disjoint
+  activity-specific files, but each one will likely touch
+  SkillManager.add_xp calls and possibly InventoryManager usage patterns
+  in similar ways — keep an eye on whether any two land real code in the
+  same shared file (e.g. if any needs a shared "gathering node" scene
+  pattern) and serialize those specifically.
 - ENG-24 (Infrastructure Upgrades) is READY_FOR_PM — THIS is where
   Decision C's quest-gating actually belongs (sprinklers, auto-feeders,
   collection hub behind QuestManager.is_unlocked(flag)), per ENG-23's own
   PR discussion. Needs actual QuestDefinition content chosen and
-  documented, same as ENG-23/ENG-31 did.
-- ENG-13/14/15/16/17 (Agriculture/Ranching/Fishing/Mining/Foraging) have
-  zero structural blockers left (TimeManager, SkillManager, UX-GRID all
-  shipped) and can now also consume ToolManager.get_aoe_offsets()/
-  get_stamina_cost() for tool-use actions.
-- ENG-20 (Marriage), ENG-21 (Festivals), ENG-26 (intro hook) remain
-  READY_FOR_PM, untouched.
-- No general InventoryManager exists anywhere (flagged in #40) — whoever
-  builds the first activity that produces real items (#13/#16/#17) will
-  hit this gap directly; ToolManager's local ore ledger is not meant to
-  generalize into one.
+  documented, same as ENG-23/ENG-31 did. Can now also consume
+  InventoryManager for artisan-processed goods (mayonnaise, wine, etc.).
+- ENG-20 (Marriage), ENG-21 (Festivals) remain READY_FOR_PM, untouched.
 
 ## Cross-Squad Requests
 * No WeatherManager exists yet, but NPCSchedule has a weather field ready
