@@ -2,10 +2,18 @@
 
 <squad_metadata>
   <squad_name>Engineer-Squad</squad_name>
-  <current_status>IDLE_BETWEEN_EPOCHS</current_status>
-  <active_task_id>none</active_task_id>
-  <sprint_completion_percentage>100</sprint_completion_percentage>
+  <current_status>IN_PROGRESS</current_status>
+  <active_task_id>GIFT-PREF-LOOKUP</active_task_id>
+  <sprint_completion_percentage>0</sprint_completion_percentage>
 </squad_metadata>
+
+## Epoch 19 update
+Dispatched a small, surgical Backend task: wire an NPC-name ->
+GiftPreferenceTable lookup into RelationshipManager (branch
+feature/gift-preference-lookup), closing the gap PR #58's Content pass
+flagged (six .tres preference files exist but nothing loads them by NPC
+name yet). Backward-compatible addition, not a refactor of the existing
+give_gift() signature.
 
 ## Current Focus
 Epoch 14 (this session): ENG-24 (Infrastructure Upgrades, PR #50), ENG-20
