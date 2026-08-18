@@ -7,6 +7,17 @@
   <sprint_completion_percentage>100</sprint_completion_percentage>
 </squad_metadata>
 
+## Epoch 21 note (this session, PM/Backend)
+Repo owner asked to let the dedicated Content-Squad work Content, rather
+than this session (Backend/PM) picking up Content-lane sub-scopes as it
+did in epochs 17/20 (Marriage roster PR #55, Community Goal bundles
+PR #60). Released the remaining Festival/Infrastructure sub-scope claim
+on issue #53 back to Content-Squad. This session goes back to pure
+Backend/PM duties: Step 0 discovery, sequencing, unblocking, and any
+genuinely Backend/logic work (like PR #59's gift-preference lookup below)
+— not Content-lane value/string work, even when the backend leaf-task
+backlog is empty.
+
 ## Epoch 19 update
 Shipped a small, surgical Backend task via PR #59 (squash-merged):
 `RelationshipManager.give_gift_by_npc_name(npc_name, item_id) -> bool`
