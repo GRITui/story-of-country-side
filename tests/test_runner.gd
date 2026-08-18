@@ -2921,6 +2921,11 @@ func _test_year_three_evaluation_challenge_mode_pass() -> void:
 		["fish_tank_bundle", {"carp": 2, "trout": 1, "salmon": 1}],
 		["boiler_room_bundle", {"copper_ore": 5, "iron_ore": 3, "gold_ore": 1}],
 		["forager_bundle", {"wild_berries": 3, "mushroom": 2, "snow_truffle": 1}],
+		["orchard_bundle", {"melon": 2, "corn": 3, "cauliflower": 2}],
+		["deluxe_coop_bundle", {"duck_egg": 3, "goat_milk": 2}],
+		["night_anglers_bundle", {"bream": 2, "bass": 2, "eel": 1}],
+		["forager_reserve_bundle", {"spring_onion": 3, "sweet_pea": 3, "hazelnut": 2, "winter_root": 2}],
+		["vault_bundle", {"diamond": 3}],
 	]:
 		var bundle_id: String = bundle_id_and_items[0]
 		var items: Dictionary = bundle_id_and_items[1]
