@@ -43,6 +43,7 @@ var _bundle_contribution_events: Array = [] ## Array[Array] of [bundle_id, item_
 var _bundle_completed_events: Array = [] ## Array[String] of bundle_id, same reason
 var _year_three_evaluation_events: Array = [] ## Array[Array] of [challenge_mode, completed, total, passed], same reason
 var _game_over_events: Array = [] ## Array[String] of reason, same reason
+var _inventory_overlay_closed_count := 0 ## member, not a local -- GDScript lambdas capture locals by value
 
 func _ready() -> void:
 	_test_minute_and_hour_wrap()
@@ -158,6 +159,17 @@ func _ready() -> void:
 	_test_hud_stamina_bar_updates_on_signal()
 	_test_hud_clock_label_updates_on_minute_passed()
 	_test_hud_initial_state_reflects_current_backend_values()
+
+	_test_pause_menu_open_and_close_toggle_state()
+	_test_pause_menu_freezes_and_unfreezes_time_manager()
+	_test_pause_menu_resume_button_closes_and_unfreezes()
+	_test_pause_menu_inventory_button_shows_overlay_and_hides_menu_panel()
+	_test_pause_menu_still_frozen_while_inventory_overlay_open()
+	_test_inventory_overlay_lists_current_items_on_ready()
+	_test_inventory_overlay_updates_reactively_on_item_changed()
+	_test_inventory_overlay_removes_row_when_item_reaches_zero()
+	_test_inventory_overlay_close_emits_closed_signal()
+
 	_test_available_fish_filters_by_location_season_hour()
 	_test_available_fish_sorted_and_ignores_unregistered()
 	_test_attempt_catch_unregistered_fish_returns_empty()
@@ -1817,6 +1829,124 @@ func _test_hud_initial_state_reflects_current_backend_values() -> void:
 	var bar: ProgressBar = hud.get_node("BottomBar/StaminaCluster/StaminaBar")
 	_check(bar.value == 55, "stamina bar should be primed from current StaminaManager.current_stamina on _ready(), got %s" % bar.value)
 	hud.queue_free()
+
+## --- Frontend: Pause menu + Inventory overlay (menu-hud-flow-spec.md §1/§3) ---
+##
+## Same discipline as the HUD block above: what's asserted here is signal
+## wiring, freeze/unfreeze pairing, and reactive label state -- exact
+## layout/visuals can only be verified by looking at a running scene (see
+## pause_menu.gd / inventory_overlay.gd docstrings for the content gaps).
+
+func _make_pause_menu() -> PauseMenu:
+	var scene: PackedScene = load("res://scenes/ui/PauseMenu.tscn")
+	var menu: PauseMenu = scene.instantiate()
+	add_child(menu)
+	return menu
+
+func _make_inventory_overlay() -> InventoryOverlay:
+	var scene: PackedScene = load("res://scenes/ui/InventoryOverlay.tscn")
+	var overlay: InventoryOverlay = scene.instantiate()
+	add_child(overlay)
+	return overlay
+
+## The ui_cancel input binding itself (_unhandled_input) isn't exercised
+## here -- simulating a real input event headlessly through the viewport is
+## not meaningfully testable this way; this only asserts the open()/close()
+## API surface that _unhandled_input calls into. Verifying Escape actually
+## toggles the menu requires looking at a running scene.
+func _test_pause_menu_open_and_close_toggle_state() -> void:
+	var menu := _make_pause_menu()
+	_check(not menu.is_open(), "pause menu should start closed")
+	menu.open()
+	_check(menu.is_open(), "open() should mark the menu open")
+	menu.close()
+	_check(not menu.is_open(), "close() should mark the menu closed")
+	menu.queue_free()
+
+func _test_pause_menu_freezes_and_unfreezes_time_manager() -> void:
+	TimeManager.unfreeze(PauseMenu.PAUSE_REASON) # in case a prior failing test left this set
+	var menu := _make_pause_menu()
+	menu.open()
+	_check(TimeManager.is_frozen(), "opening the pause menu should freeze TimeManager")
+	menu.close()
+	_check(not TimeManager.is_frozen(), "closing the pause menu should unfreeze TimeManager")
+	menu.queue_free()
+
+func _test_pause_menu_resume_button_closes_and_unfreezes() -> void:
+	TimeManager.unfreeze(PauseMenu.PAUSE_REASON)
+	var menu := _make_pause_menu()
+	menu.open()
+	menu.get_node("Root/MenuPanel/Margin/VBox/ResumeButton").pressed.emit()
+	_check(not menu.is_open(), "Resume button should close the pause menu")
+	_check(not TimeManager.is_frozen(), "Resume button should unfreeze TimeManager")
+	menu.queue_free()
+
+func _test_pause_menu_inventory_button_shows_overlay_and_hides_menu_panel() -> void:
+	TimeManager.unfreeze(PauseMenu.PAUSE_REASON)
+	var menu := _make_pause_menu()
+	menu.open()
+	menu.get_node("Root/MenuPanel/Margin/VBox/InventoryButton").pressed.emit()
+	_check(not menu.get_node("Root/MenuPanel").visible,
+		"opening Inventory should hide the main pause menu panel")
+	_check(menu.get_node("InventoryOverlay") != null,
+		"opening Inventory should instantiate the InventoryOverlay as a child")
+	menu.close()
+	menu.queue_free()
+
+func _test_pause_menu_still_frozen_while_inventory_overlay_open() -> void:
+	TimeManager.unfreeze(PauseMenu.PAUSE_REASON)
+	var menu := _make_pause_menu()
+	menu.open()
+	menu.get_node("Root/MenuPanel/Margin/VBox/InventoryButton").pressed.emit()
+	_check(TimeManager.is_frozen(),
+		"TimeManager should stay frozen while the Inventory overlay is open (single pause-reason)")
+	menu.close()
+	_check(not TimeManager.is_frozen(), "closing from within the Inventory overlay should still fully unfreeze")
+	menu.queue_free()
+
+func _test_inventory_overlay_lists_current_items_on_ready() -> void:
+	_reset_inventory_manager()
+	InventoryManager.add_item("parsnip", 3)
+	InventoryManager.add_item("egg", 2)
+	var overlay := _make_inventory_overlay() # _ready() should prime from current InventoryManager state
+	_check(overlay.get_node("Root/Panel/Margin/VBox/ItemList/Item_parsnip").text == "parsnip  x3",
+		"overlay should list parsnip x3 primed from current state")
+	_check(overlay.get_node("Root/Panel/Margin/VBox/ItemList/Item_egg").text == "egg  x2",
+		"overlay should list egg x2 primed from current state")
+	overlay.queue_free()
+
+func _test_inventory_overlay_updates_reactively_on_item_changed() -> void:
+	_reset_inventory_manager()
+	var overlay := _make_inventory_overlay()
+	InventoryManager.add_item("wood", 5)
+	_check(overlay.get_node("Root/Panel/Margin/VBox/ItemList/Item_wood").text == "wood  x5",
+		"overlay should add a row reactively when item_changed fires for a new item")
+	InventoryManager.add_item("wood", 4)
+	_check(overlay.get_node("Root/Panel/Margin/VBox/ItemList/Item_wood").text == "wood  x9",
+		"overlay row should update to the new running total")
+	overlay.queue_free()
+
+func _test_inventory_overlay_removes_row_when_item_reaches_zero() -> void:
+	_reset_inventory_manager()
+	InventoryManager.add_item("stone", 2)
+	var overlay := _make_inventory_overlay()
+	InventoryManager.remove_item("stone", 2)
+	_check(not overlay.get_node("Root/Panel/Margin/VBox/ItemList").has_node("Item_stone"),
+		"overlay row should be removed once an item's count reaches zero")
+	overlay.queue_free()
+
+func _on_inventory_overlay_closed_for_test() -> void:
+	_inventory_overlay_closed_count += 1
+
+func _test_inventory_overlay_close_emits_closed_signal() -> void:
+	_reset_inventory_manager()
+	_inventory_overlay_closed_count = 0
+	var overlay := _make_inventory_overlay()
+	overlay.closed.connect(_on_inventory_overlay_closed_for_test)
+	overlay.get_node("Root/Panel/Margin/VBox/Header/CloseButton").pressed.emit()
+	_check(_inventory_overlay_closed_count == 1, "pressing Close should emit the closed signal exactly once")
+	overlay.queue_free()
+
 ## --- ENG-15: Fishing (FishingManager) ---
 
 func _test_available_fish_filters_by_location_season_hour() -> void:
