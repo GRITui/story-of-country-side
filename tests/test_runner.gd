@@ -202,6 +202,13 @@ func _ready() -> void:
 	_test_forage_scene_click_gathers_available_tile()
 	_test_forage_scene_click_ignores_cooldown_tile()
 	_test_forage_scene_click_ignores_out_of_grid_position()
+	_test_mine_scene_instantiates_without_error()
+	_test_mine_scene_renders_ladder_and_rock_on_ready()
+	_test_mine_scene_updates_on_rock_broken_signal()
+	_test_mine_scene_updates_on_floor_descended_signal()
+	_test_mine_scene_click_breaks_rock_tile()
+	_test_mine_scene_click_ladder_descends()
+	_test_mine_scene_click_ignores_out_of_grid_position()
 
 	_test_available_fish_filters_by_location_season_hour()
 	_test_available_fish_sorted_and_ignores_unregistered()
@@ -2360,6 +2367,93 @@ func _test_forage_scene_click_ignores_out_of_grid_position() -> void:
 	_check(ForagingManager.get_forage_node(Vector2i(-1, -1)) == null,
 		"a click outside the rendered grid should be a no-op, not reach ForagingManager")
 	forage_scene.queue_free()
+
+## --- Frontend: MineScene (#52 sub-scope, world/tile-rendering for
+## MiningManager, design/art/isometric-grid-spec.md) ---
+##
+## Same discipline as the FarmScene/RanchScene/ForageScene blocks above.
+## Uses generate_floor(1, <seed>) for deterministic layouts (same pattern
+## the ENG-16 Mining tests above already establish), then queries
+## get_ladder_position()/_first_rock_tile() rather than hardcoding
+## RNG-dependent coordinates.
+
+func _make_mine_scene() -> MineScene:
+	var scene: PackedScene = load("res://scenes/world/MineScene.tscn")
+	var mine_scene: MineScene = scene.instantiate()
+	add_child(mine_scene)
+	return mine_scene
+
+func _mine_scene_cell_source(mine_scene: MineScene, tile: Vector2i) -> Vector2i:
+	var tilemap: TileMap = mine_scene.get_node("TileMap")
+	return tilemap.get_cell_atlas_coords(0, tile)
+
+func _test_mine_scene_instantiates_without_error() -> void:
+	MiningManager.generate_floor(1, 42)
+	var mine_scene := _make_mine_scene()
+	_check(mine_scene.get_node("TileMap") is TileMap, "MineScene should contain a TileMap node")
+	_check(mine_scene.get_node("TileMap").tile_set != null, "MineScene's TileMap should have a TileSet assigned on _ready()")
+	mine_scene.queue_free()
+
+func _test_mine_scene_renders_ladder_and_rock_on_ready() -> void:
+	MiningManager.generate_floor(1, 42)
+	var ladder := MiningManager.get_ladder_position()
+	var rock := _first_rock_tile()
+	var mine_scene := _make_mine_scene()
+	_check(_mine_scene_cell_source(mine_scene, ladder) == Vector2i(MineScene.STATE_LADDER, 0),
+		"the ladder tile should render as STATE_LADDER on ready")
+	_check(_mine_scene_cell_source(mine_scene, rock) == Vector2i(MineScene.STATE_ROCK, 0),
+		"an intact rock tile should render as STATE_ROCK on ready")
+	mine_scene.queue_free()
+
+func _test_mine_scene_updates_on_rock_broken_signal() -> void:
+	_reset_inventory_manager()
+	SkillManager._xp = {}
+	MiningManager.generate_floor(1, 42)
+	var rock := _first_rock_tile()
+	var mine_scene := _make_mine_scene()
+	MiningManager.break_rock(rock)
+	_check(_mine_scene_cell_source(mine_scene, rock) == Vector2i(MineScene.STATE_FLOOR, 0),
+		"breaking a rock should reactively update the tile to STATE_FLOOR via rock_broken")
+	mine_scene.queue_free()
+
+func _test_mine_scene_updates_on_floor_descended_signal() -> void:
+	MiningManager.generate_floor(1, 7)
+	var mine_scene := _make_mine_scene()
+	MiningManager.descend_ladder()
+	var new_ladder := MiningManager.get_ladder_position()
+	_check(_mine_scene_cell_source(mine_scene, new_ladder) == Vector2i(MineScene.STATE_LADDER, 0),
+		"descending should reactively re-render the whole floor via floor_descended, including the new ladder position")
+	mine_scene.queue_free()
+
+func _test_mine_scene_click_breaks_rock_tile() -> void:
+	_reset_inventory_manager()
+	SkillManager._xp = {}
+	MiningManager.generate_floor(1, 42)
+	var rock := _first_rock_tile()
+	var mine_scene := _make_mine_scene()
+	mine_scene._handle_tile_click(rock)
+	_check(not MiningManager.has_rock(rock), "clicking a rock tile should break it via MiningManager.break_rock()")
+	mine_scene.queue_free()
+
+func _test_mine_scene_click_ladder_descends() -> void:
+	MiningManager.generate_floor(1, 42)
+	var ladder := MiningManager.get_ladder_position()
+	var starting_floor := MiningManager.floor_index
+	var mine_scene := _make_mine_scene()
+	mine_scene._handle_tile_click(ladder)
+	_check(MiningManager.floor_index == starting_floor + 1,
+		"clicking the ladder tile should descend via MiningManager.descend_ladder()")
+	mine_scene.queue_free()
+
+func _test_mine_scene_click_ignores_out_of_grid_position() -> void:
+	MiningManager.generate_floor(1, 42)
+	var starting_floor := MiningManager.floor_index
+	var mine_scene := _make_mine_scene()
+	var size := MiningManager.get_floor_size()
+	mine_scene._handle_tile_click(Vector2i(size.x, size.y)) # outside the floor's own bounds
+	_check(MiningManager.floor_index == starting_floor,
+		"a click outside the rendered grid should be a no-op, not reach MiningManager")
+	mine_scene.queue_free()
 
 ## --- ENG-15: Fishing (FishingManager) ---
 
