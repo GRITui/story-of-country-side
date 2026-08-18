@@ -2,20 +2,21 @@
 
 <squad_metadata>
   <squad_name>Frontend-Squad</squad_name>
-  <current_status>IDLE</current_status>
-  <active_task_id>none</active_task_id>
-  <sprint_completion_percentage>0</sprint_completion_percentage>
+  <current_status>IN_PROGRESS</current_status>
+  <active_task_id>FRONTEND-HUD</active_task_id>
+  <sprint_completion_percentage>50</sprint_completion_percentage>
 </squad_metadata>
 
 ## Current Focus
-Newly split out from the general Engineer-Squad lane — see SQUAD-SPLIT.md
-at repo root for the ownership boundary and contract rule. Nothing
-claimed yet under this lane specifically. Backend has shipped enough
-signal/method surface (TimeManager, StaminaManager, ShippingBinManager,
-RelationshipManager, QuestManager, SkillManager, ToolManager,
-InventoryManager, FarmPlotManager) that a real HUD/menu implementation
-against design/ui-flows/menu-hud-flow-spec.md is buildable now without
-waiting on more backend work.
+Epoch 12: dispatched a Frontend subagent (branch frontend/hud-implementation)
+to build the first real HUD scene (scenes/ui/HUD.tscn + scripts/ui/hud.gd)
+against design/ui-flows/menu-hud-flow-spec.md, binding to ShippingBinManager
+(gold), StaminaManager (stamina), TimeManager (day/season/time) via their
+public signals only, per SQUAD-SPLIT.md's contract rule. Not a numbered
+GitHub issue — flow-spec implementation work, logged here and in
+backlog-inbox.md instead. Running in parallel with two Backend subagents
+(ENG-14 Ranching, ENG-17 Foraging) since none of the three touch
+overlapping primary files.
 
 ## Recent Commits / PRs
 * PR #28 (merged): UX-UI squad — menu/HUD flow spec (design doc, not
