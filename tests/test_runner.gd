@@ -45,6 +45,7 @@ var _year_three_evaluation_events: Array = [] ## Array[Array] of [challenge_mode
 var _game_over_events: Array = [] ## Array[String] of reason, same reason
 var _weather_changed_events: Array = [] ## Array[String] of weather, same reason
 var _inventory_overlay_closed_count := 0 ## member, not a local -- GDScript lambdas capture locals by value
+var _skills_overlay_closed_count := 0 ## same reason
 
 func _ready() -> void:
 	_test_minute_and_hour_wrap()
@@ -174,6 +175,12 @@ func _ready() -> void:
 	_test_inventory_overlay_updates_reactively_on_item_changed()
 	_test_inventory_overlay_removes_row_when_item_reaches_zero()
 	_test_inventory_overlay_close_emits_closed_signal()
+	_test_skills_overlay_lists_all_known_skills_on_ready()
+	_test_skills_overlay_updates_reactively_on_xp_gained()
+	_test_skills_overlay_close_emits_closed_signal()
+	_test_pause_menu_skills_button_shows_overlay_and_hides_menu_panel()
+	_test_pause_menu_still_frozen_while_skills_overlay_open()
+	_test_pause_menu_map_and_settings_buttons_stay_disabled()
 
 	_test_farm_scene_instantiates_without_error()
 	_test_farm_scene_renders_empty_grid_on_ready()
@@ -2036,6 +2043,78 @@ func _test_inventory_overlay_close_emits_closed_signal() -> void:
 	overlay.get_node("Root/Panel/Margin/VBox/Header/CloseButton").pressed.emit()
 	_check(_inventory_overlay_closed_count == 1, "pressing Close should emit the closed signal exactly once")
 	overlay.queue_free()
+
+## --- Frontend: Skills overlay (#52 sub-scope, menu-hud-flow-spec.md
+## §1/§3) ---
+##
+## Same discipline as the Inventory overlay block above.
+
+func _make_skills_overlay() -> SkillsOverlay:
+	var scene: PackedScene = load("res://scenes/ui/SkillsOverlay.tscn")
+	var overlay: SkillsOverlay = scene.instantiate()
+	add_child(overlay)
+	return overlay
+
+func _test_skills_overlay_lists_all_known_skills_on_ready() -> void:
+	SkillManager._xp = {}
+	var overlay := _make_skills_overlay() # _ready() should prime every known skill, even with zero XP
+	for skill_name in SkillsOverlay.SKILL_NAMES:
+		_check(overlay.get_node("Root/Panel/Margin/VBox/SkillList/Skill_%s" % skill_name).text == "%s  Lv 0  (0 XP)" % skill_name,
+			"overlay should list %s at Lv 0 (0 XP) when primed with no XP" % skill_name)
+	overlay.queue_free()
+
+func _test_skills_overlay_updates_reactively_on_xp_gained() -> void:
+	SkillManager._xp = {}
+	var overlay := _make_skills_overlay()
+	SkillManager.add_xp("Farming", 50)
+	_check(overlay.get_node("Root/Panel/Margin/VBox/SkillList/Skill_Farming").text == "Farming  Lv 0  (50 XP)",
+		"overlay row should update reactively when xp_gained fires")
+	SkillManager.add_xp("Farming", 100) # 150 total crosses the level-1 threshold (100)
+	_check(overlay.get_node("Root/Panel/Margin/VBox/SkillList/Skill_Farming").text == "Farming  Lv 1  (150 XP)",
+		"overlay row should reflect the new level once a level_changed-crossing xp_gained fires")
+	overlay.queue_free()
+
+func _on_skills_overlay_closed_for_test() -> void:
+	_skills_overlay_closed_count += 1
+
+func _test_skills_overlay_close_emits_closed_signal() -> void:
+	_skills_overlay_closed_count = 0
+	var overlay := _make_skills_overlay()
+	overlay.closed.connect(_on_skills_overlay_closed_for_test)
+	overlay.get_node("Root/Panel/Margin/VBox/Header/CloseButton").pressed.emit()
+	_check(_skills_overlay_closed_count == 1, "pressing Close should emit the closed signal exactly once")
+	overlay.queue_free()
+
+func _test_pause_menu_skills_button_shows_overlay_and_hides_menu_panel() -> void:
+	TimeManager.unfreeze(PauseMenu.PAUSE_REASON)
+	var menu := _make_pause_menu()
+	menu.open()
+	menu.get_node("Root/MenuPanel/Margin/VBox/SkillsButton").pressed.emit()
+	_check(not menu.get_node("Root/MenuPanel").visible,
+		"opening Skills should hide the main pause menu panel")
+	_check(menu.get_node("SkillsOverlay") != null,
+		"opening Skills should instantiate the SkillsOverlay as a child")
+	menu.close()
+	menu.queue_free()
+
+func _test_pause_menu_still_frozen_while_skills_overlay_open() -> void:
+	TimeManager.unfreeze(PauseMenu.PAUSE_REASON)
+	var menu := _make_pause_menu()
+	menu.open()
+	menu.get_node("Root/MenuPanel/Margin/VBox/SkillsButton").pressed.emit()
+	_check(TimeManager.is_frozen(),
+		"TimeManager should stay frozen while the Skills overlay is open (single pause-reason)")
+	menu.close()
+	_check(not TimeManager.is_frozen(), "closing from within the Skills overlay should still fully unfreeze")
+	menu.queue_free()
+
+func _test_pause_menu_map_and_settings_buttons_stay_disabled() -> void:
+	var menu := _make_pause_menu()
+	_check(menu.get_node("Root/MenuPanel/Margin/VBox/MapButton").disabled,
+		"Map has no backing system yet and should stay a disabled placeholder")
+	_check(menu.get_node("Root/MenuPanel/Margin/VBox/SettingsButton").disabled,
+		"Settings has no backing system yet and should stay a disabled placeholder")
+	menu.queue_free()
 
 ## --- Frontend: FarmScene (#52 sub-scope, world/tile-rendering for
 ## FarmPlotManager, design/art/isometric-grid-spec.md) ---
