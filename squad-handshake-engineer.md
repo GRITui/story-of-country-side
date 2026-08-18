@@ -2,18 +2,18 @@
 
 <squad_metadata>
   <squad_name>Engineer-Squad</squad_name>
-  <current_status>IN_PROGRESS</current_status>
-  <active_task_id>GIFT-PREF-LOOKUP</active_task_id>
-  <sprint_completion_percentage>0</sprint_completion_percentage>
+  <current_status>IDLE</current_status>
+  <active_task_id>none</active_task_id>
+  <sprint_completion_percentage>100</sprint_completion_percentage>
 </squad_metadata>
 
 ## Epoch 19 update
-Dispatched a small, surgical Backend task: wire an NPC-name ->
-GiftPreferenceTable lookup into RelationshipManager (branch
-feature/gift-preference-lookup), closing the gap PR #58's Content pass
-flagged (six .tres preference files exist but nothing loads them by NPC
-name yet). Backward-compatible addition, not a refactor of the existing
-give_gift() signature.
+Shipped a small, surgical Backend task via PR #59 (squash-merged):
+`RelationshipManager.give_gift_by_npc_name(npc_name, item_id) -> bool`
+looks up each NPC's real GiftPreferenceTable from PR #58's six .tres
+files, closing that PR's flagged wiring gap. Backward-compatible —
+existing give_gift() signature untouched. Verified independently:
+514/514 checks pass, clean smoke boot.
 
 ## Current Focus
 Epoch 14 (this session): ENG-24 (Infrastructure Upgrades, PR #50), ENG-20
