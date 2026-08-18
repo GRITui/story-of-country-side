@@ -1067,3 +1067,27 @@ either, so the remote branches remain as harmless merged-and-stale refs).
     Infrastructure/Community-Goal.
   </description>
 </task_item>
+
+<task_item>
+  <id>FRONTEND-FORAGE-SCENE</id>
+  <status>DONE</status>
+  <description>
+    New scenes/world/ForageScene.tscn + scripts/world/forage_scene.gd:
+    8x8 isometric grid per design/art/isometric-grid-spec.md, following
+    FarmScene/RanchScene's precedent. Unlike FarmPlotManager/
+    AnimalManager, ForagingManager hands node placement to the caller
+    (per its own docstring), so this scene both populates the grid
+    (register_node() per cell, a no-op if already registered) and
+    renders it -- no new backend surface needed. Fully reactive to
+    forage_gathered/forage_node_rerolled, no polling. Click-to-gather on
+    available tiles only, mirroring ForagingManager's own validation
+    (never duplicated here). PR: gritui/story-of-country-side#65 (base:
+    claude/farming-game-pm-requirements-w9ugtk). 702/702 tests pass
+    against the real Godot 4.3 engine headless (13 new), clean smoke
+    boot. Self-merged per standing authorization.
+
+    Remaining per #52: Map/Skills/Settings full-screen overlays, and
+    world scenes for Fishing/Mining/Marriage/Festivals/Infrastructure/
+    Community-Goal.
+  </description>
+</task_item>

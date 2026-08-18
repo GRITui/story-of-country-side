@@ -37,6 +37,19 @@ new), clean smoke boot. Self-merged per standing authorization.
 
 Next up: Fishing/Mining/Foraging world scenes remain, same pattern.
 
+Shipped a third sub-scope same epoch: `scenes/world/ForageScene.tscn` +
+`scripts/world/forage_scene.gd`, via PR #65 (squash-merged). 8x8 isometric
+grid, reactive to `ForagingManager`'s `forage_gathered`/
+`forage_node_rerolled`. Unlike FarmPlotManager/AnimalManager,
+ForagingManager hands node placement to the caller (per its own
+docstring), so this scene both populates the grid (`register_node()` per
+cell, a no-op if already registered) and renders it. Click-to-gather on
+available tiles only, mirroring ForagingManager's own validation. 702/702
+tests pass (13 new), clean smoke boot. Self-merged per standing
+authorization.
+
+Next up: Fishing/Mining world scenes remain, same pattern.
+
 ## Epoch 20 note (this session, PM/Backend, log sync only)
 This file was stale as of epoch 20 — Epoch 18's FarmScene sub-scope had
 already shipped and merged (PR #57, squash-merged, 508/508 tests passing
@@ -97,6 +110,9 @@ InventoryManager has no hotbar-slot/item-metadata concept yet (hotbar
 ships as an empty 8-slot placeholder strip, not a real item binding).
 
 ## Recent Commits / PRs
+* PR #65 (merged, this session): Frontend — ForageScene world/tile-
+  rendering for ForagingManager (scenes/world/ForageScene.tscn,
+  scripts/world/forage_scene.gd).
 * PR #64 (merged, this session): Frontend — RanchScene world/tile-
   rendering for AnimalManager (scenes/world/RanchScene.tscn,
   scripts/world/ranch_scene.gd).
