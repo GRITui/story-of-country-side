@@ -24,6 +24,7 @@ FarmPlotManager="*res://scripts/autoload/farm_plot_manager.gd"
 ForagingManager="*res://scripts/autoload/foraging_manager.gd"
 AnimalManager="*res://scripts/autoload/animal_manager.gd"
 FishingManager="*res://scripts/autoload/fishing_manager.gd"
+FestivalManager="*res://scripts/autoload/festival_manager.gd"
 MiningManager="*res://scripts/autoload/mining_manager.gd"
 SaveManager="*res://scripts/autoload/save_manager.gd"
 
