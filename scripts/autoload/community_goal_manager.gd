@@ -36,6 +36,16 @@ func _ready() -> void:
 
 ## MVP placeholder bundle set, not final content -- same honesty as every
 ## other content table in this repo. One bundle per activity system.
+##
+## The five below (pantry_bundle .. forager_bundle) are the original set
+## and are kept item-for-item identical to what several
+## tests/test_runner.gd assertions hardcode exact quantities against --
+## do not retune these without also updating those tests. The five after
+## them (orchard_bundle .. vault_bundle) are a Content-lane addition
+## (issue #53) reusing item_ids the Agriculture/Ranching/Fishing/Foraging
+## content pass (PR #56) and ENG-16 (Mining)'s diamond added since the
+## original set was written -- purely additive, no existing bundle
+## touched, so no test needed updating.
 func _register_default_content() -> void:
 	register_bundle(_make_bundle("pantry_bundle", "Pantry Bundle",
 		{"parsnip": 3, "tomato": 2, "pumpkin": 1}))
@@ -47,6 +57,17 @@ func _register_default_content() -> void:
 		{"copper_ore": 5, "iron_ore": 3, "gold_ore": 1}))
 	register_bundle(_make_bundle("forager_bundle", "Forager's Bundle",
 		{"wild_berries": 3, "mushroom": 2, "snow_truffle": 1}))
+
+	register_bundle(_make_bundle("orchard_bundle", "Orchard Bundle",
+		{"melon": 2, "corn": 3, "cauliflower": 2}))
+	register_bundle(_make_bundle("deluxe_coop_bundle", "Deluxe Coop Bundle",
+		{"duck_egg": 3, "goat_milk": 2}))
+	register_bundle(_make_bundle("night_anglers_bundle", "Night Angler's Bundle",
+		{"bream": 2, "bass": 2, "eel": 1}))
+	register_bundle(_make_bundle("forager_reserve_bundle", "Forager's Reserve",
+		{"spring_onion": 3, "sweet_pea": 3, "hazelnut": 2, "winter_root": 2}))
+	register_bundle(_make_bundle("vault_bundle", "The Vault",
+		{"diamond": 3}))
 
 func _make_bundle(bundle_id: String, title: String, required_items: Dictionary) -> BundleDefinition:
 	var b := BundleDefinition.new()
