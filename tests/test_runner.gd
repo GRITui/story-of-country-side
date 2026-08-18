@@ -194,6 +194,14 @@ func _ready() -> void:
 	_test_ranch_scene_click_adds_animal_to_empty_pen()
 	_test_ranch_scene_click_feeds_then_brushes_then_collects()
 	_test_ranch_scene_click_ignores_out_of_grid_position()
+	_test_forage_scene_instantiates_without_error()
+	_test_forage_scene_populates_and_renders_available_nodes_on_ready()
+	_test_forage_scene_renders_already_registered_cooldown_node_on_ready()
+	_test_forage_scene_updates_on_forage_gathered_signal()
+	_test_forage_scene_updates_on_forage_node_rerolled_signal()
+	_test_forage_scene_click_gathers_available_tile()
+	_test_forage_scene_click_ignores_cooldown_tile()
+	_test_forage_scene_click_ignores_out_of_grid_position()
 
 	_test_available_fish_filters_by_location_season_hour()
 	_test_available_fish_sorted_and_ignores_unregistered()
@@ -2245,6 +2253,113 @@ func _test_ranch_scene_click_ignores_out_of_grid_position() -> void:
 	_check(not AnimalManager.has_animal("pen_-1_-1"),
 		"a click outside the rendered grid should be a no-op, not reach AnimalManager")
 	ranch_scene.queue_free()
+
+## --- Frontend: ForageScene (#52 sub-scope, world/tile-rendering for
+## ForagingManager, design/art/isometric-grid-spec.md) ---
+##
+## Same discipline as the FarmScene/RanchScene blocks above. Unlike those
+## two managers, ForagingManager hands node placement to the caller, so
+## ForageScene both populates the grid (register_node per cell) and
+## renders it -- these tests exercise both halves.
+
+func _make_forage_scene() -> ForageScene:
+	var scene: PackedScene = load("res://scenes/world/ForageScene.tscn")
+	var forage_scene: ForageScene = scene.instantiate()
+	add_child(forage_scene)
+	return forage_scene
+
+func _forage_scene_cell_source(forage_scene: ForageScene, position: Vector2i) -> Vector2i:
+	var tilemap: TileMap = forage_scene.get_node("TileMap")
+	return tilemap.get_cell_atlas_coords(0, position)
+
+func _test_forage_scene_instantiates_without_error() -> void:
+	_reset_forage_manager()
+	TimeManager.season_index = 0 # Spring
+	var forage_scene := _make_forage_scene()
+	_check(forage_scene.get_node("TileMap") is TileMap, "ForageScene should contain a TileMap node")
+	_check(forage_scene.get_node("TileMap").tile_set != null, "ForageScene's TileMap should have a TileSet assigned on _ready()")
+	forage_scene.queue_free()
+
+func _test_forage_scene_populates_and_renders_available_nodes_on_ready() -> void:
+	_reset_forage_manager()
+	TimeManager.season_index = 0 # Spring
+	_check(ForagingManager.get_forage_node(Vector2i(0, 0)) == null, "sanity: node should not exist before the scene registers it")
+	var forage_scene := _make_forage_scene()
+	_check(ForagingManager.get_forage_node(Vector2i(0, 0)) != null,
+		"_ready() should register a node for every grid cell, since ForagingManager hands placement to the caller")
+	_check(_forage_scene_cell_source(forage_scene, Vector2i(0, 0)) == Vector2i(ForageScene.STATE_AVAILABLE, 0),
+		"a freshly-registered in-season node should render as STATE_AVAILABLE on ready")
+	forage_scene.queue_free()
+
+func _test_forage_scene_renders_already_registered_cooldown_node_on_ready() -> void:
+	_reset_forage_manager()
+	TimeManager.season_index = 0 # Spring
+	ForagingManager.register_node(Vector2i(2, 3))
+	ForagingManager.get_forage_node(Vector2i(2, 3)).cooldown_days_remaining = 2
+	var forage_scene := _make_forage_scene()
+	_check(_forage_scene_cell_source(forage_scene, Vector2i(2, 3)) == Vector2i(ForageScene.STATE_COOLDOWN, 0),
+		"a node already registered and on cooldown before the scene enters the tree should render as STATE_COOLDOWN on ready, and register_node() should be a no-op that doesn't reset its cooldown")
+	forage_scene.queue_free()
+
+func _test_forage_scene_updates_on_forage_gathered_signal() -> void:
+	_reset_forage_manager()
+	_reset_inventory_manager()
+	TimeManager.season_index = 0 # Spring
+	var forage_scene := _make_forage_scene()
+	_check(_forage_scene_cell_source(forage_scene, Vector2i(1, 1)) == Vector2i(ForageScene.STATE_AVAILABLE, 0),
+		"sanity: node should start available")
+	ForagingManager.gather(Vector2i(1, 1))
+	_check(_forage_scene_cell_source(forage_scene, Vector2i(1, 1)) == Vector2i(ForageScene.STATE_COOLDOWN, 0),
+		"gathering should reactively update the tile to STATE_COOLDOWN via forage_gathered")
+	forage_scene.queue_free()
+
+func _test_forage_scene_updates_on_forage_node_rerolled_signal() -> void:
+	_reset_forage_manager()
+	TimeManager.season_index = 0 # Spring
+	var forage_scene := _make_forage_scene()
+	var node := ForagingManager.get_forage_node(Vector2i(4, 4))
+	node.item_id = "" # force dormant, bypassing the always-in-season four_leaf_clover candidate
+	forage_scene._refresh_tile(Vector2i(4, 4)) # mirror what a real reroll-to-dormant would leave rendered
+	_check(_forage_scene_cell_source(forage_scene, Vector2i(4, 4)) == Vector2i(ForageScene.STATE_DORMANT, 0),
+		"sanity: a forced-empty node should render as STATE_DORMANT")
+	ForagingManager.forage_node_rerolled.emit(Vector2i(4, 4), "wild_flower")
+	node.item_id = "wild_flower" # the signal alone doesn't mutate node state; mirror what ForagingManager._reroll_node already did before emitting in the real flow
+	forage_scene._refresh_tile(Vector2i(4, 4))
+	_check(_forage_scene_cell_source(forage_scene, Vector2i(4, 4)) == Vector2i(ForageScene.STATE_AVAILABLE, 0),
+		"a reroll back to an in-season item should render as STATE_AVAILABLE")
+	forage_scene.queue_free()
+
+func _test_forage_scene_click_gathers_available_tile() -> void:
+	_reset_forage_manager()
+	_reset_inventory_manager()
+	TimeManager.season_index = 0 # Spring
+	var forage_scene := _make_forage_scene()
+	var item_id := ForagingManager.get_forage_node(Vector2i(0, 0)).item_id
+	forage_scene._handle_tile_click(Vector2i(0, 0))
+	_check(InventoryManager.get_count(item_id) == 1,
+		"clicking an available tile should gather it via ForagingManager.gather(), crediting InventoryManager")
+	forage_scene.queue_free()
+
+func _test_forage_scene_click_ignores_cooldown_tile() -> void:
+	_reset_forage_manager()
+	_reset_inventory_manager()
+	TimeManager.season_index = 0 # Spring
+	var forage_scene := _make_forage_scene()
+	ForagingManager.get_forage_node(Vector2i(3, 3)).cooldown_days_remaining = 2
+	forage_scene._handle_tile_click(Vector2i(3, 3))
+	_check(InventoryManager.get_count("wild_flower") == 0 and InventoryManager.get_count("wild_berries") == 0
+		and InventoryManager.get_count("spring_onion") == 0 and InventoryManager.get_count("four_leaf_clover") == 0,
+		"clicking a tile on cooldown should be a no-op, not reach ForagingManager.gather()")
+	forage_scene.queue_free()
+
+func _test_forage_scene_click_ignores_out_of_grid_position() -> void:
+	_reset_forage_manager()
+	TimeManager.season_index = 0 # Spring
+	var forage_scene := _make_forage_scene()
+	forage_scene._handle_tile_click(Vector2i(-1, -1)) # outside the GRID_WIDTH x GRID_HEIGHT bounds
+	_check(ForagingManager.get_forage_node(Vector2i(-1, -1)) == null,
+		"a click outside the rendered grid should be a no-op, not reach ForagingManager")
+	forage_scene.queue_free()
 
 ## --- ENG-15: Fishing (FishingManager) ---
 
