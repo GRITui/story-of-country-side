@@ -20,6 +20,14 @@ started, so deliberately picked disjoint issues instead of colliding
 again like the ENG-14 near-miss. Each agent was also told to re-check for
 claims immediately before dispatch as an extra safety net.
 
+**Update from Session B:** ENG-16 (Mining) shipped and merged as PR #47
+(344/344 tests, real engine) — the five-activity set from epic #8
+(Agriculture/Ranching/Fishing/Mining/Foraging) is now fully DONE. Rebased
+cleanly onto the Frontend HUD PR #46 and the SQUAD-SPLIT.md Content-lane
+update with no real conflicts. Not touching the ENG-24/ENG-20/ENG-21
+active_task_id above — that's this epoch's genuine in-flight state from
+the other session's dispatch, left as-is for it to update on completion.
+
 ## Prior epoch (12/13, settled): ENG-14 (Ranching, PR #43), ENG-17 (Foraging,
 PR #44), and ENG-15 (Fishing, PR #45 — this session/"Session B") all
 shipped. ENG-14 had a same-issue claim collision with a concurrent
@@ -49,6 +57,10 @@ Idle between epochs — next pull should be one of the now-unblocked tasks
 below.
 
 ## Recent Commits / PRs
+* PR #47 (merged, this session as Session B): ENG-16 — MiningManager/
+  OreDefinition (procedural 5x5 floors, rock-breaking, ore/gem gathering,
+  ladder descent). Reuses ToolManager's iron_ore/gold_ore item ids.
+  344/344 tests pass.
 * PR #45 (merged, this session as Session B): ENG-15 — FishingManager/
   FishDefinition (season/time/location fish pools, attempt_catch()
   pass/fail contract for a future mini-game). 285/285 tests pass.
@@ -78,19 +90,15 @@ below.
 
 ## Blockers & QA Failures
 None currently blocking. Sequencing notes for the next pull:
-- ENG-14 (Ranching), ENG-15 (Fishing), ENG-17 (Foraging) are all DONE.
-  Only ENG-16 (Mining) is left from the original five-activity set —
-  zero structural blockers (DEC-B already resolved peaceful/no-combat)
-  and can consume InventoryManager + SkillManager.add_xp("Mining", ...)
-  the same way the other four now do.
-- ENG-24 (Infrastructure Upgrades) is READY_FOR_PM — THIS is where
-  Decision C's quest-gating actually belongs (sprinklers, auto-feeders,
-  collection hub behind QuestManager.is_unlocked(flag)), per ENG-23's own
-  PR discussion. Needs actual QuestDefinition content chosen and
-  documented, same as ENG-23/ENG-31 did. Can now also consume
-  InventoryManager for artisan-processed goods (mayonnaise, wine, etc.).
-- ENG-20 (Marriage), ENG-21 (Festivals), ENG-27 (Ultimate-goal structure)
-  remain READY_FOR_PM, untouched.
+- ENG-13/14/15/16/17 (the full five-activity set: Agriculture/Ranching/
+  Fishing/Mining/Foraging) are all DONE.
+- ENG-24 (Infrastructure Upgrades), ENG-20 (Marriage), ENG-21 (Festivals)
+  are claimed and in flight per this epoch's dispatch above (active_task_id).
+- ENG-27 (Ultimate-goal structure) is READY_FOR_PM and, as of this
+  update, the only remaining backend leaf task with no active claim —
+  check for a claim comment on #27 immediately before picking it up,
+  same discipline that avoided a second ENG-14-style collision this
+  epoch.
 
 ## Cross-Squad Requests
 * No WeatherManager exists yet, but NPCSchedule has a weather field ready
