@@ -3,25 +3,23 @@
 <squad_metadata>
   <squad_name>Engineer-Squad</squad_name>
   <current_status>IDLE</current_status>
-  <active_task_id>ENG-14,ENG-17</active_task_id>
-  <sprint_completion_percentage>50</sprint_completion_percentage>
+  <active_task_id>none</active_task_id>
+  <sprint_completion_percentage>100</sprint_completion_percentage>
 </squad_metadata>
 
 ## Current Focus
-Epoch 12: dispatched ENG-14 (Ranching) and ENG-17 (Foraging) as parallel
-Backend subagents. ENG-14's subagent found a concurrent session had
-already shipped and merged it as PR #43 (241/241 tests, independently
-re-verified) while it was mid-build — stood down cleanly, no duplicate
-PR pushed. ENG-17 is still in flight. A third parallel subagent
-(Frontend/Squad B, frontend/hud-implementation) is building the first
+Epoch 12/13, now settled: ENG-14 (Ranching, PR #43), ENG-17 (Foraging,
+PR #44), and ENG-15 (Fishing, PR #45 — this session/"Session B") all
+shipped. ENG-14 had a same-issue claim collision with a concurrent
+session (see backlog-inbox.md's Epoch 12 coordination note) — claim
+comments reduce but don't eliminate the race window, the real backstop is
+the pre-PR fetch/merge/re-test step. ENG-15 avoided any collision by
+checking for other claims immediately before dispatch, not just at epoch
+start. A parallel Frontend/Squad B subagent was also building the first
 real HUD scene against design/ui-flows/menu-hud-flow-spec.md — logged in
-squad-handshake-frontend.md, not this file. Claimed #14/#17 via GitHub
-comments per SQUAD-SPLIT.md's coordination convention before dispatch —
-worth noting the claim comment didn't fully prevent the #14 collision
-(the other session's work was likely already in flight before the
-comment posted), so claim comments reduce but don't eliminate this race;
-the real backstop is the pre-PR fetch/merge/re-test step, which worked
-as designed here.
+squad-handshake-frontend.md, not this file; not this squad's concern to
+track further. Idle between epochs — next pull should be one of the
+now-unblocked tasks below.
 
 ## Prior epoch (11)
 ENG-13 (Agriculture) and ENG-26 (Opening hook) both shipped —
@@ -39,6 +37,12 @@ Idle between epochs — next pull should be one of the now-unblocked tasks
 below.
 
 ## Recent Commits / PRs
+* PR #45 (merged, this session as Session B): ENG-15 — FishingManager/
+  FishDefinition (season/time/location fish pools, attempt_catch()
+  pass/fail contract for a future mini-game). 285/285 tests pass.
+* PR #44 (merged, concurrent session, verified independently): ENG-17 —
+  ForagingManager/ForageableDefinition/ForageNode (gather nodes, respawn
+  cooldown).
 * PR #43 (merged, concurrent session, verified independently): ENG-14 —
   AnimalManager/AnimalDefinition/Animal (feed/brush/harvest loop).
 * PR #41 (merged): ENG-26 — Opening hook intro sequence, SaveManager
@@ -62,23 +66,19 @@ below.
 
 ## Blockers & QA Failures
 None currently blocking. Sequencing notes for the next pull:
-- ENG-14/15/16/17 (Ranching/Fishing/Mining/Foraging) now have zero
-  structural blockers AND a settled InventoryManager to consume
-  (add_item/remove_item/get_count/has_item/sell_item) — should call that
-  directly instead of forking their own ledger. These four are good
-  parallel-dispatch candidates next epoch since they touch disjoint
-  activity-specific files, but each one will likely touch
-  SkillManager.add_xp calls and possibly InventoryManager usage patterns
-  in similar ways — keep an eye on whether any two land real code in the
-  same shared file (e.g. if any needs a shared "gathering node" scene
-  pattern) and serialize those specifically.
+- ENG-14 (Ranching), ENG-15 (Fishing), ENG-17 (Foraging) are all DONE.
+  Only ENG-16 (Mining) is left from the original five-activity set —
+  zero structural blockers (DEC-B already resolved peaceful/no-combat)
+  and can consume InventoryManager + SkillManager.add_xp("Mining", ...)
+  the same way the other four now do.
 - ENG-24 (Infrastructure Upgrades) is READY_FOR_PM — THIS is where
   Decision C's quest-gating actually belongs (sprinklers, auto-feeders,
   collection hub behind QuestManager.is_unlocked(flag)), per ENG-23's own
   PR discussion. Needs actual QuestDefinition content chosen and
   documented, same as ENG-23/ENG-31 did. Can now also consume
   InventoryManager for artisan-processed goods (mayonnaise, wine, etc.).
-- ENG-20 (Marriage), ENG-21 (Festivals) remain READY_FOR_PM, untouched.
+- ENG-20 (Marriage), ENG-21 (Festivals), ENG-27 (Ultimate-goal structure)
+  remain READY_FOR_PM, untouched.
 
 ## Cross-Squad Requests
 * No WeatherManager exists yet, but NPCSchedule has a weather field ready

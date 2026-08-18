@@ -14,6 +14,48 @@ claim the task.
 
 <!-- Seed epoch: Researcher-Squad, run 1 -->
 
+## Epoch 13 update (Session B): ENG-15 shipped — Fishing pools + catch contract
+
+<task_item>
+  <id>ENG-15</id>
+  <status>DONE</status>
+  <description>
+    Merged via PR #45 (squash, base claude/farming-game-pm-requirements-w9ugtk).
+    FishingManager (autoload) + FishDefinition content type in
+    scripts/fishing/. Ships only the decidable half of #15's scope:
+    get_available_fish(location, season, hour) for pool queries
+    (deterministic sorted output), attempt_catch(fish_id, performance) as
+    a pass/fail contract for a future mini-game scene to call into with a
+    [0.0, 1.0] performance score. The mini-game's own input/skill-check
+    design is explicitly left TBD per the issue text -- building one here
+    would invent an undecided design and cross into Frontend/UI territory
+    per SQUAD-SPLIT.md, not this autoload's. Consumes InventoryManager +
+    SkillManager.add_xp("Fishing", ...), quality tiers (normal/silver/
+    gold) driven by global performance thresholds (>=0.9/>=0.6) same
+    id-suffix convention as FarmPlotManager/AnimalManager. No
+    to_save_dict()/from_save_dict() -- a cast is stateless, nothing to
+    persist beyond registered content (documented as a deliberate
+    simplification, not an oversight). Four placeholder fish (carp/trout/
+    salmon/tuna) with placeholder difficulty/price/XP, MVP balance.
+    Rebased cleanly onto PR #44 (ENG-17/Foraging, merged by the other
+    session mid-build) -- project.godot/save_manager.gd/test_runner.gd
+    all auto-merged with no real conflicts (pure adjacent appends).
+    285/285 tests pass (23 new) against the real Godot 4.3 engine
+    headless. Issue #15 closed.
+  </description>
+</task_item>
+
+<!-- Coordination note: claimed #15 via a "Claiming this" GitHub comment
+     before starting, after checking no other session had already claimed
+     it (learned from the Epoch 12 ENG-14 near-miss to check immediately
+     before dispatch, not just once at epoch start). No collision this
+     time -- #17 (Foraging, the other session's concurrent pick) and #15
+     don't overlap. -->
+
+<!-- Step 0 discovery this epoch: 14 open issues remained before this
+     PR (13 after). No new GitHub issues found. No open PRs left after
+     merging #45. -->
+
 ## Epoch 12 update: ENG-17 (Foraging) shipped
 
 <task_item>
