@@ -119,6 +119,18 @@ func _ready() -> void:
 	_test_intro_sequence_advances_through_lines_then_finishes()
 	_test_intro_sequence_freezes_and_unfreezes_time_manager()
 
+	_test_add_animal_requires_registered_species()
+	_test_add_animal_rejects_duplicate_id()
+	_test_feed_once_per_day()
+	_test_brush_once_per_day()
+	_test_product_progresses_only_on_fed_days()
+	_test_neglect_reduces_happiness_no_progress()
+	_test_collect_product_credits_inventory_and_xp()
+	_test_collect_product_before_ready_returns_empty()
+	_test_quality_tier_follows_happiness()
+	_test_multi_day_producer_needs_multiple_fed_days()
+	_test_animal_save_round_trip()
+
 	if _failures.is_empty():
 		print("ALL TESTS PASSED (%d checks)" % _pass_count)
 		get_tree().quit(0)
@@ -1341,3 +1353,160 @@ func _test_intro_sequence_freezes_and_unfreezes_time_manager() -> void:
 		"finishing the intro sequence should unfreeze TimeManager's 'intro' reason")
 
 	intro.queue_free()
+
+## --- ENG-14: Ranching (AnimalManager) ---
+
+func _reset_animal_manager() -> void:
+	AnimalManager._animals = {}
+
+func _test_add_animal_requires_registered_species() -> void:
+	_reset_animal_manager()
+	var bad := AnimalManager.add_animal("hen1", "dragon")
+	_check(not bad, "adding an animal with an unregistered species should fail")
+
+	var ok := AnimalManager.add_animal("hen1", "chicken")
+	_check(ok, "adding an animal with a registered species should succeed")
+	_check(AnimalManager.has_animal("hen1"), "animal should be tracked after a successful add")
+
+func _test_add_animal_rejects_duplicate_id() -> void:
+	_reset_animal_manager()
+	AnimalManager.add_animal("hen1", "chicken")
+	var dup := AnimalManager.add_animal("hen1", "cow")
+	_check(not dup, "adding an animal with an already-used id should fail")
+	_check(AnimalManager.get_animal("hen1").species_id == "chicken",
+		"the original animal should be unchanged after a rejected duplicate add")
+
+func _test_feed_once_per_day() -> void:
+	_reset_animal_manager()
+	AnimalManager.add_animal("hen1", "chicken")
+	var first := AnimalManager.feed("hen1")
+	var second := AnimalManager.feed("hen1")
+	_check(first, "first feeding of the day should succeed")
+	_check(not second, "a second feeding the same day should be rejected")
+
+	AnimalManager._on_day_started(1, "Spring", "Mon")
+	var next_day := AnimalManager.feed("hen1")
+	_check(next_day, "feeding should be accepted again after a day rollover")
+
+func _test_brush_once_per_day() -> void:
+	_reset_animal_manager()
+	AnimalManager.add_animal("hen1", "chicken")
+	var first := AnimalManager.brush("hen1")
+	var second := AnimalManager.brush("hen1")
+	_check(first, "first brushing of the day should succeed")
+	_check(not second, "a second brushing the same day should be rejected")
+
+	AnimalManager._on_day_started(1, "Spring", "Mon")
+	var next_day := AnimalManager.brush("hen1")
+	_check(next_day, "brushing should be accepted again after a day rollover")
+
+func _test_product_progresses_only_on_fed_days() -> void:
+	_reset_animal_manager()
+	AnimalManager.add_animal("hen1", "chicken") # 1-day producer
+	AnimalManager._on_day_started(1, "Spring", "Mon") # not fed
+	_check(not AnimalManager.get_animal("hen1").product_ready, "an unfed chicken should not produce")
+
+	AnimalManager.feed("hen1")
+	AnimalManager._on_day_started(2, "Spring", "Tue")
+	_check(AnimalManager.get_animal("hen1").product_ready,
+		"a fed chicken (1-day producer) should be ready after one fed day")
+
+func _test_neglect_reduces_happiness_no_progress() -> void:
+	_reset_animal_manager()
+	AnimalManager.add_animal("cow1", "cow")
+	var before: int = AnimalManager.get_animal("cow1").happiness
+	AnimalManager._on_day_started(1, "Spring", "Mon") # not fed
+	var after: int = AnimalManager.get_animal("cow1").happiness
+
+	_check(after == before - AnimalManager.NEGLECT_HAPPINESS_DELTA,
+		"an unfed day should reduce happiness by NEGLECT_HAPPINESS_DELTA, got %d -> %d" % [before, after])
+	_check(AnimalManager.get_animal("cow1").days_since_product == 0,
+		"an unfed day should not progress toward the next product")
+
+func _test_collect_product_credits_inventory_and_xp() -> void:
+	_reset_animal_manager()
+	_reset_inventory_manager()
+	SkillManager._xp = {}
+	AnimalManager.add_animal("hen1", "chicken")
+	AnimalManager.feed("hen1")
+	AnimalManager._on_day_started(1, "Spring", "Mon") # happiness 50 -> 60 (fed, unbrushed), ready (1-day producer)
+
+	var result := AnimalManager.collect_product("hen1")
+	_check(not result.is_empty(), "collect_product should succeed once ready")
+	_check(result["item_id"] == "egg_silver",
+		"happiness 60 should harvest Silver-quality egg, got %s" % [result])
+	_check(InventoryManager.get_count("egg_silver") == 1,
+		"collect_product should credit InventoryManager, got %d" % InventoryManager.get_count("egg_silver"))
+	_check(SkillManager.get_xp("Farming") == 3,
+		"collect_product should credit Farming XP (ranching feeds Farming, not a separate skill), got %d" % SkillManager.get_xp("Farming"))
+	_check(not AnimalManager.get_animal("hen1").product_ready,
+		"collecting should clear product_ready until the next cycle")
+
+func _test_collect_product_before_ready_returns_empty() -> void:
+	_reset_animal_manager()
+	AnimalManager.add_animal("hen1", "chicken")
+	var result := AnimalManager.collect_product("hen1")
+	_check(result.is_empty(), "collecting before a product is ready should return an empty dict")
+
+func _test_quality_tier_follows_happiness() -> void:
+	_reset_animal_manager()
+	AnimalManager.add_animal("cow1", "cow")
+	var gold_animal := AnimalManager.get_animal("cow1")
+	gold_animal.happiness = 90
+	gold_animal.product_ready = true
+	var gold_result := AnimalManager.collect_product("cow1")
+	_check(gold_result["quality"] == AnimalManager.QUALITY_GOLD,
+		"happiness 90 should harvest Gold quality, got %s" % [gold_result])
+
+	AnimalManager.add_animal("cow2", "cow")
+	var silver_animal := AnimalManager.get_animal("cow2")
+	silver_animal.happiness = 60
+	silver_animal.product_ready = true
+	var silver_result := AnimalManager.collect_product("cow2")
+	_check(silver_result["quality"] == AnimalManager.QUALITY_SILVER,
+		"happiness 60 should harvest Silver quality, got %s" % [silver_result])
+
+	AnimalManager.add_animal("cow3", "cow")
+	var normal_animal := AnimalManager.get_animal("cow3")
+	normal_animal.happiness = 10
+	normal_animal.product_ready = true
+	var normal_result := AnimalManager.collect_product("cow3")
+	_check(normal_result["quality"] == AnimalManager.QUALITY_NORMAL,
+		"happiness 10 should harvest Normal quality, got %s" % [normal_result])
+
+func _test_multi_day_producer_needs_multiple_fed_days() -> void:
+	_reset_animal_manager()
+	AnimalManager.add_animal("sheep1", "sheep") # 3-day producer
+	for i in range(2):
+		AnimalManager.feed("sheep1")
+		AnimalManager._on_day_started(i + 1, "Spring", "Mon")
+	_check(not AnimalManager.get_animal("sheep1").product_ready,
+		"sheep should not be ready after only 2 of 3 required fed days")
+
+	AnimalManager.feed("sheep1")
+	AnimalManager._on_day_started(3, "Spring", "Mon")
+	_check(AnimalManager.get_animal("sheep1").product_ready, "sheep should be ready after 3 fed days")
+
+	var result := AnimalManager.collect_product("sheep1")
+	_check(not result.is_empty(), "sanity: collect should succeed once ready")
+	_check(not AnimalManager.get_animal("sheep1").product_ready, "collecting should reset product_ready")
+	_check(AnimalManager.get_animal("sheep1").days_since_product == 0,
+		"collecting should reset days_since_product for the next cycle")
+
+func _test_animal_save_round_trip() -> void:
+	_reset_animal_manager()
+	AnimalManager.add_animal("hen1", "chicken")
+	AnimalManager.feed("hen1")
+	AnimalManager._on_day_started(1, "Spring", "Mon") # happiness -> 60, product_ready -> true
+
+	var saved := SaveManager.build_save_data()
+
+	_reset_animal_manager()
+	_check(not AnimalManager.has_animal("hen1"), "sanity check: reset should clear animals before applying save data")
+
+	SaveManager.apply_save_data(saved)
+
+	_check(AnimalManager.has_animal("hen1"), "animal should round-trip through save/load")
+	_check(AnimalManager.get_animal("hen1").happiness == 60,
+		"happiness should round-trip through save/load, got %d" % AnimalManager.get_animal("hen1").happiness)
+	_check(AnimalManager.get_animal("hen1").product_ready, "product_ready should round-trip through save/load")
