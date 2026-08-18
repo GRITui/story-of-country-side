@@ -32,6 +32,10 @@ var _crop_withered_events: Array = [] ## Array[Array] of [position, crop_id], sa
 var _forage_gathered_events: Array = [] ## Array[Array] of [position, item_id, quantity], same reason
 var _forage_rerolled_events: Array = [] ## Array[Array] of [position, item_id], same reason
 var _intro_finished_count := 0 ## member, not a local — GDScript lambdas capture locals by value
+var _proposal_rejected_events: Array = [] ## Array[Array] of [npc_name, reason], same reason
+var _wedding_scheduled_events: Array = [] ## Array[Array] of [npc_name, days_until], same reason
+var _married_events: Array = [] ## Array[String] of npc_name, same reason
+var _child_born_events: Array = [] ## Array[Array] of [npc_name, total_children], same reason
 
 func _ready() -> void:
 	_test_minute_and_hour_wrap()
@@ -155,6 +159,17 @@ func _ready() -> void:
 	_test_catch_quality_tiers_follow_performance()
 	_test_item_id_encodes_quality_for_normal_catch()
 	_test_sell_price_applies_quality_multiplier_for_fish()
+
+	_test_marriage_cannot_propose_ineligible_npc()
+	_test_marriage_cannot_propose_without_enough_hearts()
+	_test_marriage_cannot_propose_without_item()
+	_test_marriage_propose_consumes_item_and_schedules_wedding()
+	_test_marriage_cannot_propose_twice_while_engaged()
+	_test_marriage_wedding_countdown_finalizes_marriage()
+	_test_marriage_marry_directly_for_ceremony_scene_hook()
+	_test_marriage_daily_gold_bonus_only_when_married()
+	_test_marriage_child_born_rolls_once_per_season_start()
+	_test_marriage_save_round_trip()
 
 	if _failures.is_empty():
 		print("ALL TESTS PASSED (%d checks)" % _pass_count)
@@ -1824,3 +1839,183 @@ func _test_sell_price_applies_quality_multiplier_for_fish() -> void:
 		"Gold trout should sell at 1.5x base (60), got %d" % fm.get_sell_price("trout", FishingManager.QUALITY_GOLD))
 	_check(fm.get_sell_price("dragon", FishingManager.QUALITY_GOLD) == 0,
 		"an unregistered fish_id should report 0 sell price")
+
+## --- ENG-20: Marriage & Family ---
+
+func _reset_marriage_manager() -> void:
+	var mm := MarriageManager
+	mm._engaged_to = ""
+	mm._days_until_wedding = 0
+	mm._spouse = ""
+	mm._children = 0
+
+func _make_elena_eligible() -> void:
+	_reset_relationship_manager()
+	_reset_inventory_manager()
+	RelationshipManager._add_points("Elena", RelationshipManager.POINTS_PER_HEART * MarriageManager.PROPOSAL_HEART_THRESHOLD)
+	InventoryManager.add_item(MarriageManager.PROPOSAL_ITEM_ID, 1)
+
+func _on_proposal_rejected_for_test(npc_name: String, reason: String) -> void:
+	_proposal_rejected_events.append([npc_name, reason])
+
+func _on_wedding_scheduled_for_test(npc_name: String, days_until: int) -> void:
+	_wedding_scheduled_events.append([npc_name, days_until])
+
+func _on_married_for_test(npc_name: String) -> void:
+	_married_events.append(npc_name)
+
+func _on_child_born_for_test(npc_name: String, total_children: int) -> void:
+	_child_born_events.append([npc_name, total_children])
+
+func _test_marriage_cannot_propose_ineligible_npc() -> void:
+	_reset_marriage_manager()
+	_make_elena_eligible()
+	_check(not MarriageManager.is_marriageable("NotAnNPC"), "an unlisted npc_name should not be marriageable")
+
+	_proposal_rejected_events = []
+	MarriageManager.proposal_rejected.connect(_on_proposal_rejected_for_test)
+	var ok := MarriageManager.propose("NotAnNPC")
+	MarriageManager.proposal_rejected.disconnect(_on_proposal_rejected_for_test)
+
+	_check(not ok, "proposing to a non-marriageable NPC should fail")
+	_check(_proposal_rejected_events.size() == 1 and _proposal_rejected_events[0] == ["NotAnNPC", "not_marriageable"],
+		"proposal_rejected should fire with reason 'not_marriageable', got %s" % [_proposal_rejected_events])
+	_check(InventoryManager.get_count(MarriageManager.PROPOSAL_ITEM_ID) == 1,
+		"a rejected proposal must not consume the proposal item")
+
+func _test_marriage_cannot_propose_without_enough_hearts() -> void:
+	_reset_marriage_manager()
+	_reset_relationship_manager()
+	_reset_inventory_manager()
+	InventoryManager.add_item(MarriageManager.PROPOSAL_ITEM_ID, 1)
+	RelationshipManager._add_points("Elena", RelationshipManager.POINTS_PER_HEART) # far below threshold
+
+	_check(not MarriageManager.can_propose("Elena"), "can_propose should be false below the heart threshold")
+	var ok := MarriageManager.propose("Elena")
+	_check(not ok, "propose should fail below the heart threshold")
+	_check(InventoryManager.get_count(MarriageManager.PROPOSAL_ITEM_ID) == 1,
+		"a failed heart-threshold proposal must not consume the item")
+
+func _test_marriage_cannot_propose_without_item() -> void:
+	_reset_marriage_manager()
+	_reset_relationship_manager()
+	_reset_inventory_manager()
+	RelationshipManager._add_points("Elena", RelationshipManager.POINTS_PER_HEART * MarriageManager.PROPOSAL_HEART_THRESHOLD)
+
+	_check(not MarriageManager.can_propose("Elena"), "can_propose should be false without the proposal item")
+	var ok := MarriageManager.propose("Elena")
+	_check(not ok, "propose should fail without the proposal item on hand")
+
+func _test_marriage_propose_consumes_item_and_schedules_wedding() -> void:
+	_reset_marriage_manager()
+	_make_elena_eligible()
+	_check(MarriageManager.can_propose("Elena"), "sanity: can_propose should be true once eligible")
+
+	_wedding_scheduled_events = []
+	MarriageManager.wedding_scheduled.connect(_on_wedding_scheduled_for_test)
+	var ok := MarriageManager.propose("Elena")
+	MarriageManager.wedding_scheduled.disconnect(_on_wedding_scheduled_for_test)
+
+	_check(ok, "propose should succeed once eligible")
+	_check(InventoryManager.get_count(MarriageManager.PROPOSAL_ITEM_ID) == 0,
+		"a successful proposal should consume the proposal item")
+	_check(MarriageManager.is_engaged() and MarriageManager.engaged_to() == "Elena",
+		"a successful proposal should engage the player to that NPC")
+	_check(MarriageManager.days_until_wedding() == MarriageManager.WEDDING_PREP_DAYS,
+		"wedding should be scheduled WEDDING_PREP_DAYS out, got %d" % MarriageManager.days_until_wedding())
+	_check(_wedding_scheduled_events.size() == 1 and _wedding_scheduled_events[0] == ["Elena", MarriageManager.WEDDING_PREP_DAYS],
+		"wedding_scheduled should fire once with (npc_name, days_until), got %s" % [_wedding_scheduled_events])
+	_check(not MarriageManager.is_married(), "player should not be married yet, only engaged")
+
+func _test_marriage_cannot_propose_twice_while_engaged() -> void:
+	_reset_marriage_manager()
+	_make_elena_eligible()
+	MarriageManager.propose("Elena")
+
+	InventoryManager.add_item(MarriageManager.PROPOSAL_ITEM_ID, 1)
+	RelationshipManager._add_points("Marcus", RelationshipManager.POINTS_PER_HEART * MarriageManager.PROPOSAL_HEART_THRESHOLD)
+	var ok := MarriageManager.propose("Marcus")
+	_check(not ok, "proposing to a second NPC while already engaged should fail")
+	_check(MarriageManager.engaged_to() == "Elena", "the original engagement should remain unchanged")
+
+func _test_marriage_wedding_countdown_finalizes_marriage() -> void:
+	_reset_marriage_manager()
+	_make_elena_eligible()
+	MarriageManager.propose("Elena")
+
+	_married_events = []
+	MarriageManager.married.connect(_on_married_for_test)
+	for i in range(MarriageManager.WEDDING_PREP_DAYS):
+		_check(not MarriageManager.is_married(), "should not be married before the countdown finishes (day %d)" % i)
+		MarriageManager._on_day_started(i + 1, "Spring", "Mon")
+	MarriageManager.married.disconnect(_on_married_for_test)
+
+	_check(MarriageManager.is_married() and MarriageManager.spouse_name() == "Elena",
+		"marriage should finalize once the wedding countdown reaches zero")
+	_check(not MarriageManager.is_engaged(), "engaged state should clear once married")
+	_check(_married_events.size() == 1 and _married_events[0] == "Elena",
+		"married should fire exactly once with the spouse's name, got %s" % [_married_events])
+
+func _test_marriage_marry_directly_for_ceremony_scene_hook() -> void:
+	_reset_marriage_manager()
+	_make_elena_eligible()
+	MarriageManager.propose("Elena")
+
+	var ok := MarriageManager.marry("Elena")
+	_check(ok, "marry() should let a future ceremony scene finalize the marriage directly, independent of the day countdown")
+	_check(MarriageManager.is_married() and MarriageManager.spouse_name() == "Elena",
+		"marry() should set married state and spouse_name to the proposed NPC")
+
+	var bad := MarriageManager.marry("Marcus")
+	_check(not bad, "marry() for an NPC that isn't the current engagement should fail")
+
+func _test_marriage_daily_gold_bonus_only_when_married() -> void:
+	_reset_marriage_manager()
+	_check(MarriageManager.daily_gold_bonus() == 0, "unmarried should have no daily gold bonus")
+
+	_make_elena_eligible()
+	MarriageManager.propose("Elena")
+	_check(MarriageManager.daily_gold_bonus() == 0, "engaged-but-not-married should have no daily gold bonus yet")
+
+	MarriageManager.marry("Elena")
+	_check(MarriageManager.daily_gold_bonus() == MarriageManager.MARRIED_DAILY_GOLD_BONUS,
+		"married should grant MARRIED_DAILY_GOLD_BONUS, got %d" % MarriageManager.daily_gold_bonus())
+
+func _test_marriage_child_born_rolls_once_per_season_start() -> void:
+	_reset_marriage_manager()
+	_make_elena_eligible()
+	MarriageManager.propose("Elena")
+	MarriageManager.marry("Elena")
+
+	_child_born_events = []
+	MarriageManager.child_born.connect(_on_child_born_for_test)
+	seed(1) # deterministic randf() sequence for this test
+	MarriageManager._on_day_started(1, "Summer", "Mon") # season start, chance rolled
+	MarriageManager._on_day_started(2, "Summer", "Tue") # not a season start, no roll
+	MarriageManager.child_born.disconnect(_on_child_born_for_test)
+
+	_check(MarriageManager.children_count() <= MarriageManager.MAX_CHILDREN,
+		"children_count should never exceed MAX_CHILDREN, got %d" % MarriageManager.children_count())
+	_check(_child_born_events.size() == MarriageManager.children_count(),
+		"child_born should fire exactly once per child actually added, got %d events for %d children"
+			% [_child_born_events.size(), MarriageManager.children_count()])
+
+func _test_marriage_save_round_trip() -> void:
+	_reset_marriage_manager()
+	_make_elena_eligible()
+	MarriageManager.propose("Elena")
+	MarriageManager.marry("Elena")
+	MarriageManager._children = 2
+
+	var saved := SaveManager.build_save_data()
+
+	_reset_marriage_manager()
+	_check(not MarriageManager.is_married(), "sanity check: reset should clear marriage state before applying save data")
+
+	SaveManager.apply_save_data(saved)
+
+	_check(MarriageManager.is_married() and MarriageManager.spouse_name() == "Elena",
+		"marriage status should round-trip through save/load")
+	_check(MarriageManager.children_count() == 2,
+		"children count should round-trip through save/load, got %d" % MarriageManager.children_count())
+	_check(not MarriageManager.is_engaged(), "engaged state should round-trip as cleared once already married")

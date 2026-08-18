@@ -75,6 +75,13 @@ below.
   spec (design/art/isometric-grid-spec.md).
 * PR #40 (merged): ENG-23 — ToolManager/ToolUpgradeTier (per-tool
   Copper->Iron->Gold, deliberately no quest gate).
+* PR TBD (this session): ENG-20 — MarriageManager: marriage-eligible NPC
+  list, propose()/marry() state machine gated on RelationshipManager
+  hearts + a proposal item consumed via InventoryManager, a wedding-prep
+  day countdown, a minimal daily-gold-bonus post-marriage benefit, and a
+  season-start child-chance roll. See PR description for the full
+  placeholder-content list (marriageable NPC names, item id, heart
+  threshold, wedding-prep days, child chance/cap, gold bonus amount).
 
 ## Blockers & QA Failures
 None currently blocking. Sequencing notes for the next pull:
@@ -89,8 +96,9 @@ None currently blocking. Sequencing notes for the next pull:
   PR discussion. Needs actual QuestDefinition content chosen and
   documented, same as ENG-23/ENG-31 did. Can now also consume
   InventoryManager for artisan-processed goods (mayonnaise, wine, etc.).
-- ENG-20 (Marriage), ENG-21 (Festivals), ENG-27 (Ultimate-goal structure)
-  remain READY_FOR_PM, untouched.
+- ENG-20 (Marriage) is now built on `feature/eng-20-marriage`, PR pending.
+  ENG-21 (Festivals), ENG-27 (Ultimate-goal structure) remain
+  READY_FOR_PM, untouched.
 
 ## Cross-Squad Requests
 * No WeatherManager exists yet, but NPCSchedule has a weather field ready
