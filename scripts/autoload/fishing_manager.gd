@@ -24,9 +24,21 @@ extends Node
 ## (every cast is a fresh, stateless attempt), so there's nothing to
 ## round-trip through a save file.
 ##
-## Placeholder fish list, hour windows, difficulty, and pricing below are
-## MVP balance, not final numbers -- same honesty as every other content
-## table in this repo.
+## Content pass (#53): expanded from 4 to 11 fish spanning all 4 locations
+## (pond/river/lake/ocean) and all 4 seasons, including night-window
+## catches (18:00-23:00) the original roster never used. carp/trout/
+## salmon/tuna kept at their original ids/values -- CommunityGoalManager's
+## fish_tank_bundle references carp/trout/salmon by id and quantity, and
+## existing tests assert trout's exact sell price, so those four are
+## additive-only; the sanity-check below is against the new fish only.
+##
+## Price scales with difficulty on roughly the same curve the original 4
+## fish already established (price/difficulty ratio climbing from ~75 at
+## difficulty 0.2 to ~125 at difficulty 0.8, i.e. harder fish are worth
+## disproportionately more, not just linearly more) -- new fish extend
+## that same curve rather than resetting it. sturgeon (difficulty 0.85,
+## price 150) is the new top-end "legendary" catch, priced above tuna to
+## keep the ceiling above the previous max.
 
 signal fish_caught(fish_id: String, quality: String, quantity: int)
 signal fish_escaped(fish_id: String)
@@ -50,12 +62,11 @@ var _definitions: Dictionary = {} # fish_id -> FishDefinition
 func _ready() -> void:
 	_register_default_content()
 
-## Placeholder content: one all-season/all-location "trash fish" (Carp,
-## low difficulty) plus three location/season/time-gated fish spanning
-## the pond/river/ocean locations named nowhere else in this repo yet
-## (no map/location system exists -- these are just the string ids a
-## future fishing-spot scene would pass in). Not final game balance --
-## see this file's top-of-file docstring.
+## Content pass (#53): original 4 (carp/trout/salmon/tuna) kept verbatim,
+## 7 new fish added. New fish deliberately avoid the two location/season/
+## hour combinations existing tests assert exact pools for (river+Spring+
+## hour 8, ocean+Summer+hour 10) so those additive fish don't require
+## rewriting a passing exact-match assertion into a weaker "has()" one.
 func _register_default_content() -> void:
 	register_fish(_make_fish("carp", "Carp", ["Spring", "Summer", "Fall", "Winter"],
 		["pond", "river", "lake"], 0, 23, 0.2, 15, 2))
@@ -65,6 +76,21 @@ func _register_default_content() -> void:
 		["river"], 6, 19, 0.6, 60, 6))
 	register_fish(_make_fish("tuna", "Tuna", ["Summer", "Winter"],
 		["ocean"], 6, 19, 0.8, 100, 10))
+	# New content-pass additions
+	register_fish(_make_fish("bream", "Bream", ["Spring", "Summer"],
+		["pond", "lake"], 0, 23, 0.3, 18, 3))
+	register_fish(_make_fish("bass", "Bass", ["Summer", "Fall"],
+		["lake"], 6, 19, 0.45, 35, 4))
+	register_fish(_make_fish("sardine", "Sardine", ["Spring", "Fall", "Winter"],
+		["ocean"], 6, 19, 0.25, 20, 3))
+	register_fish(_make_fish("squid", "Squid", ["Winter"],
+		["ocean"], 18, 23, 0.55, 55, 6))
+	register_fish(_make_fish("pike", "Pike", ["Winter"],
+		["river", "lake"], 0, 23, 0.5, 45, 5))
+	register_fish(_make_fish("eel", "Eel", ["Summer", "Fall"],
+		["river"], 18, 23, 0.7, 70, 7))
+	register_fish(_make_fish("sturgeon", "Sturgeon", ["Fall", "Winter"],
+		["lake"], 6, 11, 0.85, 150, 15))
 
 func _make_fish(fish_id: String, display_name: String, seasons: Array[String],
 	locations: Array[String], start_hour: int, end_hour: int, difficulty: float,
