@@ -2,9 +2,9 @@
 
 <squad_metadata>
   <squad_name>Content-Squad</squad_name>
-  <current_status>IN_PROGRESS</current_status>
-  <active_task_id>CONTENT-GIFT-INTRO</active_task_id>
-  <sprint_completion_percentage>0</sprint_completion_percentage>
+  <current_status>IDLE</current_status>
+  <active_task_id>none</active_task_id>
+  <sprint_completion_percentage>100</sprint_completion_percentage>
 </squad_metadata>
 
 ## Epoch 18 update
@@ -99,11 +99,11 @@ line (Agriculture/Ranching/Fishing/Foraging) are now in flight:
   Infrastructure Upgrades defines its quest-gated unlocks).
 
 ## Recent Commits / PRs
-* PR (this session, branch `content/gift-preferences-intro-copy`): gift
-  preferences (6 `GiftPreferenceTable` .tres resources under
-  `scripts/social/gift_preferences/`) + intro narration rewrite
-  (`IntroSequence.DEFAULT_LINES`). 496/496 checks pass, clean smoke boot.
-  Flags the RelationshipManager wiring gap noted above.
+* PR #58 (merged, this session): gift preferences (6 `GiftPreferenceTable`
+  .tres resources under `scripts/social/gift_preferences/`) + intro
+  narration rewrite (`IntroSequence.DEFAULT_LINES`). 508/508 checks pass
+  post-merge, clean smoke boot. Flags the RelationshipManager wiring gap
+  noted above — a Backend task, not yet claimed.
 * PR #56 (merged, this session): Agriculture/Ranching/Fishing/Foraging
   content pass — see "Current Focus" above for the full breakdown.
 * PR #55 (merged, concurrent session — parallel sub-scope, disjoint from
