@@ -2,13 +2,23 @@
 
 <squad_metadata>
   <squad_name>Frontend-Squad</squad_name>
-  <current_status>IDLE</current_status>
-  <active_task_id>none</active_task_id>
-  <sprint_completion_percentage>100</sprint_completion_percentage>
+  <current_status>IN_PROGRESS</current_status>
+  <active_task_id>FRONTEND-PAUSE-INV</active_task_id>
+  <sprint_completion_percentage>0</sprint_completion_percentage>
 </squad_metadata>
 
 ## Current Focus
-Epoch 12: built the first real HUD scene (scenes/ui/HUD.tscn +
+Epoch 16: dispatched a subagent to build the pause menu + full-screen
+Inventory overlay (branch frontend/pause-menu-inventory) against issue
+#52 (the new tracking epic for all remaining frontend scene work, opened
+once the full backend leaf-task backlog closed). This is exactly the
+scope PR #46 deferred. Claimed a sub-scope on #52 via GitHub comment
+first (it's tracking-only, not meant to be closed by one PR). Running in
+parallel with a Content-lane subagent doing a farming/ranching/fishing/
+foraging balance pass (issue #53) — disjoint files, only shared risk is
+tests/test_runner.gd (expected, resolvable per SQUAD-SPLIT.md's pattern).
+
+## Prior epoch (12): built the first real HUD scene (scenes/ui/HUD.tscn +
 scripts/ui/hud.gd, new scripts/ui/ folder) against
 design/ui-flows/menu-hud-flow-spec.md §2/§4, binding reactively to
 ShippingBinManager.gold_changed (gold), StaminaManager.stamina_changed
