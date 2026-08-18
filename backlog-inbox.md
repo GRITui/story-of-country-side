@@ -850,3 +850,38 @@ either, so the remote branches remain as harmless merged-and-stale refs).
     GitHub issue to claim sub-work against.
   </description>
 </task_item>
+
+<!-- Epoch 17 (this session, PM/Backend, working the Content lane since the
+     backend leaf-task backlog is empty): Step 0 found no new open issues
+     beyond #53 (Content epic, already logged) and #1 (process, awareness-
+     only) -- #52 (Frontend epic) closed since last epoch via PR #54
+     (pause menu + inventory overlay, concurrent session). Claimed the
+     Marriage/Festival/Infrastructure/Community-Goal content sub-scope on
+     #53 (disjoint from the concurrent Content session's Agriculture/
+     Ranching/Fishing/Foraging cluster) and delivered the first slice. -->
+
+<task_item>
+  <id>CONTENT-MARRIAGE-ROSTER</id>
+  <status>DONE</status>
+  <description>
+    Expanded MarriageManager.MARRIAGEABLE_NPCS from the two
+    RelationshipManager test-fixture names (Elena, Marcus) to a 6-name
+    roster (+ Priya, Tobias, Sana, Colton) -- value-only const-array edit,
+    no logic/signal changes, per SQUAD-SPLIT.md's Content lane. PR:
+    gritui/story-of-country-side#55 (base:
+    claude/farming-game-pm-requirements-w9ugtk). 496/496 tests pass
+    against the real Godot 4.3 engine headless (class-cache refresh was
+    needed first for PauseMenu/InventoryOverlay from the concurrently-
+    merged PR #54 -- unrelated to this change, just a required step after
+    pulling latest). Self-merged per standing authorization.
+
+    Remaining in this sub-scope, not yet done: Festival definitions
+    (currently reasonable placeholder names/dates, lower priority),
+    Infrastructure Upgrades' tier/machine costs (touching these would also
+    require updating hardcoded expected values in
+    tests/test_runner.gd's infrastructure tests -- more logic-adjacent
+    than a pure content edit, flagged for whoever picks this up next to
+    decide if that crosses the Content lane's boundary), Community Goal
+    bundle composition/balance.
+  </description>
+</task_item>

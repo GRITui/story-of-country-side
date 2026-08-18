@@ -45,10 +45,30 @@ line (Agriculture/Ranching/Fishing/Foraging) are now in flight:
   Infrastructure Upgrades defines its quest-gated unlocks).
 
 ## Recent Commits / PRs
-None yet.
+* PR #55 (merged, this session — parallel sub-scope, disjoint from the
+  farm/ranch/fish/forage pass above): Marriage/Festival/Infrastructure/
+  Community-Goal content sub-scope, claimed via comment on #53.
+  MarriageManager.MARRIAGEABLE_NPCS expanded from 2 test-fixture names
+  (Elena, Marcus) to 6 (+ Priya, Tobias, Sana, Colton) — value-only
+  const-array edit. 496/496 tests pass. Remaining in this sub-scope:
+  Festival definitions (lower priority, already reasonable placeholders),
+  Infrastructure tier/machine costs (touching these also means updating
+  hardcoded expected values in several tests/test_runner.gd assertions —
+  flagged as possibly crossing the Content lane's "value only, no logic"
+  boundary, left for whoever picks it up next to judge), Community Goal
+  bundle composition/balance.
 
 ## Blockers & QA Failures
 None.
 
 ## Cross-Squad Requests
 None yet.
+
+## Epoch 16/17 status (this session, PM/Backend covering Content since the
+backend leaf-task backlog is empty)
+This handshake file's `active_task_id`/metadata block above reflects the
+*other* concurrent Content session's in-flight farm/ranch/fish/forage
+pass (no PR from that pass yet as of this update) — not overwritten here
+so their status stays visible. This session's own sub-scope (Marriage/
+Festival/Infrastructure/Community-Goal) delivered its first slice as
+PR #55 and is otherwise idle between epochs.
