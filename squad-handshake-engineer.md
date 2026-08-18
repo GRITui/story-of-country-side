@@ -87,13 +87,21 @@ below.
   spec (design/art/isometric-grid-spec.md).
 * PR #40 (merged): ENG-23 — ToolManager/ToolUpgradeTier (per-tool
   Copper->Iron->Gold, deliberately no quest gate).
-* PR TBD (this session): ENG-20 — MarriageManager: marriage-eligible NPC
-  list, propose()/marry() state machine gated on RelationshipManager
+* PR #50 (this session): ENG-24 — InfrastructureManager
+  (house expansion, coop/barn capacity via get_max_animal_capacity()
+  integration point, artisan machines keg/preserves_jar/mayo_machine),
+  quest-gated per Decision C via QuestManager.is_unlocked() +
+  ShippingBinManager.spend()/InventoryManager.
+* PR #49 (merged, this session): ENG-20 — MarriageManager: marriage-eligible
+  NPC list, propose()/marry() state machine gated on RelationshipManager
   hearts + a proposal item consumed via InventoryManager, a wedding-prep
   day countdown, a minimal daily-gold-bonus post-marriage benefit, and a
-  season-start child-chance roll. See PR description for the full
-  placeholder-content list (marriageable NPC names, item id, heart
-  threshold, wedding-prep days, child chance/cap, gold bonus amount).
+  season-start child-chance roll.
+* PR #48 (merged, this session): ENG-21 — FestivalManager: date-driven
+  seasonal events reusing TimeManager's freeze mechanism, generic
+  submit_mini_game_result() contract for a future mini-game scene.
+* PR #47 (merged, concurrent session): ENG-16 — MiningManager: procedural
+  floors, rock-breaking, ore/gem gathering, ladder descent.
 
 ## Blockers & QA Failures
 None currently blocking. Sequencing notes for the next pull:

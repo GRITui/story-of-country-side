@@ -163,6 +163,19 @@ func _ready() -> void:
 	_test_item_id_encodes_quality_for_normal_catch()
 	_test_sell_price_applies_quality_multiplier_for_fish()
 
+	_test_cannot_upgrade_house_without_quest_unlock()
+	_test_cannot_upgrade_house_without_material()
+	_test_cannot_upgrade_house_without_gold()
+	_test_house_upgrade_succeeds_and_deducts_costs()
+	_test_coop_capacity_starts_at_base_and_increases_per_tier()
+	_test_cannot_build_machine_without_quest_unlock()
+	_test_build_machine_succeeds_and_deducts_costs()
+	_test_start_job_fails_without_machine_built()
+	_test_start_job_fails_without_enough_input()
+	_test_start_job_consumes_input_and_ticks_to_ready()
+	_test_collect_job_before_ready_returns_empty()
+	_test_start_job_rejects_duplicate_job_id()
+	_test_infrastructure_save_round_trip()
 	_test_marriage_cannot_propose_ineligible_npc()
 	_test_marriage_cannot_propose_without_enough_hearts()
 	_test_marriage_cannot_propose_without_item()
@@ -1864,6 +1877,174 @@ func _test_sell_price_applies_quality_multiplier_for_fish() -> void:
 	_check(fm.get_sell_price("dragon", FishingManager.QUALITY_GOLD) == 0,
 		"an unregistered fish_id should report 0 sell price")
 
+## --- ENG-24: Infrastructure Upgrades (InfrastructureManager) ---
+##
+## Content-gap honesty note (see infrastructure_manager.gd's top-of-file
+## docstring): the tier costs/capacities/recipes under test here are this
+## PR's own placeholder defaults, not externally-specified numbers.
+
+func _reset_infrastructure_manager() -> void:
+	var im := InfrastructureManager
+	im._house_tier = InfrastructureManager.HOUSE_TIER_START
+	im._coop_tier = InfrastructureManager.COOP_TIER_START
+	im._built_machines = {}
+	im._jobs = {}
+
+func _reset_infra_gates() -> void:
+	_reset_infrastructure_manager()
+	_reset_quest_manager()
+	_reset_shipping_bin()
+	_reset_inventory_manager()
+
+func _test_cannot_upgrade_house_without_quest_unlock() -> void:
+	_reset_infra_gates()
+	ShippingBinManager.gold = 100000
+	InventoryManager.add_item("wood", 500)
+	_check(not InfrastructureManager.can_upgrade_house(),
+		"house tier 1 should stay locked without the quest unlock flag even with plenty of gold/material")
+	_check(not InfrastructureManager.upgrade_house(), "upgrade_house should fail without the quest unlock")
+	_check(InfrastructureManager.get_house_tier() == 0, "house tier should remain 0 on a failed upgrade")
+
+func _test_cannot_upgrade_house_without_material() -> void:
+	_reset_infra_gates()
+	QuestManager._unlocked_flags["house_tier_1_unlocked"] = true
+	ShippingBinManager.gold = 100000
+	_check(not InfrastructureManager.can_upgrade_house(),
+		"house tier 1 should stay locked without enough material even when quest-unlocked and gold-rich")
+	_check(not InfrastructureManager.upgrade_house(), "upgrade_house should fail without enough material")
+
+func _test_cannot_upgrade_house_without_gold() -> void:
+	_reset_infra_gates()
+	QuestManager._unlocked_flags["house_tier_1_unlocked"] = true
+	InventoryManager.add_item("wood", 500)
+	ShippingBinManager.gold = 0
+	_check(not InfrastructureManager.can_upgrade_house(), "house tier 1 should stay locked without enough gold")
+	_check(not InfrastructureManager.upgrade_house(), "upgrade_house should fail without enough gold")
+
+func _test_house_upgrade_succeeds_and_deducts_costs() -> void:
+	_reset_infra_gates()
+	QuestManager._unlocked_flags["house_tier_1_unlocked"] = true
+	ShippingBinManager.gold = 5000
+	InventoryManager.add_item("wood", 500)
+	_check(not InfrastructureManager.is_cooking_unlocked(), "cooking should be locked before any house tier is reached")
+
+	var ok := InfrastructureManager.upgrade_house()
+	_check(ok, "upgrade_house should succeed once quest-unlocked and affordable")
+	_check(InfrastructureManager.get_house_tier() == 1, "house tier should advance to 1, got %d" % InfrastructureManager.get_house_tier())
+	_check(ShippingBinManager.gold == 4000, "gold should be deducted by tier 1's cost, got %d" % ShippingBinManager.gold)
+	_check(InventoryManager.get_count("wood") == 450, "material should be deducted by tier 1's cost, got %d" % InventoryManager.get_count("wood"))
+	_check(InfrastructureManager.is_cooking_unlocked(), "cooking should be unlocked once house tier 1 is reached")
+
+func _test_coop_capacity_starts_at_base_and_increases_per_tier() -> void:
+	_reset_infra_gates()
+	_check(InfrastructureManager.get_max_animal_capacity() == InfrastructureManager.BASE_ANIMAL_CAPACITY,
+		"unupgraded coop should report the base capacity, got %d" % InfrastructureManager.get_max_animal_capacity())
+
+	QuestManager._unlocked_flags["coop_tier_1_unlocked"] = true
+	ShippingBinManager.gold = 5000
+	InventoryManager.add_item("wood", 500)
+	InfrastructureManager.upgrade_coop()
+	_check(InfrastructureManager.get_max_animal_capacity() == 8,
+		"coop tier 1 should raise max capacity to 8, got %d" % InfrastructureManager.get_max_animal_capacity())
+
+func _test_cannot_build_machine_without_quest_unlock() -> void:
+	_reset_infra_gates()
+	ShippingBinManager.gold = 100000
+	InventoryManager.add_item("wood", 500)
+	_check(not InfrastructureManager.can_build_machine("keg"), "keg should stay locked without its quest unlock flag")
+	_check(not InfrastructureManager.build_machine("keg"), "build_machine should fail without the quest unlock")
+	_check(not InfrastructureManager.is_machine_built("keg"), "keg should not be marked built on a failed build")
+
+func _test_build_machine_succeeds_and_deducts_costs() -> void:
+	_reset_infra_gates()
+	QuestManager._unlocked_flags["keg_unlocked"] = true
+	ShippingBinManager.gold = 5000
+	InventoryManager.add_item("wood", 500)
+
+	var ok := InfrastructureManager.build_machine("keg")
+	_check(ok, "build_machine should succeed once quest-unlocked and affordable")
+	_check(InfrastructureManager.is_machine_built("keg"), "keg should be marked built after a successful build")
+	_check(ShippingBinManager.gold == 4700, "gold should be deducted by the keg's build cost, got %d" % ShippingBinManager.gold)
+	_check(InventoryManager.get_count("wood") == 480, "material should be deducted by the keg's build cost, got %d" % InventoryManager.get_count("wood"))
+
+func _test_start_job_fails_without_machine_built() -> void:
+	_reset_infra_gates()
+	InventoryManager.add_item("fruit", 10)
+	_check(not InfrastructureManager.start_job("job1", "keg"), "start_job should fail if the keg isn't built yet")
+
+func _build_keg_for_test() -> void:
+	QuestManager._unlocked_flags["keg_unlocked"] = true
+	ShippingBinManager.gold = 5000
+	InventoryManager.add_item("wood", 500)
+	InfrastructureManager.build_machine("keg")
+
+func _test_start_job_fails_without_enough_input() -> void:
+	_reset_infra_gates()
+	_build_keg_for_test()
+	_check(not InfrastructureManager.start_job("job1", "keg"), "start_job should fail without the raw ingredient on hand")
+
+func _test_start_job_consumes_input_and_ticks_to_ready() -> void:
+	_reset_infra_gates()
+	_build_keg_for_test()
+	InventoryManager.add_item("fruit", 3)
+
+	var ok := InfrastructureManager.start_job("job1", "keg")
+	_check(ok, "start_job should succeed with the machine built and input on hand")
+	_check(InventoryManager.get_count("fruit") == 2, "starting a job should consume the recipe's input quantity, got %d" % InventoryManager.get_count("fruit"))
+	_check(not InfrastructureManager.is_job_ready("job1"), "a freshly started keg job (3-day recipe) should not be ready immediately")
+
+	InfrastructureManager._on_day_started(1, "Spring", "Mon")
+	InfrastructureManager._on_day_started(2, "Spring", "Tue")
+	_check(not InfrastructureManager.is_job_ready("job1"), "keg job should not be ready after only 2 of 3 days")
+
+	InfrastructureManager._on_day_started(3, "Spring", "Wed")
+	_check(InfrastructureManager.is_job_ready("job1"), "keg job should be ready after 3 days")
+
+	var result := InfrastructureManager.collect_job("job1")
+	_check(result.get("output_item_id") == "wine" and result.get("output_quantity") == 1,
+		"collecting a ready keg job should report the wine output, got %s" % [result])
+	_check(InventoryManager.get_count("wine") == 1, "collecting should credit InventoryManager with the output, got %d" % InventoryManager.get_count("wine"))
+	_check(InfrastructureManager.list_job_ids().is_empty(), "collecting should remove the job from the active list")
+
+func _test_collect_job_before_ready_returns_empty() -> void:
+	_reset_infra_gates()
+	_build_keg_for_test()
+	InventoryManager.add_item("fruit", 3)
+	InfrastructureManager.start_job("job1", "keg")
+	var result := InfrastructureManager.collect_job("job1")
+	_check(result.is_empty(), "collecting before a job is ready should return an empty dict")
+	_check(InventoryManager.get_count("wine") == 0, "collecting an unready job should not credit any output")
+
+func _test_start_job_rejects_duplicate_job_id() -> void:
+	_reset_infra_gates()
+	_build_keg_for_test()
+	InventoryManager.add_item("fruit", 3)
+	InfrastructureManager.start_job("job1", "keg")
+	_check(not InfrastructureManager.start_job("job1", "keg"), "starting a job with an already-active job_id should fail")
+
+func _test_infrastructure_save_round_trip() -> void:
+	_reset_infra_gates()
+	QuestManager._unlocked_flags["house_tier_1_unlocked"] = true
+	ShippingBinManager.gold = 5000
+	InventoryManager.add_item("wood", 500)
+	InfrastructureManager.upgrade_house()
+	_build_keg_for_test()
+	InventoryManager.add_item("fruit", 3)
+	InfrastructureManager.start_job("job1", "keg")
+
+	var saved := SaveManager.build_save_data()
+
+	_reset_infrastructure_manager()
+	_check(InfrastructureManager.get_house_tier() == 0, "sanity: reset should clear house tier before applying save data")
+	_check(not InfrastructureManager.is_machine_built("keg"), "sanity: reset should clear built machines before applying save data")
+
+	SaveManager.apply_save_data(saved)
+
+	_check(InfrastructureManager.get_house_tier() == 1, "house tier should round-trip through save/load, got %d" % InfrastructureManager.get_house_tier())
+	_check(InfrastructureManager.is_machine_built("keg"), "built machines should round-trip through save/load")
+	_check(not InfrastructureManager.is_job_ready("job1"), "sanity: job should still be pending after round-trip")
+	_check(InfrastructureManager.get_job("job1").get("days_remaining") == 3,
+		"active job progress should round-trip through save/load, got %s" % [InfrastructureManager.get_job("job1")])
 ## --- ENG-20: Marriage & Family ---
 
 func _reset_marriage_manager() -> void:

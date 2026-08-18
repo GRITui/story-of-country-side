@@ -18,10 +18,11 @@ draws the line for new work, including scenes/UI that don't exist yet.
   `QuestManager`, `SkillManager`, `ToolManager`, `InventoryManager`,
   `FarmPlotManager`, `SaveManager`) and any new one.
 - `scripts/economy/**`, `scripts/quests/**`, `scripts/farming/**`,
-  `scripts/social/**` — content/data `Resource` types (`ToolUpgradeTier`,
-  `QuestCondition`, `QuestDefinition`, `CropDefinition`, `FarmPlot`,
-  `GiftPreferenceTable`) and any new domain-data folder that holds
-  `.tres`-authorable content, not scenes.
+  `scripts/social/**`, `scripts/infrastructure/**` — content/data
+  `Resource` types (`ToolUpgradeTier`, `QuestCondition`,
+  `QuestDefinition`, `CropDefinition`, `FarmPlot`, `GiftPreferenceTable`,
+  `InfrastructureTier`, `ArtisanMachineRecipe`) and any new domain-data
+  folder that holds `.tres`-authorable content, not scenes.
 - `scripts/npc/npc_schedule.gd`, `scripts/npc/npc_schedule_entry.gd` —
   the schedule *data model*.
 - Game rules, balance numbers, save-data shape, and every signal
