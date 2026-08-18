@@ -15,6 +15,21 @@ const MAX_HEARTS := 10
 const MAX_POINTS := POINTS_PER_HEART * MAX_HEARTS
 const TALK_POINTS := 20
 
+## npc_name -> .tres path, one entry per shipped GiftPreferenceTable resource
+## (scripts/social/gift_preferences/, PR #58's Content-lane drop). Flagged as
+## a gap in that PR's own description: the resources existed with no runtime
+## NPC-name lookup path. Kept as a plain const dictionary (not a subsystem)
+## since it is just data — new NPCs get a new entry here alongside their
+## MarriageManager.MARRIAGEABLE_NPCS addition, no other wiring required.
+const GIFT_PREFERENCE_PATHS := {
+	"Elena": "res://scripts/social/gift_preferences/elena.tres",
+	"Marcus": "res://scripts/social/gift_preferences/marcus.tres",
+	"Priya": "res://scripts/social/gift_preferences/priya.tres",
+	"Tobias": "res://scripts/social/gift_preferences/tobias.tres",
+	"Sana": "res://scripts/social/gift_preferences/sana.tres",
+	"Colton": "res://scripts/social/gift_preferences/colton.tres",
+}
+
 var _points: Dictionary = {} ## npc_name -> int
 var _highest_triggered_heart: Dictionary = {} ## npc_name -> int
 var _talked_today: Dictionary = {} ## npc_name -> bool
@@ -57,6 +72,18 @@ func give_gift(npc_name: String, item_id: String, preferences: GiftPreferenceTab
 	var delta := preferences.point_delta_for(item_id) if preferences else 0
 	_add_points(npc_name, delta)
 	return true
+
+## Looks up npc_name's GiftPreferenceTable via GIFT_PREFERENCE_PATHS and
+## calls through to give_gift(). Graceful fallback for an NPC with no known
+## preference table (not yet in GIFT_PREFERENCE_PATHS -- e.g. a non-
+## marriageable NPC nobody's written preferences for): no-op, returns false,
+## same "rejected" shape has_gifted_today()-gated give_gift() already uses,
+## rather than crashing or silently treating every item as neutral.
+func give_gift_by_npc_name(npc_name: String, item_id: String) -> bool:
+	if not GIFT_PREFERENCE_PATHS.has(npc_name):
+		return false
+	var preferences: GiftPreferenceTable = load(GIFT_PREFERENCE_PATHS[npc_name])
+	return give_gift(npc_name, item_id, preferences)
 
 func _add_points(npc_name: String, delta: int) -> void:
 	var new_points: int = clampi(get_points(npc_name) + delta, 0, MAX_POINTS)
