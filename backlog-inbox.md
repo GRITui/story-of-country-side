@@ -982,3 +982,35 @@ either, so the remote branches remain as harmless merged-and-stale refs).
     smoke boot.
   </description>
 </task_item>
+
+<!-- Epoch 23 (this session, Backend/Engineer -- Step 0 found no new open
+     issues, still just #52/#53/#1). Picked a genuine Backend task: issue
+     #52 itself flags "no WeatherManager exists yet", and
+     NPCScheduleEntry.weather (from #18) has been dead scaffolding since
+     it landed. Both are Engineer-Squad scope, not Content or Frontend. -->
+
+<task_item>
+  <id>ENG-WEATHER</id>
+  <status>DONE</status>
+  <description>
+    Built WeatherManager (autoload): daily weather roll on
+    TimeManager.day_started (Sunny/Rainy, Snowy replacing Rainy in
+    Winter, weighted 70% Sunny -- placeholder odds), public
+    get_current_weather()/weather_changed signal (fires only on actual
+    change), to_save_dict()/from_save_dict() (unlike FestivalManager,
+    weather is genuinely mid-day state a save must round-trip, not
+    fully date-derivable). Wired into npc_controller.gd's
+    _refresh_target() so NPCSchedule.get_target_for() receives real
+    weather instead of the implicit "Any" default -- weather-gated
+    schedule entries work for the first time since #18. PR:
+    gritui/story-of-country-side#62 (base:
+    claude/farming-game-pm-requirements-w9ugtk). 671/671 tests pass (new:
+    weather stays in-season-valid across 50-sample rolls, weather_changed
+    fires exactly once per actual change, save round-trip,
+    NPCScheduleEntry.matches() weather-gating -- untested until now),
+    clean smoke boot. Self-merged per standing authorization.
+
+    Still open per #52: HUD weather icon / any weather-driven visuals
+    (Frontend scope, this PR is backend-only).
+  </description>
+</task_item>

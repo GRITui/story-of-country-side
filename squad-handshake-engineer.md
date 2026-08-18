@@ -7,6 +7,20 @@
   <sprint_completion_percentage>100</sprint_completion_percentage>
 </squad_metadata>
 
+## Epoch 23 update
+Shipped WeatherManager via PR #62 (squash-merged) -- a genuine Backend
+task, not Content or Frontend: NPCScheduleEntry.weather has been dead
+scaffolding since #18, and issue #52 itself flags "no WeatherManager
+exists yet" as a gap. Daily Sunny/Rainy roll (Snowy replaces Rainy in
+Winter) on TimeManager.day_started, public getter/signal, save-persisted
+(unlike FestivalManager, weather is genuinely mid-day state, not fully
+date-derivable). Wired npc_controller.gd to pass real weather into
+NPCSchedule.get_target_for() instead of the implicit "Any" default.
+671/671 tests pass (new weather + NPCScheduleEntry.matches() weather-
+gating tests, previously untested), clean smoke boot. This unblocks a
+future HUD weather icon (Frontend scope, not built here) and makes any
+weather-gated schedule content actually functional for the first time.
+
 ## Epoch 21 note (this session, PM/Backend)
 Repo owner asked to let the dedicated Content-Squad work Content, rather
 than this session (Backend/PM) picking up Content-lane sub-scopes as it
