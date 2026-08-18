@@ -99,6 +99,13 @@ func get_crop_definition(crop_id: String) -> CropDefinition:
 func get_plot(position: Vector2i) -> FarmPlot:
 	return _plots.get(position)
 
+## Every tile that currently has a FarmPlot entry (planted, watered,
+## harvest-ready, or mid-regrow) -- read-only integration point for
+## InfrastructureManager's sprinkler automation device, so it can water()
+## every plot without reaching into _plots directly.
+func get_all_positions() -> Array:
+	return _plots.keys()
+
 func is_planted(position: Vector2i) -> bool:
 	var plot: FarmPlot = _plots.get(position)
 	return plot != null and not plot.is_empty()
