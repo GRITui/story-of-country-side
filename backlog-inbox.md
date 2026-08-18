@@ -1194,3 +1194,34 @@ either, so the remote branches remain as harmless merged-and-stale refs).
     Festivals/Infrastructure/Community-Goal.
   </description>
 </task_item>
+
+<task_item>
+  <id>FRONTEND-INFRASTRUCTURE-OVERLAY</id>
+  <status>DONE</status>
+  <description>
+    New scenes/ui/InfrastructureOverlay.tscn + scripts/ui/infrastructure_overlay.gd
+    against InfrastructureManager: house/coop tier upgrades and artisan
+    machine build/start-job/collect, another pause-menu entry beyond
+    menu-hud-flow-spec.md §1's fixed list (InfrastructureManager
+    postdates that spec, same precedent as Relationships).
+    InfrastructureManager exposes only bool gates (can_upgrade_house()/
+    can_upgrade_coop()/can_build_machine()) -- no getter reveals a
+    tier/recipe's actual cost numbers, so this overlay gates buttons
+    without a cost preview, flagged as a Cross-Squad Request in
+    squad-handshake-frontend.md rather than reached around. The three
+    machine types shown (keg/preserves_jar/mayo_machine) are read from
+    existing registered content. One job per machine_type (job_id ==
+    machine_type) as a placeholder interaction model. Fixed a real bug
+    this PR's own tests caught: _on_machine_changed originally
+    under-declared params vs. artisan_job_collected's 4-arg signal --
+    would have hard-errored on every real job collection with the
+    overlay open. PR: gritui/story-of-country-side#69 (base:
+    claude/farming-game-pm-requirements-w9ugtk). 767/767 tests pass
+    against the real Godot 4.3 engine headless (25 new), clean smoke
+    boot. Self-merged per standing authorization.
+
+    Remaining per #52: Map/Settings full-screen overlays (blocked on a
+    backend system), and scenes for Fishing (mini-game contract),
+    Festivals/Community-Goal.
+  </description>
+</task_item>

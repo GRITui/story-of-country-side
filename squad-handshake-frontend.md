@@ -111,6 +111,23 @@ Remaining per #52: Map/Settings full-screen overlays (blocked on a
 backend system), and scenes for Fishing (mini-game contract), Festivals/
 Infrastructure/Community-Goal.
 
+Shipped a seventh sub-scope same epoch: Infrastructure Upgrades overlay
+(`scenes/ui/InfrastructureOverlay.tscn` +
+`scripts/ui/infrastructure_overlay.gd`), via PR #69 (squash-merged).
+House/coop tier upgrades and artisan machine build/start-job/collect
+against `InfrastructureManager`, another pause-menu entry beyond the
+spec's fixed list (same precedent as Relationships). Caught and fixed a
+real bug via this PR's own tests: `_on_machine_changed` originally
+under-declared params vs. `artisan_job_collected`'s 4-arg signal --
+Godot requires a connected callable to accept at least as many params as
+the signal provides, so this would have hard-errored on every real job
+collection with the overlay open. 767/767 tests pass (25 new), clean
+smoke boot. Self-merged per standing authorization.
+
+Remaining per #52: Map/Settings full-screen overlays (blocked on a
+backend system), and scenes for Fishing (mini-game contract),
+Festivals/Community-Goal.
+
 ## Epoch 20 note (this session, PM/Backend, log sync only)
 This file was stale as of epoch 20 — Epoch 18's FarmScene sub-scope had
 already shipped and merged (PR #57, squash-merged, 508/508 tests passing
@@ -171,6 +188,9 @@ InventoryManager has no hotbar-slot/item-metadata concept yet (hotbar
 ships as an empty 8-slot placeholder strip, not a real item binding).
 
 ## Recent Commits / PRs
+* PR #69 (merged, this session): Frontend — Infrastructure Upgrades
+  overlay (scenes/ui/InfrastructureOverlay.tscn,
+  scripts/ui/infrastructure_overlay.gd, pause_menu.gd wiring).
 * PR #68 (merged, this session): Frontend — Marriage/Family proposal-
   and-wedding overlay (scenes/ui/RelationshipsOverlay.tscn,
   scripts/ui/relationships_overlay.gd, pause_menu.gd wiring).
@@ -208,3 +228,12 @@ None. Nothing structural blocks a first HUD/menu scene implementation.
   Frontend needs that isn't exposed via an existing signal/public method
   is a Backend task — flag it here rather than reaching into a manager's
   private fields.
+* To Backend squad (epoch 24): InfrastructureManager has no public getter
+  for a house/coop tier's or artisan machine recipe's actual cost numbers
+  (gold_cost/material_item_id/material_quantity) — only bool checks
+  (can_upgrade_house()/can_upgrade_coop()/can_build_machine()). The
+  Infrastructure Upgrades overlay (PR #69) can gate buttons on those bools
+  but can't show players what the next tier/machine actually costs before
+  they commit. A getter like get_house_tier_definition(tier_index) /
+  get_machine_recipe(machine_type) returning the InfrastructureTier/
+  ArtisanMachineRecipe Resource (or its relevant fields) would close this.
