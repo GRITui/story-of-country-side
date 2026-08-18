@@ -2541,7 +2541,7 @@ func _test_is_festival_day_matches_registered_date() -> void:
 	_reset_festival_manager()
 	var tm := TimeManager
 	tm.season_index = 0 # Spring
-	tm.day_in_season = 13 # spring_flower_festival's placeholder date
+	tm.day_in_season = 13 # bloomtide_fair's registered date
 	_check(FestivalManager.is_festival_day(), "day 13 of Spring should be a registered festival day")
 
 func _test_get_festival_for_date_returns_null_off_date() -> void:
@@ -2553,16 +2553,16 @@ func _test_start_festival_freezes_time_and_emits() -> void:
 	_reset_festival_manager()
 	_festival_started_events = []
 	FestivalManager.festival_started.connect(_on_festival_started_for_test)
-	var ok := FestivalManager.start_festival("spring_flower_festival")
+	var ok := FestivalManager.start_festival("bloomtide_fair")
 	FestivalManager.festival_started.disconnect(_on_festival_started_for_test)
 
 	_check(ok, "starting a registered festival should succeed")
 	_check(TimeManager.is_frozen(), "starting a festival should freeze TimeManager")
 	_check(FestivalManager.is_festival_active(), "starting a festival should mark it active")
 	_check(FestivalManager.get_active_festival() != null
-		and FestivalManager.get_active_festival().festival_id == "spring_flower_festival",
+		and FestivalManager.get_active_festival().festival_id == "bloomtide_fair",
 		"get_active_festival should return the started festival's definition")
-	_check(_festival_started_events == ["spring_flower_festival"],
+	_check(_festival_started_events == ["bloomtide_fair"],
 		"festival_started should fire once with the started festival_id, got %s" % [_festival_started_events]
 	)
 	_reset_festival_manager()
@@ -2576,23 +2576,23 @@ func _test_start_festival_unregistered_id_fails() -> void:
 
 func _test_start_festival_while_another_active_fails() -> void:
 	_reset_festival_manager()
-	FestivalManager.start_festival("spring_flower_festival")
-	var ok := FestivalManager.start_festival("summer_luau")
+	FestivalManager.start_festival("bloomtide_fair")
+	var ok := FestivalManager.start_festival("sunfield_revel")
 	_check(not ok, "starting a second festival while one is already active should fail")
-	_check(FestivalManager.get_active_festival().festival_id == "spring_flower_festival",
+	_check(FestivalManager.get_active_festival().festival_id == "bloomtide_fair",
 		"the originally active festival should remain active")
 	_reset_festival_manager()
 
 func _test_start_festival_idempotent_for_same_id() -> void:
 	_reset_festival_manager()
-	FestivalManager.start_festival("spring_flower_festival")
-	var ok := FestivalManager.start_festival("spring_flower_festival")
+	FestivalManager.start_festival("bloomtide_fair")
+	var ok := FestivalManager.start_festival("bloomtide_fair")
 	_check(ok, "re-starting the already-active festival with the same id should succeed (idempotent)")
 	_reset_festival_manager()
 
 func _test_end_festival_unfreezes_time_and_emits() -> void:
 	_reset_festival_manager()
-	FestivalManager.start_festival("summer_luau")
+	FestivalManager.start_festival("sunfield_revel")
 	_festival_ended_events = []
 	FestivalManager.festival_ended.connect(_on_festival_ended_for_test)
 	FestivalManager.end_festival()
@@ -2600,7 +2600,7 @@ func _test_end_festival_unfreezes_time_and_emits() -> void:
 
 	_check(not TimeManager.is_frozen(), "ending the festival should unfreeze TimeManager")
 	_check(not FestivalManager.is_festival_active(), "ending the festival should clear the active festival")
-	_check(_festival_ended_events == ["summer_luau"],
+	_check(_festival_ended_events == ["sunfield_revel"],
 		"festival_ended should fire once with the ended festival_id, got %s" % [_festival_ended_events])
 
 func _test_end_festival_noop_when_none_active() -> void:
@@ -2614,10 +2614,10 @@ func _test_end_festival_noop_when_none_active() -> void:
 func _test_day_started_auto_triggers_registered_festival() -> void:
 	_reset_festival_manager()
 	TimeManager.season_index = 2 # Fall
-	TimeManager.day_in_season = 16 # fall_harvest_festival's placeholder date
+	TimeManager.day_in_season = 16 # harvest_moon_festival's registered date
 	FestivalManager._on_day_started(16, "Fall", "Mon")
 	_check(FestivalManager.is_festival_active()
-		and FestivalManager.get_active_festival().festival_id == "fall_harvest_festival",
+		and FestivalManager.get_active_festival().festival_id == "harvest_moon_festival",
 		"day_started on a registered festival's date should auto-start it")
 	_reset_festival_manager()
 
@@ -2634,16 +2634,16 @@ func _test_submit_mini_game_result_pass_and_fail() -> void:
 	_mini_game_result_events = []
 	FestivalManager.mini_game_result_submitted.connect(_on_mini_game_result_for_test)
 
-	var pass_result := FestivalManager.submit_mini_game_result("summer_luau", 0.75)
+	var pass_result := FestivalManager.submit_mini_game_result("sunfield_revel", 0.75)
 	_check(pass_result["success"], "score above the pass threshold should succeed, got %s" % [pass_result])
 
-	var fail_result := FestivalManager.submit_mini_game_result("summer_luau", 0.1)
+	var fail_result := FestivalManager.submit_mini_game_result("sunfield_revel", 0.1)
 	_check(not fail_result["success"], "score below the pass threshold should fail, got %s" % [fail_result])
 
 	FestivalManager.mini_game_result_submitted.disconnect(_on_mini_game_result_for_test)
 	_check(_mini_game_result_events.size() == 2
-		and _mini_game_result_events[0] == ["summer_luau", 0.75, true]
-		and _mini_game_result_events[1] == ["summer_luau", 0.1, false],
+		and _mini_game_result_events[0] == ["sunfield_revel", 0.75, true]
+		and _mini_game_result_events[1] == ["sunfield_revel", 0.1, false],
 		"mini_game_result_submitted should fire once per call with (festival_id, score, success), got %s" % [_mini_game_result_events])
 
 ## --- ENG-16: Mining (MiningManager) ---
