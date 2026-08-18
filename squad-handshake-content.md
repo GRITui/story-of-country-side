@@ -2,10 +2,21 @@
 
 <squad_metadata>
   <squad_name>Content-Squad</squad_name>
-  <current_status>IDLE</current_status>
-  <active_task_id>none</active_task_id>
-  <sprint_completion_percentage>100</sprint_completion_percentage>
+  <current_status>IN_PROGRESS</current_status>
+  <active_task_id>CONTENT-GIFT-INTRO</active_task_id>
+  <sprint_completion_percentage>0</sprint_completion_percentage>
 </squad_metadata>
+
+## Epoch 18 update
+Dispatched a subagent for a disjoint sub-scope: gift preferences for the
+6 marriageable NPCs (Elena/Marcus/Priya/Tobias/Sana/Colton, matching
+PR #55's roster) plus a rewritten intro narration (branch
+content/gift-preferences-intro-copy). Stays clear of the concurrent
+session's claimed Festival/Infrastructure/Community-Goal remainder and
+the already-shipped farm/ranch/fish/forage cluster. Note: issue #53 got
+auto-closed by GitHub when PR #56 merged despite explicit text saying to
+leave it open — reopened it; told this subagent to avoid closing-keyword
+phrasing near "#53" to prevent a repeat.
 
 ## Current Focus
 Epoch 16: shipped a content pass on Agriculture/Ranching/Fishing/
