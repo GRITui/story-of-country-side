@@ -22,6 +22,12 @@ class_name PauseMenu
 ## docstring on this gap), so it calls the real SaveManager.save_game()
 ## and then quits the application outright instead of returning to a title
 ## screen that doesn't exist -- flagged here and in the PR, not faked.
+##
+## Also has a "Relationships" button beyond the spec's six listed items --
+## see relationships_overlay.gd's own docstring for why: MarriageManager
+## (#20) had no player-facing surface anywhere in the repo, and this menu
+## is the most natural place to hang one given there's no NPC dialogue
+## system yet to launch it from instead.
 
 const PAUSE_REASON := "pause"
 
@@ -30,11 +36,13 @@ const PAUSE_REASON := "pause"
 @onready var _inventory_button: Button = $Root/MenuPanel/Margin/VBox/InventoryButton
 @onready var _map_button: Button = $Root/MenuPanel/Margin/VBox/MapButton
 @onready var _skills_button: Button = $Root/MenuPanel/Margin/VBox/SkillsButton
+@onready var _relationships_button: Button = $Root/MenuPanel/Margin/VBox/RelationshipsButton
 @onready var _settings_button: Button = $Root/MenuPanel/Margin/VBox/SettingsButton
 @onready var _save_quit_button: Button = $Root/MenuPanel/Margin/VBox/SaveQuitButton
 
 var _inventory_overlay: InventoryOverlay
 var _skills_overlay: SkillsOverlay
+var _relationships_overlay: RelationshipsOverlay
 var _is_open := false
 
 func _ready() -> void:
@@ -42,6 +50,7 @@ func _ready() -> void:
 	_resume_button.pressed.connect(_on_resume_pressed)
 	_inventory_button.pressed.connect(_on_inventory_pressed)
 	_skills_button.pressed.connect(_on_skills_pressed)
+	_relationships_button.pressed.connect(_on_relationships_pressed)
 	_save_quit_button.pressed.connect(_on_save_quit_pressed)
 	# Map/Settings have no destination yet -- disabled, not hidden, so the
 	# menu shape still matches the spec's §1 tree even though two of its
@@ -53,13 +62,15 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not event.is_action_pressed("ui_cancel"):
 		return
 	if _is_open:
-		# While the Inventory or Skills sub-screen is showing, Escape backs
-		# out to the pause menu first rather than resuming straight through
-		# it.
+		# While the Inventory, Skills, or Relationships sub-screen is
+		# showing, Escape backs out to the pause menu first rather than
+		# resuming straight through it.
 		if _inventory_overlay != null and is_instance_valid(_inventory_overlay):
 			_close_inventory()
 		elif _skills_overlay != null and is_instance_valid(_skills_overlay):
 			_close_skills()
+		elif _relationships_overlay != null and is_instance_valid(_relationships_overlay):
+			_close_relationships()
 		else:
 			close()
 	else:
@@ -79,6 +90,7 @@ func close() -> void:
 		return
 	_close_inventory()
 	_close_skills()
+	_close_relationships()
 	_is_open = false
 	visible = false
 	TimeManager.unfreeze(PAUSE_REASON)
@@ -111,6 +123,18 @@ func _close_skills() -> void:
 	if _skills_overlay != null and is_instance_valid(_skills_overlay):
 		_skills_overlay.queue_free()
 	_skills_overlay = null
+	_menu_panel.visible = true
+
+func _on_relationships_pressed() -> void:
+	_menu_panel.visible = false
+	_relationships_overlay = load("res://scenes/ui/RelationshipsOverlay.tscn").instantiate()
+	add_child(_relationships_overlay)
+	_relationships_overlay.closed.connect(_close_relationships)
+
+func _close_relationships() -> void:
+	if _relationships_overlay != null and is_instance_valid(_relationships_overlay):
+		_relationships_overlay.queue_free()
+	_relationships_overlay = null
 	_menu_panel.visible = true
 
 func _on_save_quit_pressed() -> void:

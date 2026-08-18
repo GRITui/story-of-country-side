@@ -46,6 +46,7 @@ var _game_over_events: Array = [] ## Array[String] of reason, same reason
 var _weather_changed_events: Array = [] ## Array[String] of weather, same reason
 var _inventory_overlay_closed_count := 0 ## member, not a local -- GDScript lambdas capture locals by value
 var _skills_overlay_closed_count := 0 ## same reason
+var _relationships_overlay_closed_count := 0 ## same reason
 
 func _ready() -> void:
 	_test_minute_and_hour_wrap()
@@ -181,6 +182,12 @@ func _ready() -> void:
 	_test_pause_menu_skills_button_shows_overlay_and_hides_menu_panel()
 	_test_pause_menu_still_frozen_while_skills_overlay_open()
 	_test_pause_menu_map_and_settings_buttons_stay_disabled()
+	_test_relationships_overlay_lists_all_marriageable_npcs_on_ready()
+	_test_relationships_overlay_propose_button_disabled_until_ready()
+	_test_relationships_overlay_propose_button_click_schedules_wedding()
+	_test_relationships_overlay_marry_now_button_marries()
+	_test_relationships_overlay_close_emits_closed_signal()
+	_test_pause_menu_relationships_button_shows_overlay_and_hides_menu_panel()
 
 	_test_farm_scene_instantiates_without_error()
 	_test_farm_scene_renders_empty_grid_on_ready()
@@ -2114,6 +2121,99 @@ func _test_pause_menu_map_and_settings_buttons_stay_disabled() -> void:
 		"Map has no backing system yet and should stay a disabled placeholder")
 	_check(menu.get_node("Root/MenuPanel/Margin/VBox/SettingsButton").disabled,
 		"Settings has no backing system yet and should stay a disabled placeholder")
+	menu.queue_free()
+
+## --- Frontend: Relationships overlay (#52 sub-scope, Marriage/Family
+## proposal-and-wedding flow against MarriageManager) ---
+##
+## Same discipline as the Skills/Inventory overlay blocks above.
+
+func _make_relationships_overlay() -> RelationshipsOverlay:
+	var scene: PackedScene = load("res://scenes/ui/RelationshipsOverlay.tscn")
+	var overlay: RelationshipsOverlay = scene.instantiate()
+	add_child(overlay)
+	return overlay
+
+func _test_relationships_overlay_lists_all_marriageable_npcs_on_ready() -> void:
+	_reset_marriage_manager()
+	_reset_relationship_manager()
+	_reset_inventory_manager()
+	var overlay := _make_relationships_overlay()
+	for npc_name in MarriageManager.MARRIAGEABLE_NPCS:
+		_check(overlay.get_node("Root/Panel/Margin/VBox/NpcList/Npc_%s" % npc_name) != null,
+			"overlay should list a row for marriageable NPC %s" % npc_name)
+	_check(overlay.get_node("Root/Panel/Margin/VBox/StatusLabel").text == "Unmarried",
+		"status label should read Unmarried when primed with no engagement/marriage")
+	_check(not overlay.get_node("Root/Panel/Margin/VBox/MarryNowButton").visible,
+		"Marry Now should be hidden when not engaged")
+	overlay.queue_free()
+
+func _test_relationships_overlay_propose_button_disabled_until_ready() -> void:
+	_reset_marriage_manager()
+	_reset_relationship_manager()
+	_reset_inventory_manager()
+	var overlay := _make_relationships_overlay()
+	var row: HBoxContainer = overlay.get_node("Root/Panel/Margin/VBox/NpcList/Npc_Elena")
+	var propose_button: Button = row.get_child(3)
+	_check(propose_button.disabled, "Propose should start disabled with zero hearts and no proposal item")
+
+	_make_elena_eligible()
+	RelationshipManager.points_changed.emit("Elena", RelationshipManager.get_points("Elena"), RelationshipManager.get_hearts("Elena"))
+	_check(not propose_button.disabled, "Propose should become enabled once hearts and the proposal item are both ready")
+	overlay.queue_free()
+
+func _test_relationships_overlay_propose_button_click_schedules_wedding() -> void:
+	_reset_marriage_manager()
+	_make_elena_eligible()
+	var overlay := _make_relationships_overlay()
+	var row: HBoxContainer = overlay.get_node("Root/Panel/Margin/VBox/NpcList/Npc_Elena")
+	var propose_button: Button = row.get_child(3)
+
+	propose_button.pressed.emit()
+	_check(MarriageManager.is_engaged() and MarriageManager.engaged_to() == "Elena",
+		"clicking Propose should call MarriageManager.propose() and schedule the wedding")
+	_check(overlay.get_node("Root/Panel/Margin/VBox/StatusLabel").text.begins_with("Engaged to Elena"),
+		"status label should reactively reflect the new engagement via wedding_scheduled")
+	_check(overlay.get_node("Root/Panel/Margin/VBox/MarryNowButton").visible,
+		"Marry Now should become visible once engaged")
+	overlay.queue_free()
+
+func _test_relationships_overlay_marry_now_button_marries() -> void:
+	_reset_marriage_manager()
+	_make_elena_eligible()
+	MarriageManager.propose("Elena")
+	var overlay := _make_relationships_overlay()
+	overlay.get_node("Root/Panel/Margin/VBox/MarryNowButton").pressed.emit()
+	_check(MarriageManager.is_married() and MarriageManager.spouse_name() == "Elena",
+		"clicking Marry Now should call MarriageManager.marry() on the current fiancé(e)")
+	_check(overlay.get_node("Root/Panel/Margin/VBox/StatusLabel").text.begins_with("Married to Elena"),
+		"status label should reactively reflect the new marriage via married")
+	overlay.queue_free()
+
+func _on_relationships_overlay_closed_for_test() -> void:
+	_relationships_overlay_closed_count += 1
+
+func _test_relationships_overlay_close_emits_closed_signal() -> void:
+	_reset_marriage_manager()
+	_reset_relationship_manager()
+	_reset_inventory_manager()
+	_relationships_overlay_closed_count = 0
+	var overlay := _make_relationships_overlay()
+	overlay.closed.connect(_on_relationships_overlay_closed_for_test)
+	overlay.get_node("Root/Panel/Margin/VBox/Header/CloseButton").pressed.emit()
+	_check(_relationships_overlay_closed_count == 1, "pressing Close should emit the closed signal exactly once")
+	overlay.queue_free()
+
+func _test_pause_menu_relationships_button_shows_overlay_and_hides_menu_panel() -> void:
+	TimeManager.unfreeze(PauseMenu.PAUSE_REASON)
+	var menu := _make_pause_menu()
+	menu.open()
+	menu.get_node("Root/MenuPanel/Margin/VBox/RelationshipsButton").pressed.emit()
+	_check(not menu.get_node("Root/MenuPanel").visible,
+		"opening Relationships should hide the main pause menu panel")
+	_check(menu.get_node("RelationshipsOverlay") != null,
+		"opening Relationships should instantiate the RelationshipsOverlay as a child")
+	menu.close()
 	menu.queue_free()
 
 ## --- Frontend: FarmScene (#52 sub-scope, world/tile-rendering for

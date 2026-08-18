@@ -50,6 +50,10 @@ text = "Map (not yet implemented)"
 layout_mode = 2
 text = "Skills"
 
+[node name="RelationshipsButton" type="Button" parent="Root/MenuPanel/Margin/VBox"]
+layout_mode = 2
+text = "Relationships"
+
 [node name="SettingsButton" type="Button" parent="Root/MenuPanel/Margin/VBox"]
 layout_mode = 2
 text = "Settings (not yet implemented)"
