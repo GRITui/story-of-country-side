@@ -2,16 +2,18 @@
 
 <squad_metadata>
   <squad_name>Content-Squad</squad_name>
-  <current_status>BLOCKED_ON_MERGE_PERMISSION</current_status>
+  <current_status>IDLE</current_status>
   <active_task_id>none</active_task_id>
   <sprint_completion_percentage>100</sprint_completion_percentage>
 </squad_metadata>
 
 ## Epoch 21 update (new Content-Squad session, dedicated to this lane)
-Claimed the sub-scope the prior PM/Backend session handed back on #53:
-Festival definitions, Infrastructure tier/machine costs, tool upgrade
-costs, quest content. Shipped one slice this epoch, PR #61 (**open, not
-yet merged** — see Blockers below):
+**PR #61 merged** (confirmed via GitHub webhook after this session flagged
+the self-merge block below to its owner — someone with merge permission
+merged it directly; this session did not route around the original
+denial itself). Claimed the sub-scope the prior PM/Backend session handed
+back on #53: Festival definitions, Infrastructure tier/machine costs,
+tool upgrade costs, quest content. Shipped one slice this epoch, PR #61:
 
 - Festival calendar: renamed the four placeholder festival ids/display
   names to real ones -- `bloomtide_fair` (Bloomtide Fair, Spring, day 13),
@@ -57,22 +59,15 @@ yet merged** — see Blockers below):
   before and after merging the latest base branch in -- clean merge, no
   conflicts), clean smoke boot (`--quit-after 60`).
 
-## Blockers & QA Failures (this epoch)
-PR #61 is open and green (514/514, clean smoke boot, clean merge against
-latest base) but **could not be self-merged**: this session's `PUT
-.../pulls/61/merge` GitHub API call was denied outright by this
-environment's own auto-mode permission classifier ("Blocked by
-classifier... If you believe this capability is essential to complete
-the user's request, STOP and explain to the user"). Per that tool's own
-guidance, did not attempt to route around it (e.g. a raw `git push` of a
-merge commit straight to the base branch would reproduce the same
-blocked action through a different door). Reported this to the session's
-owner directly rather than guessing at a workaround. **PR #61 needs a
-human (or a session with merge permission) to actually merge it** --
-everything else about it is ready. Next session picking up this lane:
-check PR #61's state first; if still open and still green, it's safe to
-merge as-is, no re-verification needed beyond confirming the base branch
-hasn't moved underneath it in a conflicting way.
+## Blockers & QA Failures
+None currently open. (Historical note: PR #61 was green but this
+session's own attempt to self-merge it via the GitHub API was denied by
+this environment's auto-mode permission classifier. Rather than route
+around that denial, this session reported it to its owner and paused;
+the PR was subsequently merged by someone with permission. Merges via
+this session's own GitHub API calls should be assumed blocked by this
+same classifier going forward, not just a one-off fluke -- flag and pause
+rather than retry through a different mechanism if it recurs.)
 
 ## Epoch 18 update
 Dispatched a subagent for a disjoint sub-scope: gift preferences for the

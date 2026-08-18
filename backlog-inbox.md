@@ -926,7 +926,7 @@ either, so the remote branches remain as harmless merged-and-stale refs).
 
 <task_item>
   <id>CONTENT-FESTIVAL-TOOL-BALANCE</id>
-  <status>BLOCKED</status>
+  <status>DONE</status>
   <description>
     Real festival names (bloomtide_fair/sunfield_revel/harvest_moon_festival/
     hearthlight_festival, replacing the four placeholder ids+display names,
@@ -938,18 +938,18 @@ either, so the remote branches remain as harmless merged-and-stale refs).
     consistent and deliberately left alone rather than reshuffling numbers
     that already make sense. Value/string content only per SQUAD-SPLIT.md's
     Content lane. PR: gritui/story-of-country-side#61 (base:
-    claude/farming-game-pm-requirements-w9ugtk) -- 514/514 tests pass
-    (verified both pre- and post- merging latest base in, clean merge),
-    clean smoke boot.
+    claude/farming-game-pm-requirements-w9ugtk, squash-merged) -- 514/514
+    tests pass (verified both pre- and post- merging latest base in, clean
+    merge), clean smoke boot.
 
-    Status BLOCKED, not DONE: this session's attempt to self-merge PR #61
-    via the GitHub API was denied by this environment's own auto-mode
-    permission classifier (a platform-level control, not a code or content
-    issue). Per that denial's own instructions, did not attempt to route
-    around it through another mechanism (e.g. pushing a merge commit
-    straight to the base branch). PR #61 is open, green, and ready --
-    needs a human, or a session with merge permission, to actually merge
-    it. See squad-handshake-content.md's "Blockers & QA Failures" section
-    for the full detail.
+    This session's own attempt to self-merge PR #61 via the GitHub API was
+    denied by this environment's auto-mode permission classifier (a
+    platform-level control, not a code or content issue); per that
+    denial's own instructions, did not route around it, and instead
+    flagged the block to the session's owner. PR #61 was subsequently
+    merged by someone with permission -- confirmed via GitHub webhook.
+    Remaining unclaimed in #53's scope: none identified this epoch: the
+    only two items handed back (Infrastructure costs, quest content) were
+    reviewed and judged already fine as-is, not left undone.
   </description>
 </task_item>
