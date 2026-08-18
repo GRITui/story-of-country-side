@@ -47,6 +47,7 @@ var _weather_changed_events: Array = [] ## Array[String] of weather, same reason
 var _inventory_overlay_closed_count := 0 ## member, not a local -- GDScript lambdas capture locals by value
 var _skills_overlay_closed_count := 0 ## same reason
 var _relationships_overlay_closed_count := 0 ## same reason
+var _infrastructure_overlay_closed_count := 0 ## same reason
 
 func _ready() -> void:
 	_test_minute_and_hour_wrap()
@@ -188,6 +189,11 @@ func _ready() -> void:
 	_test_relationships_overlay_marry_now_button_marries()
 	_test_relationships_overlay_close_emits_closed_signal()
 	_test_pause_menu_relationships_button_shows_overlay_and_hides_menu_panel()
+	_test_infrastructure_overlay_shows_initial_tiers_and_machine_rows_on_ready()
+	_test_infrastructure_overlay_upgrade_house_button_gated_and_reactive()
+	_test_infrastructure_overlay_machine_build_then_start_then_collect()
+	_test_infrastructure_overlay_close_emits_closed_signal()
+	_test_pause_menu_infrastructure_button_shows_overlay_and_hides_menu_panel()
 
 	_test_farm_scene_instantiates_without_error()
 	_test_farm_scene_renders_empty_grid_on_ready()
@@ -2213,6 +2219,104 @@ func _test_pause_menu_relationships_button_shows_overlay_and_hides_menu_panel() 
 		"opening Relationships should hide the main pause menu panel")
 	_check(menu.get_node("RelationshipsOverlay") != null,
 		"opening Relationships should instantiate the RelationshipsOverlay as a child")
+	menu.close()
+	menu.queue_free()
+
+## --- Frontend: Infrastructure overlay (#52 sub-scope, house/coop tiers
+## and artisan machines against InfrastructureManager) ---
+##
+## Same discipline as the Relationships/Skills overlay blocks above.
+
+func _make_infrastructure_overlay() -> InfrastructureOverlay:
+	var scene: PackedScene = load("res://scenes/ui/InfrastructureOverlay.tscn")
+	var overlay: InfrastructureOverlay = scene.instantiate()
+	add_child(overlay)
+	return overlay
+
+func _test_infrastructure_overlay_shows_initial_tiers_and_machine_rows_on_ready() -> void:
+	_reset_infra_gates()
+	var overlay := _make_infrastructure_overlay()
+	_check(overlay.get_node("Root/Panel/Margin/VBox/HouseRow/HouseLabel").text == "House: Tier 0",
+		"house label should be primed from current InfrastructureManager state")
+	_check(overlay.get_node("Root/Panel/Margin/VBox/CoopRow/CoopLabel").text == "Coop: Tier 0 (max animals: 4)",
+		"coop label should be primed with the base animal capacity")
+	for machine_type in InfrastructureOverlay.MACHINE_TYPES:
+		_check(overlay.get_node("Root/Panel/Margin/VBox/MachineList/Machine_%s" % machine_type) != null,
+			"overlay should list a row for machine type %s" % machine_type)
+	overlay.queue_free()
+
+func _test_infrastructure_overlay_upgrade_house_button_gated_and_reactive() -> void:
+	_reset_infra_gates()
+	var overlay := _make_infrastructure_overlay()
+	var button: Button = overlay.get_node("Root/Panel/Margin/VBox/HouseRow/UpgradeHouseButton")
+	_check(button.disabled, "Upgrade House should start disabled without the quest unlock/material/gold")
+
+	QuestManager._unlocked_flags["house_tier_1_unlocked"] = true
+	ShippingBinManager.gold = 5000
+	InventoryManager.add_item("wood", 500)
+	overlay._refresh_house() # re-evaluate now that preconditions are met, mirrors what a real signal-driven refresh would do
+	_check(not button.disabled, "Upgrade House should become enabled once quest-unlocked, funded, and materialed")
+
+	button.pressed.emit()
+	_check(InfrastructureManager.get_house_tier() == 1, "clicking Upgrade House should call InfrastructureManager.upgrade_house()")
+	_check(overlay.get_node("Root/Panel/Margin/VBox/HouseRow/HouseLabel").text == "House: Tier 1",
+		"house label should reactively update via house_upgraded")
+	overlay.queue_free()
+
+func _test_infrastructure_overlay_machine_build_then_start_then_collect() -> void:
+	_reset_infra_gates()
+	var overlay := _make_infrastructure_overlay()
+	var row: HBoxContainer = overlay.get_node("Root/Panel/Margin/VBox/MachineList/Machine_keg")
+	var action_button: Button = row.get_child(2)
+	_check(action_button.disabled, "keg's action button should start disabled (not built, no unlock/funds)")
+
+	QuestManager._unlocked_flags["keg_unlocked"] = true
+	ShippingBinManager.gold = 5000
+	InventoryManager.add_item("wood", 500)
+	overlay._refresh_machine_row("keg") # re-evaluate now that preconditions are met, mirrors what a real signal-driven refresh would do
+	_check(not action_button.disabled, "Build should become enabled once quest-unlocked and affordable")
+	_check(action_button.text == "Build", "action button should read Build before the machine exists")
+
+	action_button.pressed.emit()
+	_check(InfrastructureManager.is_machine_built("keg"), "clicking Build should call InfrastructureManager.build_machine()")
+	_check(action_button.text == "Start Job", "action button should switch to Start Job once built with no active job")
+
+	InventoryManager.add_item("fruit", 3)
+	action_button.pressed.emit()
+	_check(not InfrastructureManager.get_job("keg").is_empty(), "clicking Start Job should call InfrastructureManager.start_job()")
+	_check(action_button.text == "Processing...", "action button should show processing while the job is not yet ready")
+
+	InfrastructureManager._on_day_started(1, "Spring", "Mon")
+	InfrastructureManager._on_day_started(2, "Spring", "Tue")
+	InfrastructureManager._on_day_started(3, "Spring", "Wed") # keg's 3-day recipe
+	_check(action_button.text == "Collect", "action button should reactively switch to Collect once artisan_job_ready fires")
+
+	action_button.pressed.emit()
+	_check(InfrastructureManager.get_job("keg").is_empty(), "clicking Collect should call InfrastructureManager.collect_job()")
+	_check(action_button.text == "Start Job", "action button should go back to Start Job after collection, via artisan_job_collected")
+	overlay.queue_free()
+
+func _on_infrastructure_overlay_closed_for_test() -> void:
+	_infrastructure_overlay_closed_count += 1
+
+func _test_infrastructure_overlay_close_emits_closed_signal() -> void:
+	_reset_infra_gates()
+	_infrastructure_overlay_closed_count = 0
+	var overlay := _make_infrastructure_overlay()
+	overlay.closed.connect(_on_infrastructure_overlay_closed_for_test)
+	overlay.get_node("Root/Panel/Margin/VBox/Header/CloseButton").pressed.emit()
+	_check(_infrastructure_overlay_closed_count == 1, "pressing Close should emit the closed signal exactly once")
+	overlay.queue_free()
+
+func _test_pause_menu_infrastructure_button_shows_overlay_and_hides_menu_panel() -> void:
+	TimeManager.unfreeze(PauseMenu.PAUSE_REASON)
+	var menu := _make_pause_menu()
+	menu.open()
+	menu.get_node("Root/MenuPanel/Margin/VBox/InfrastructureButton").pressed.emit()
+	_check(not menu.get_node("Root/MenuPanel").visible,
+		"opening Infrastructure should hide the main pause menu panel")
+	_check(menu.get_node("InfrastructureOverlay") != null,
+		"opening Infrastructure should instantiate the InfrastructureOverlay as a child")
 	menu.close()
 	menu.queue_free()
 
