@@ -1121,3 +1121,19 @@ either, so the remote branches remain as harmless merged-and-stale refs).
     Infrastructure/Community-Goal.
   </description>
 </task_item>
+
+<!-- PM sync (this session, Backend/PM): checked in after focusing briefly
+     on non-repo tooling (a status-deck reporting session). Verified
+     current state independently: 702/702 tests pass on latest
+     claude/farming-game-pm-requirements-w9ugtk (f1981b0, ForageScene
+     PR #65 merged since last check). No open PRs, no new GitHub issues.
+     Frontend-Squad (spawned this session earlier) is actively and
+     independently shipping scenes -- HUD weather (#63), RanchScene (#64),
+     ForageScene (#65) all landed without needing PM intervention.
+     Content-Squad is idle/self-re-arming (nothing new flagged for two
+     consecutive epochs per its own stop condition). No unclaimed,
+     unblocked Backend task exists right now -- WeatherManager (epoch 23)
+     closed the one known gap. Found QA-Tester-Squad's own session had
+     gone idle since ~04:10 UTC with a large backlog of unreviewed merged
+     PRs (everything since its epoch-1 batch of 11) -- nudged it to resume
+     via a one-shot wake rather than leaving that coverage gap sitting. -->
