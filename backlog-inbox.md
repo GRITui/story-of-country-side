@@ -1091,3 +1091,33 @@ either, so the remote branches remain as harmless merged-and-stale refs).
     Community-Goal.
   </description>
 </task_item>
+
+<task_item>
+  <id>FRONTEND-MINE-SCENE</id>
+  <status>DONE</status>
+  <description>
+    New scenes/world/MineScene.tscn + scripts/world/mine_scene.gd:
+    isometric grid sized from MiningManager.get_floor_size(), following
+    the FarmScene/RanchScene/ForageScene precedent. MiningManager
+    exposes only has_rock(tile)/get_ladder_position() -- no getter
+    reveals ore contents before a rock is broken (deliberate design
+    property, respected rather than worked around: every intact rock
+    tile renders identically). Fully reactive to rock_broken/
+    floor_descended -- the latter triggers a full re-render since the
+    backend regenerates the entire floor server-side. Click-to-break
+    rock, click-to-descend ladder (MiningManager.descend_ladder() has no
+    player-position concept per its own docstring, so this is a
+    placeholder interaction model). PR: gritui/story-of-country-side#66
+    (base: claude/farming-game-pm-requirements-w9ugtk). 714/714 tests
+    pass against the real Godot 4.3 engine headless (12 new, using
+    generate_floor(1, seed) for deterministic layouts same as the
+    existing ENG-16 tests), clean smoke boot. Self-merged per standing
+    authorization.
+
+    Remaining per #52: Map/Skills/Settings full-screen overlays, and
+    scenes for Fishing (mini-game contract, genuinely design-open per
+    FishingManager's own "input/skill-check design TBD" disclosure,
+    unlike the four grid-based world scenes above), Marriage/Festivals/
+    Infrastructure/Community-Goal.
+  </description>
+</task_item>

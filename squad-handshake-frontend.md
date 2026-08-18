@@ -50,6 +50,24 @@ authorization.
 
 Next up: Fishing/Mining world scenes remain, same pattern.
 
+Shipped a fourth sub-scope same epoch: `scenes/world/MineScene.tscn` +
+`scripts/world/mine_scene.gd`, via PR #66 (squash-merged). Isometric grid
+sized from `MiningManager.get_floor_size()`, reactive to `rock_broken`/
+`floor_descended` (the latter triggers a full re-render since the backend
+regenerates the entire floor). `MiningManager` deliberately exposes no
+getter for a rock's ore contents before it's broken -- this scene respects
+that, every intact rock renders identically. Click-to-break rock,
+click-to-descend ladder. 714/714 tests pass (12 new, using
+`generate_floor(1, <seed>)` for determinism, same as the existing ENG-16
+tests), clean smoke boot. Self-merged per standing authorization.
+
+Remaining per #52: Map/Skills/Settings full-screen overlays, and scenes
+for Fishing (mini-game contract, `attempt_catch()` -- a genuinely
+design-open task per FishingManager's own "input/skill-check design TBD"
+disclosure, unlike the four grid-based world scenes above which had an
+obvious FarmScene-precedent shape), Marriage/Festivals/Infrastructure/
+Community-Goal.
+
 ## Epoch 20 note (this session, PM/Backend, log sync only)
 This file was stale as of epoch 20 — Epoch 18's FarmScene sub-scope had
 already shipped and merged (PR #57, squash-merged, 508/508 tests passing
@@ -110,6 +128,9 @@ InventoryManager has no hotbar-slot/item-metadata concept yet (hotbar
 ships as an empty 8-slot placeholder strip, not a real item binding).
 
 ## Recent Commits / PRs
+* PR #66 (merged, this session): Frontend — MineScene world/tile-
+  rendering for MiningManager (scenes/world/MineScene.tscn,
+  scripts/world/mine_scene.gd).
 * PR #65 (merged, this session): Frontend — ForageScene world/tile-
   rendering for ForagingManager (scenes/world/ForageScene.tscn,
   scripts/world/forage_scene.gd).
