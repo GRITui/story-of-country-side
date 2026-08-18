@@ -68,6 +68,22 @@ disclosure, unlike the four grid-based world scenes above which had an
 obvious FarmScene-precedent shape), Marriage/Festivals/Infrastructure/
 Community-Goal.
 
+Shipped a fifth sub-scope same epoch: Skills full-screen overlay
+(`scenes/ui/SkillsOverlay.tscn` + `scripts/ui/skills_overlay.gd`), via
+PR #67 (squash-merged). Same chrome/discipline as InventoryOverlay,
+reactive to `SkillManager`'s `xp_gained`/`level_changed`. The four skill
+names shown (Farming/Fishing/Mining/Foraging) are read from existing
+content -- every activity manager already calls `add_xp()` with one of
+these -- not invented. `PauseMenu`'s Skills button is now real (was a
+disabled placeholder since PR #54); Map/Settings stay disabled since
+neither has a backend system yet. 724/724 tests pass (10 new), clean
+smoke boot. Self-merged per standing authorization.
+
+Remaining per #52: Map/Settings full-screen overlays (blocked on a
+backend system existing for either -- not a Frontend-only task), and
+scenes for Fishing (mini-game contract), Marriage/Festivals/
+Infrastructure/Community-Goal.
+
 ## Epoch 20 note (this session, PM/Backend, log sync only)
 This file was stale as of epoch 20 — Epoch 18's FarmScene sub-scope had
 already shipped and merged (PR #57, squash-merged, 508/508 tests passing
@@ -128,6 +144,9 @@ InventoryManager has no hotbar-slot/item-metadata concept yet (hotbar
 ships as an empty 8-slot placeholder strip, not a real item binding).
 
 ## Recent Commits / PRs
+* PR #67 (merged, this session): Frontend — Skills full-screen overlay
+  (scenes/ui/SkillsOverlay.tscn, scripts/ui/skills_overlay.gd,
+  pause_menu.gd wiring).
 * PR #66 (merged, this session): Frontend — MineScene world/tile-
   rendering for MiningManager (scenes/world/MineScene.tscn,
   scripts/world/mine_scene.gd).

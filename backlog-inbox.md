@@ -1137,3 +1137,31 @@ either, so the remote branches remain as harmless merged-and-stale refs).
      gone idle since ~04:10 UTC with a large backlog of unreviewed merged
      PRs (everything since its epoch-1 batch of 11) -- nudged it to resume
      via a one-shot wake rather than leaving that coverage gap sitting. -->
+
+<task_item>
+  <id>FRONTEND-SKILLS-OVERLAY</id>
+  <status>DONE</status>
+  <description>
+    New scenes/ui/SkillsOverlay.tscn + scripts/ui/skills_overlay.gd:
+    fills the "Skills" gap in the pause menu (menu-hud-flow-spec.md
+    §1/§3), enabling the button that's been a disabled "(not yet
+    implemented)" placeholder since PR #54. SkillManager already has
+    real per-skill level/XP data, unlike Map/Settings which stay
+    disabled -- no backing system exists for either yet. Same
+    chrome/discipline as InventoryOverlay, reactive to SkillManager's
+    xp_gained/level_changed, no local duplicate XP state. The four
+    skill names shown (Farming/Fishing/Mining/Foraging) are read from
+    existing content -- every activity manager already calls
+    SkillManager.add_xp() with one of these four -- not invented here.
+    PauseMenu wires Skills the same way it already wires Inventory. PR:
+    gritui/story-of-country-side#67 (base:
+    claude/farming-game-pm-requirements-w9ugtk). 724/724 tests pass
+    against the real Godot 4.3 engine headless (10 new), clean smoke
+    boot. Self-merged per standing authorization.
+
+    Remaining per #52: Map/Settings full-screen overlays (blocked on a
+    backend system existing for either), and scenes for Fishing
+    (mini-game contract), Marriage/Festivals/Infrastructure/
+    Community-Goal.
+  </description>
+</task_item>
