@@ -11,13 +11,14 @@ class_name PauseMenu
 ## spec's own §1 rule, not a second one.
 ##
 ## Menu items per the spec's §1 tree: Resume, Inventory, Map, Skills /
-## Progression, Settings, Save & Quit to Title. Only Resume and Inventory
-## are real destinations this PR -- Map, Skills, and Settings have no
-## backing scene/system to open yet (no MapManager/SkillManager UI/settings
-## system exists), so they're wired as disabled buttons clearly labelled
-## "(not yet implemented)" rather than either faking a screen or silently
-## omitting the menu item the spec lists. Save & Quit to Title is also
-## partial: there is no title screen yet (see main_controller.gd's own
+## Progression, Settings, Save & Quit to Title. Resume, Inventory, and
+## (as of the Skills full-screen overlay sub-scope) Skills are real
+## destinations. Map and Settings still have no backing scene/system to
+## open (no MapManager/settings system exists), so they stay disabled
+## buttons clearly labelled "(not yet implemented)" rather than either
+## faking a screen or silently omitting the menu item the spec lists.
+## Save & Quit to Title is also partial: there is no title screen yet
+## (see main_controller.gd's own
 ## docstring on this gap), so it calls the real SaveManager.save_game()
 ## and then quits the application outright instead of returning to a title
 ## screen that doesn't exist -- flagged here and in the PR, not faked.
@@ -33,28 +34,32 @@ const PAUSE_REASON := "pause"
 @onready var _save_quit_button: Button = $Root/MenuPanel/Margin/VBox/SaveQuitButton
 
 var _inventory_overlay: InventoryOverlay
+var _skills_overlay: SkillsOverlay
 var _is_open := false
 
 func _ready() -> void:
 	visible = false
 	_resume_button.pressed.connect(_on_resume_pressed)
 	_inventory_button.pressed.connect(_on_inventory_pressed)
+	_skills_button.pressed.connect(_on_skills_pressed)
 	_save_quit_button.pressed.connect(_on_save_quit_pressed)
-	# Map/Skills/Settings have no destination yet -- disabled, not hidden,
-	# so the menu shape matches the spec's §1 tree even though three of its
+	# Map/Settings have no destination yet -- disabled, not hidden, so the
+	# menu shape still matches the spec's §1 tree even though two of its
 	# six items aren't implemented.
 	_map_button.disabled = true
-	_skills_button.disabled = true
 	_settings_button.disabled = true
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not event.is_action_pressed("ui_cancel"):
 		return
 	if _is_open:
-		# While the Inventory sub-screen is showing, Escape backs out to the
-		# pause menu first rather than resuming straight through it.
+		# While the Inventory or Skills sub-screen is showing, Escape backs
+		# out to the pause menu first rather than resuming straight through
+		# it.
 		if _inventory_overlay != null and is_instance_valid(_inventory_overlay):
 			_close_inventory()
+		elif _skills_overlay != null and is_instance_valid(_skills_overlay):
+			_close_skills()
 		else:
 			close()
 	else:
@@ -73,6 +78,7 @@ func close() -> void:
 	if not _is_open:
 		return
 	_close_inventory()
+	_close_skills()
 	_is_open = false
 	visible = false
 	TimeManager.unfreeze(PAUSE_REASON)
@@ -93,6 +99,18 @@ func _close_inventory() -> void:
 	if _inventory_overlay != null and is_instance_valid(_inventory_overlay):
 		_inventory_overlay.queue_free()
 	_inventory_overlay = null
+	_menu_panel.visible = true
+
+func _on_skills_pressed() -> void:
+	_menu_panel.visible = false
+	_skills_overlay = load("res://scenes/ui/SkillsOverlay.tscn").instantiate()
+	add_child(_skills_overlay)
+	_skills_overlay.closed.connect(_close_skills)
+
+func _close_skills() -> void:
+	if _skills_overlay != null and is_instance_valid(_skills_overlay):
+		_skills_overlay.queue_free()
+	_skills_overlay = null
 	_menu_panel.visible = true
 
 func _on_save_quit_pressed() -> void:
