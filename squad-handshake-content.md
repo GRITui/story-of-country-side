@@ -125,6 +125,21 @@ None.
 ## Cross-Squad Requests
 None yet.
 
+## Epoch 20 update (this session, PM/Backend covering the Content lane)
+Continued this session's own Marriage/Festival/Infrastructure/
+Community-Goal sub-scope from epoch 17: shipped PR #60 (merged) — five
+new Community Goal bundles (orchard_bundle, deluxe_coop_bundle,
+night_anglers_bundle, forager_reserve_bundle, vault_bundle) reusing
+item_ids the farm/ranch/fish/forage pass (PR #56) and Mining's diamond
+added since the original five bundles were written. Purely additive,
+original five untouched. 514/514 tests pass. Still remaining in this
+sub-scope: Festival definitions (lower priority, reasonable placeholders
+already), Infrastructure tier/machine costs (still flagged — retuning
+these means updating several hardcoded `tests/test_runner.gd` assertions,
+which reads as more logic-adjacent than a pure content edit; left for a
+dedicated pass or an Engineer-Squad judgment call on whether that crosses
+the Content lane's boundary).
+
 ## Epoch 16/17 note
 This session (PM/Backend orchestrator covering the Content lane since
 the backend leaf-task backlog is empty) dispatched the farm/ranch/fish/

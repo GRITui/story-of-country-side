@@ -885,3 +885,36 @@ either, so the remote branches remain as harmless merged-and-stale refs).
     bundle composition/balance.
   </description>
 </task_item>
+
+<!-- Epoch 20 (this session, PM/Backend covering the Content lane): Step 0
+     found no new open issues -- #52/#53 both reopened by concurrent
+     sessions after GitHub auto-closed them on sub-scope PR merges (their
+     own comments already note this), no new issue numbers. Continued this
+     session's own Marriage/Festival/Infrastructure/Community-Goal
+     sub-scope from epoch 17, picking Community Goal bundles next since
+     Infrastructure costs and Festival dates were flagged as lower-value/
+     higher-risk (test coupling) in that epoch's notes. -->
+
+<task_item>
+  <id>CONTENT-COMMUNITY-GOAL-BUNDLES</id>
+  <status>DONE</status>
+  <description>
+    Added five new Community Goal bundles (orchard_bundle,
+    deluxe_coop_bundle, night_anglers_bundle, forager_reserve_bundle,
+    vault_bundle) reusing item_ids the concurrent session's Agriculture/
+    Ranching/Fishing/Foraging pass (PR #56) and ENG-16 Mining's diamond
+    added since the original five were written. Purely additive -- none
+    of the original five bundles touched. PR:
+    gritui/story-of-country-side#60 (base:
+    claude/farming-game-pm-requirements-w9ugtk). 514/514 tests pass
+    against the real Godot 4.3 engine headless (class-cache refresh
+    needed first for FarmScene from the concurrently-merged PR #57).
+    Self-merged per standing authorization.
+
+    Still remaining in this sub-scope: Festival definitions (lower
+    priority), Infrastructure tier/machine costs (still flagged as
+    possibly crossing the Content lane's boundary since changing them
+    means updating several hardcoded test assertions -- left for a
+    dedicated pass or an Engineer-Squad judgment call).
+  </description>
+</task_item>
