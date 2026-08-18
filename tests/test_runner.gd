@@ -67,6 +67,8 @@ func _ready() -> void:
 	_test_talk_awards_points_once_per_day()
 	_test_gift_applies_preference_deltas()
 	_test_gift_once_per_day()
+	_test_gift_by_npc_name_looks_up_real_preferences()
+	_test_gift_by_npc_name_unknown_npc_is_graceful_noop()
 	_test_points_clamp_between_zero_and_max()
 	_test_heart_event_fires_once_per_threshold_crossed()
 	_test_heart_event_handles_multi_threshold_jump()
@@ -552,6 +554,34 @@ func _test_gift_once_per_day() -> void:
 	_check(not second, "a second gift the same day should be rejected")
 	_check(rm.get_points("Elena") == 45,
 		"a rejected second gift should not add its points, got %d" % rm.get_points("Elena"))
+
+func _test_gift_by_npc_name_looks_up_real_preferences() -> void:
+	_reset_relationship_manager()
+	var rm := RelationshipManager
+
+	# elena.tres (PR #58): loved_items includes "wild_flower", hated_items
+	# includes "eel". No table is passed in here -- give_gift_by_npc_name()
+	# must load elena.tres itself via GIFT_PREFERENCE_PATHS.
+	var accepted := rm.give_gift_by_npc_name("Elena", "wild_flower")
+	_check(accepted, "give_gift_by_npc_name() should succeed for a known NPC")
+	_check(rm.get_points("Elena") == 80,
+		"a loved gift looked up from elena.tres should add 80 points, got %d" % rm.get_points("Elena"))
+
+	rm._on_day_started(1, "Spring", "Mon")
+	rm.give_gift_by_npc_name("Elena", "eel")
+	_check(rm.get_points("Elena") == 40,
+		"a hated gift looked up from elena.tres should subtract 40 points, got %d" % rm.get_points("Elena"))
+
+func _test_gift_by_npc_name_unknown_npc_is_graceful_noop() -> void:
+	_reset_relationship_manager()
+	var rm := RelationshipManager
+
+	var accepted := rm.give_gift_by_npc_name("NotARealNPC", "wild_flower")
+	_check(not accepted, "give_gift_by_npc_name() should return false for an NPC with no known preference table")
+	_check(rm.get_points("NotARealNPC") == 0,
+		"an unknown NPC should not gain points or crash, got %d" % rm.get_points("NotARealNPC"))
+	_check(not rm.has_gifted_today("NotARealNPC"),
+		"a graceful no-op should not consume the once-per-day gift slot")
 
 func _test_points_clamp_between_zero_and_max() -> void:
 	_reset_relationship_manager()
