@@ -63,16 +63,17 @@ func _ready() -> void:
 	_register_default_content()
 	TimeManager.day_started.connect(_on_day_started)
 
-## Placeholder content: one festival per season, spread through the
-## season's day range -- no concrete festival list/dates/mini-game design
-## exists in the design doc, these are placeholders documented here and
-## in the PR, not final content. Content squad owns tuning these per
-## SQUAD-SPLIT.md's Content lane.
+## One festival per season, spread through the season's day range. Named
+## and dated by Content squad per SQUAD-SPLIT.md's Content lane -- no
+## concrete festival list existed anywhere in the design doc, so these are
+## this repo's real festival calendar, not a stand-in for one written
+## elsewhere. festival_id strings stay internal identifiers (snake_case,
+## stable independent of the display name players actually see).
 func _register_default_content() -> void:
-	register_festival(_make_festival("spring_flower_festival", "Flower Festival", "Spring", 13))
-	register_festival(_make_festival("summer_luau", "Summer Luau", "Summer", 15))
-	register_festival(_make_festival("fall_harvest_festival", "Harvest Festival", "Fall", 16))
-	register_festival(_make_festival("winter_festival", "Winter Festival", "Winter", 21))
+	register_festival(_make_festival("bloomtide_fair", "Bloomtide Fair", "Spring", 13))
+	register_festival(_make_festival("sunfield_revel", "Sunfield Revel", "Summer", 15))
+	register_festival(_make_festival("harvest_moon_festival", "Harvest Moon Festival", "Fall", 16))
+	register_festival(_make_festival("hearthlight_festival", "Hearthlight Festival", "Winter", 21))
 
 func _make_festival(festival_id: String, display_name: String, season: String, day_of_season: int) -> FestivalDefinition:
 	var def := FestivalDefinition.new()

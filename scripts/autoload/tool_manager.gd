@@ -37,16 +37,30 @@ var _ore_counts: Dictionary = {}       ## item_id -> int
 func _ready() -> void:
 	_register_default_content()
 
-## MVP placeholder balance, not final game numbers -- same honesty as the
-## quest-content and gift-preference defaults from #31/#19. Same cost
-## structure across all four tools for simplicity; real balance would
-## likely differentiate (e.g. pickaxe costing more than a hoe).
+## Real balance, differentiated per tool -- all four tools share the same
+## AoE progression shape (a 5-tile cross at Iron, the full 3x3 at Gold) so
+## upgrading always *feels* the same, but the ore/gold price scales with
+## how central the tool is to the daily loop and how much a bigger swing
+## is worth. Hoe/WateringCan are used every single day, so they stay
+## cheapest to keep early-game friction low. Axe costs a bit more (wood
+## feeds the Infrastructure track, so a wider AoE compounds in value).
+## Pickaxe is priciest -- a bigger mining AoE is the single best ore/gem
+## income multiplier in the game (see MiningManager), so it's worth
+## charging the most to reach.
 func _register_default_content() -> void:
-	for tool_name in ["Hoe", "WateringCan", "Axe", "Pickaxe"]:
-		register_tier(tool_name, _make_tier(1, "iron_ore", 5, 200,
-			[Vector2i(0, 0), Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)], 4))
-		register_tier(tool_name, _make_tier(2, "gold_ore", 5, 500,
-			_full_3x3_offsets(), 3))
+	var cross: Array[Vector2i] = [Vector2i(0, 0), Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
+
+	register_tier("Hoe", _make_tier(1, "iron_ore", 5, 200, cross, 4))
+	register_tier("Hoe", _make_tier(2, "gold_ore", 5, 500, _full_3x3_offsets(), 3))
+
+	register_tier("WateringCan", _make_tier(1, "iron_ore", 4, 150, cross, 4))
+	register_tier("WateringCan", _make_tier(2, "gold_ore", 4, 400, _full_3x3_offsets(), 3))
+
+	register_tier("Axe", _make_tier(1, "iron_ore", 5, 220, cross, 4))
+	register_tier("Axe", _make_tier(2, "gold_ore", 6, 550, _full_3x3_offsets(), 3))
+
+	register_tier("Pickaxe", _make_tier(1, "iron_ore", 6, 260, cross, 4))
+	register_tier("Pickaxe", _make_tier(2, "gold_ore", 7, 650, _full_3x3_offsets(), 3))
 
 func _make_tier(tier_index: int, ore_item_id: String, ore_quantity: int, gold_cost: int,
 	aoe_offsets: Array[Vector2i], stamina_cost: int) -> ToolUpgradeTier:
