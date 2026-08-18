@@ -35,6 +35,7 @@ func build_save_data() -> Dictionary:
 		"farm_plots": FarmPlotManager.to_save_dict(),
 		"foraging": ForagingManager.to_save_dict(),
 		"animals": AnimalManager.to_save_dict(),
+		"mining": MiningManager.to_save_dict(),
 		"intro_seen": intro_seen,
 	}
 
@@ -61,6 +62,8 @@ func apply_save_data(data: Dictionary) -> void:
 		ForagingManager.from_save_dict(data["foraging"])
 	if data.has("animals"):
 		AnimalManager.from_save_dict(data["animals"])
+	if data.has("mining"):
+		MiningManager.from_save_dict(data["mining"])
 	if data.has("intro_seen"):
 		intro_seen = data["intro_seen"]
 
@@ -85,6 +88,7 @@ func new_game() -> void:
 	FarmPlotManager.from_save_dict({})
 	ForagingManager.from_save_dict({})
 	AnimalManager.from_save_dict({})
+	MiningManager.from_save_dict({})
 	intro_seen = false
 	save_game()
 
