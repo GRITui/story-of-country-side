@@ -1,4 +1,5 @@
 extends Node
+class_name MainController
 ## Attached to scenes/Main.tscn's root node.
 ##
 ## ENG-26 (Opening hook): the boot-time entry point this issue's intro
@@ -26,21 +27,38 @@ extends Node
 ## should not be reachable (or its Escape toggle armed) while the intro is
 ## still playing.
 ##
-## #52 sub-scope: FarmScene (the world/tile-rendering scene for
-## FarmPlotManager, scenes/world/FarmScene.tscn) is added as a plain Node2D
-## sibling here rather than under a CanvasLayer -- it's world-space content,
-## not screen-space UI, so it goes in alongside the HUD/pause-menu
-## CanvasLayers but stays a regular child of this Node. Shown at the same
-## point the HUD is (after the intro finishes / immediately if the intro's
-## already been seen) since it's gameplay content the intro's full-screen
-## beat should also hide.
+## #52 sub-scope: the active world scene (FarmScene et al) is added as a
+## plain Node2D sibling here rather than under a CanvasLayer -- it's
+## world-space content, not screen-space UI, so it goes in alongside the
+## HUD/pause-menu CanvasLayers but stays a regular child of this Node.
+## Shown at the same point the HUD is (after the intro finishes /
+## immediately if the intro's already been seen) since it's gameplay
+## content the intro's full-screen beat should also hide.
+##
+## Map overlay sub-scope: only one world scene is ever active at a time
+## (this repo has no open-world/streaming design -- each activity system's
+## scene is a self-contained location). travel_to(location) swaps the
+## active one, called from PauseMenu's own travel_requested signal (which
+## it forwards from MapOverlay -- see pause_menu.gd/map_overlay.gd's own
+## docstrings). Farm is the fixed starting location; there's no save data
+## for "which location the player was last in" (SaveManager doesn't track
+## it), so every boot starts back at Farm regardless of where a save last
+## left off -- a real gap, not silently faked, flagged in this PR.
+
+const LOCATION_SCENE_PATHS := {
+	"Farm": "res://scenes/world/FarmScene.tscn",
+	"Ranch": "res://scenes/world/RanchScene.tscn",
+	"Forage": "res://scenes/world/ForageScene.tscn",
+	"Mine": "res://scenes/world/MineScene.tscn",
+}
+const STARTING_LOCATION := "Farm"
 
 @onready var _hud_scene: PackedScene = load("res://scenes/ui/HUD.tscn")
 @onready var _pause_menu_scene: PackedScene = load("res://scenes/ui/PauseMenu.tscn")
-@onready var _farm_scene_scene: PackedScene = load("res://scenes/world/FarmScene.tscn")
 var _hud: CanvasLayer
 var _pause_menu: CanvasLayer
-var _farm_scene: Node2D
+var _active_world_scene: Node2D
+var _current_location: String = "" ## empty until the first travel_to() call, so the initial boot travel isn't a same-location no-op
 
 func _ready() -> void:
 	if not SaveManager.load_game():
@@ -67,16 +85,30 @@ func _show_hud() -> void:
 	_hud = _hud_scene.instantiate()
 	add_child(_hud)
 	_show_pause_menu()
-	_show_farm_scene()
+	travel_to(STARTING_LOCATION)
 
 func _show_pause_menu() -> void:
 	if _pause_menu != null:
 		return
 	_pause_menu = _pause_menu_scene.instantiate()
 	add_child(_pause_menu)
+	_pause_menu.travel_requested.connect(travel_to)
 
-func _show_farm_scene() -> void:
-	if _farm_scene != null:
+func current_location() -> String:
+	return _current_location
+
+## Swaps the active world scene. A no-op for an unknown location string
+## (defensive against a future MapOverlay location list drifting out of
+## sync with this dictionary) or for re-selecting the already-active
+## location -- free(), not queue_free(), so a caller checking
+## current_location()/the scene tree immediately after this call sees the
+## swap already applied, same "callers need this gone immediately"
+## reasoning inventory_overlay.gd's _remove_row uses.
+func travel_to(location: String) -> void:
+	if not LOCATION_SCENE_PATHS.has(location) or location == _current_location:
 		return
-	_farm_scene = _farm_scene_scene.instantiate()
-	add_child(_farm_scene)
+	if _active_world_scene != null and is_instance_valid(_active_world_scene):
+		_active_world_scene.free()
+	_active_world_scene = load(LOCATION_SCENE_PATHS[location]).instantiate()
+	add_child(_active_world_scene)
+	_current_location = location

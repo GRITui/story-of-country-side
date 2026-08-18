@@ -11,12 +11,18 @@ class_name PauseMenu
 ## spec's own §1 rule, not a second one.
 ##
 ## Menu items per the spec's §1 tree: Resume, Inventory, Map, Skills /
-## Progression, Settings, Save & Quit to Title. Resume, Inventory, and
-## (as of the Skills full-screen overlay sub-scope) Skills are real
-## destinations. Map and Settings still have no backing scene/system to
-## open (no MapManager/settings system exists), so they stay disabled
-## buttons clearly labelled "(not yet implemented)" rather than either
-## faking a screen or silently omitting the menu item the spec lists.
+## Progression, Settings, Save & Quit to Title. Resume, Inventory,
+## Skills, and (as of this PR) Map are real destinations. Map opens
+## MapOverlay, a location switcher for the world scenes (see
+## map_overlay.gd's own docstring) -- it emits travel_requested, which
+## this menu forwards upward via its own travel_requested signal (a
+## parent, e.g. main_controller.gd, connects to that to actually switch
+## the active world scene) and closes the whole pause menu on, since
+## traveling should return the player to live gameplay rather than leave
+## them staring at the menu. Settings still has no backing scene/system
+## to open (no settings system exists), so it stays a disabled button
+## clearly labelled "(not yet implemented)" rather than either faking a
+## screen or silently omitting the menu item the spec lists.
 ## Save & Quit to Title is also partial: there is no title screen yet
 ## (see main_controller.gd's own
 ## docstring on this gap), so it calls the real SaveManager.save_game()
@@ -31,6 +37,8 @@ class_name PauseMenu
 ## anywhere in the repo; this menu is the most natural place to hang one
 ## for each given there's no NPC dialogue/world-map system yet to launch
 ## them from instead.
+
+signal travel_requested(location: String)
 
 const PAUSE_REASON := "pause"
 
@@ -48,31 +56,34 @@ var _inventory_overlay: InventoryOverlay
 var _skills_overlay: SkillsOverlay
 var _relationships_overlay: RelationshipsOverlay
 var _infrastructure_overlay: InfrastructureOverlay
+var _map_overlay: MapOverlay
 var _is_open := false
 
 func _ready() -> void:
 	visible = false
 	_resume_button.pressed.connect(_on_resume_pressed)
 	_inventory_button.pressed.connect(_on_inventory_pressed)
+	_map_button.pressed.connect(_on_map_pressed)
 	_skills_button.pressed.connect(_on_skills_pressed)
 	_relationships_button.pressed.connect(_on_relationships_pressed)
 	_infrastructure_button.pressed.connect(_on_infrastructure_pressed)
 	_save_quit_button.pressed.connect(_on_save_quit_pressed)
-	# Map/Settings have no destination yet -- disabled, not hidden, so the
-	# menu shape still matches the spec's §1 tree even though two of its
-	# six items aren't implemented.
-	_map_button.disabled = true
+	# Settings has no destination yet -- disabled, not hidden, so the menu
+	# shape still matches the spec's §1 tree even though one of its six
+	# items isn't implemented.
 	_settings_button.disabled = true
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not event.is_action_pressed("ui_cancel"):
 		return
 	if _is_open:
-		# While the Inventory, Skills, Relationships, or Infrastructure
-		# sub-screen is showing, Escape backs out to the pause menu first
-		# rather than resuming straight through it.
+		# While the Inventory, Map, Skills, Relationships, or
+		# Infrastructure sub-screen is showing, Escape backs out to the
+		# pause menu first rather than resuming straight through it.
 		if _inventory_overlay != null and is_instance_valid(_inventory_overlay):
 			_close_inventory()
+		elif _map_overlay != null and is_instance_valid(_map_overlay):
+			_close_map()
 		elif _skills_overlay != null and is_instance_valid(_skills_overlay):
 			_close_skills()
 		elif _relationships_overlay != null and is_instance_valid(_relationships_overlay):
@@ -97,6 +108,7 @@ func close() -> void:
 	if not _is_open:
 		return
 	_close_inventory()
+	_close_map()
 	_close_skills()
 	_close_relationships()
 	_close_infrastructure()
@@ -121,6 +133,26 @@ func _close_inventory() -> void:
 		_inventory_overlay.queue_free()
 	_inventory_overlay = null
 	_menu_panel.visible = true
+
+func _on_map_pressed() -> void:
+	_menu_panel.visible = false
+	_map_overlay = load("res://scenes/ui/MapOverlay.tscn").instantiate()
+	add_child(_map_overlay)
+	_map_overlay.closed.connect(_close_map)
+	_map_overlay.travel_requested.connect(_on_map_travel_requested)
+
+func _close_map() -> void:
+	if _map_overlay != null and is_instance_valid(_map_overlay):
+		_map_overlay.queue_free()
+	_map_overlay = null
+	_menu_panel.visible = true
+
+## Traveling closes the whole pause menu (not just the Map sub-screen) --
+## the player should land back in live gameplay at the new location, not
+## be left staring at the paused menu they opened Map from.
+func _on_map_travel_requested(location: String) -> void:
+	travel_requested.emit(location)
+	close()
 
 func _on_skills_pressed() -> void:
 	_menu_panel.visible = false
