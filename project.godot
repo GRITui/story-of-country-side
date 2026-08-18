@@ -29,6 +29,7 @@ MarriageManager="*res://scripts/autoload/marriage_manager.gd"
 FestivalManager="*res://scripts/autoload/festival_manager.gd"
 MiningManager="*res://scripts/autoload/mining_manager.gd"
 CommunityGoalManager="*res://scripts/autoload/community_goal_manager.gd"
+WeatherManager="*res://scripts/autoload/weather_manager.gd"
 SaveManager="*res://scripts/autoload/save_manager.gd"
 
 [rendering]

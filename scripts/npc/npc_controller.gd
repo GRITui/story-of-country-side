@@ -27,7 +27,8 @@ func _refresh_target(hour: int, minute: int) -> void:
 	if schedule == null:
 		return
 	var season := TimeManager.current_season() if TimeManager else "Spring"
-	var new_target := schedule.get_target_for(hour, minute, season)
+	var weather := WeatherManager.get_current_weather() if WeatherManager else "Any"
+	var new_target := schedule.get_target_for(hour, minute, season, weather)
 	if new_target != _current_target:
 		_current_target = new_target
 		_was_at_target = false

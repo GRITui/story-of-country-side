@@ -13,10 +13,10 @@ extends Resource
 ## every other entry.
 @export var season: String = "Any"
 
-## Same idea for weather. No WeatherManager exists yet in this repo — this
-## field is forward-compatible scaffolding, not a claim that weather-driven
-## routines work today. NPCSchedule.get_target_for() accepts "Any" as the
-## only weather value until a real weather system lands.
+## Same idea for weather: "Any" matches every weather, a specific value
+## (WeatherManager.SUNNY/RAINY/SNOWY) only matches that weather.
+## npc_controller.gd reads WeatherManager.get_current_weather() and passes
+## it into NPCSchedule.get_target_for() each minute.
 @export var weather: String = "Any"
 
 func matches(for_season: String, for_weather: String) -> bool:
