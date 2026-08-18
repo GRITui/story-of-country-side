@@ -48,6 +48,9 @@ var _inventory_overlay_closed_count := 0 ## member, not a local -- GDScript lamb
 var _skills_overlay_closed_count := 0 ## same reason
 var _relationships_overlay_closed_count := 0 ## same reason
 var _infrastructure_overlay_closed_count := 0 ## same reason
+var _map_overlay_closed_count := 0 ## same reason
+var _map_travel_requested_events: Array = [] ## Array[String] of location, same reason
+var _pause_menu_travel_requested_events: Array = [] ## Array[String] of location, same reason
 
 func _ready() -> void:
 	_test_minute_and_hour_wrap()
@@ -182,7 +185,7 @@ func _ready() -> void:
 	_test_skills_overlay_close_emits_closed_signal()
 	_test_pause_menu_skills_button_shows_overlay_and_hides_menu_panel()
 	_test_pause_menu_still_frozen_while_skills_overlay_open()
-	_test_pause_menu_map_and_settings_buttons_stay_disabled()
+	_test_pause_menu_settings_button_stays_disabled()
 	_test_relationships_overlay_lists_all_marriageable_npcs_on_ready()
 	_test_relationships_overlay_propose_button_disabled_until_ready()
 	_test_relationships_overlay_propose_button_click_schedules_wedding()
@@ -194,6 +197,15 @@ func _ready() -> void:
 	_test_infrastructure_overlay_machine_build_then_start_then_collect()
 	_test_infrastructure_overlay_close_emits_closed_signal()
 	_test_pause_menu_infrastructure_button_shows_overlay_and_hides_menu_panel()
+	_test_map_overlay_lists_all_locations_on_ready()
+	_test_map_overlay_travel_click_emits_travel_requested_and_closed()
+	_test_map_overlay_close_button_emits_closed_only()
+	_test_pause_menu_map_button_shows_overlay_and_hides_menu_panel()
+	_test_pause_menu_travel_requested_forwards_and_closes_menu()
+	_test_main_controller_boots_into_farm_scene()
+	_test_main_controller_travel_to_switches_active_world_scene()
+	_test_main_controller_travel_to_ignores_unknown_location()
+	_test_main_controller_travel_to_ignores_same_location()
 
 	_test_farm_scene_instantiates_without_error()
 	_test_farm_scene_renders_empty_grid_on_ready()
@@ -2121,10 +2133,10 @@ func _test_pause_menu_still_frozen_while_skills_overlay_open() -> void:
 	_check(not TimeManager.is_frozen(), "closing from within the Skills overlay should still fully unfreeze")
 	menu.queue_free()
 
-func _test_pause_menu_map_and_settings_buttons_stay_disabled() -> void:
+func _test_pause_menu_settings_button_stays_disabled() -> void:
 	var menu := _make_pause_menu()
-	_check(menu.get_node("Root/MenuPanel/Margin/VBox/MapButton").disabled,
-		"Map has no backing system yet and should stay a disabled placeholder")
+	_check(not menu.get_node("Root/MenuPanel/Margin/VBox/MapButton").disabled,
+		"Map now has a real destination (MapOverlay) and should be enabled")
 	_check(menu.get_node("Root/MenuPanel/Margin/VBox/SettingsButton").disabled,
 		"Settings has no backing system yet and should stay a disabled placeholder")
 	menu.queue_free()
@@ -2319,6 +2331,137 @@ func _test_pause_menu_infrastructure_button_shows_overlay_and_hides_menu_panel()
 		"opening Infrastructure should instantiate the InfrastructureOverlay as a child")
 	menu.close()
 	menu.queue_free()
+
+## --- Frontend: Map overlay (#52 sub-scope, location switcher against
+## main_controller.gd's world scenes) ---
+
+func _make_map_overlay() -> MapOverlay:
+	var scene: PackedScene = load("res://scenes/ui/MapOverlay.tscn")
+	var overlay: MapOverlay = scene.instantiate()
+	add_child(overlay)
+	return overlay
+
+func _test_map_overlay_lists_all_locations_on_ready() -> void:
+	var overlay := _make_map_overlay()
+	for location in MapOverlay.LOCATIONS:
+		_check(overlay.get_node("Root/Panel/Margin/VBox/LocationList/Travel_%s" % location) != null,
+			"overlay should list a Travel button for location %s" % location)
+	_check(overlay.get_node("Root/Panel/Margin/VBox/CurrentLabel").text == "Current location: Farm",
+		"current-location label should default to Farm")
+	overlay.queue_free()
+
+func _on_map_travel_requested_for_test(location: String) -> void:
+	_map_travel_requested_events.append(location)
+
+func _on_map_overlay_closed_for_test() -> void:
+	_map_overlay_closed_count += 1
+
+func _test_map_overlay_travel_click_emits_travel_requested_and_closed() -> void:
+	_map_travel_requested_events = []
+	_map_overlay_closed_count = 0
+	var overlay := _make_map_overlay()
+	overlay.travel_requested.connect(_on_map_travel_requested_for_test)
+	overlay.closed.connect(_on_map_overlay_closed_for_test)
+	overlay.get_node("Root/Panel/Margin/VBox/LocationList/Travel_Ranch").pressed.emit()
+	_check(_map_travel_requested_events == ["Ranch"], "clicking Travel to Ranch should emit travel_requested('Ranch'), got %s" % [_map_travel_requested_events])
+	_check(_map_overlay_closed_count == 1, "selecting a location should also emit closed, so the overlay itself closes on travel")
+	overlay.queue_free()
+
+func _test_map_overlay_close_button_emits_closed_only() -> void:
+	_map_travel_requested_events = []
+	_map_overlay_closed_count = 0
+	var overlay := _make_map_overlay()
+	overlay.travel_requested.connect(_on_map_travel_requested_for_test)
+	overlay.closed.connect(_on_map_overlay_closed_for_test)
+	overlay.get_node("Root/Panel/Margin/VBox/Header/CloseButton").pressed.emit()
+	_check(_map_travel_requested_events.is_empty(), "Close should not emit travel_requested")
+	_check(_map_overlay_closed_count == 1, "Close should emit closed exactly once")
+	overlay.queue_free()
+
+func _test_pause_menu_map_button_shows_overlay_and_hides_menu_panel() -> void:
+	TimeManager.unfreeze(PauseMenu.PAUSE_REASON)
+	var menu := _make_pause_menu()
+	menu.open()
+	menu.get_node("Root/MenuPanel/Margin/VBox/MapButton").pressed.emit()
+	_check(not menu.get_node("Root/MenuPanel").visible,
+		"opening Map should hide the main pause menu panel")
+	_check(menu.get_node("MapOverlay") != null,
+		"opening Map should instantiate the MapOverlay as a child")
+	menu.close()
+	menu.queue_free()
+
+func _on_pause_menu_travel_requested_for_test(location: String) -> void:
+	_pause_menu_travel_requested_events.append(location)
+
+func _test_pause_menu_travel_requested_forwards_and_closes_menu() -> void:
+	TimeManager.unfreeze(PauseMenu.PAUSE_REASON)
+	_pause_menu_travel_requested_events = []
+	var menu := _make_pause_menu()
+	menu.travel_requested.connect(_on_pause_menu_travel_requested_for_test)
+	menu.open()
+	menu.get_node("Root/MenuPanel/Margin/VBox/MapButton").pressed.emit()
+	menu.get_node("MapOverlay/Root/Panel/Margin/VBox/LocationList/Travel_Mine").pressed.emit()
+	_check(_pause_menu_travel_requested_events == ["Mine"],
+		"selecting a location in Map should forward travel_requested('Mine') from the pause menu, got %s" % [_pause_menu_travel_requested_events])
+	_check(not menu.is_open(), "selecting a travel destination should close the whole pause menu, not just the Map sub-screen")
+	menu.queue_free()
+
+## --- Frontend: MainController world-scene switching (#52 sub-scope) ---
+##
+## Instantiated directly (not via scenes/Main.tscn) so _ready()'s full
+## boot cascade (SaveManager load/new-game, intro-or-HUD decision) is
+## exercised for real -- forcing has_seen_intro() true first keeps this
+## deterministic (skips straight to _show_hud() instead of playing the
+## intro sequence).
+
+func _make_main_controller_with_intro_seen() -> MainController:
+	SaveManager.new_game()
+	SaveManager.mark_intro_seen()
+	var controller := MainController.new()
+	add_child(controller)
+	return controller
+
+func _find_farm_scene_child(controller: MainController) -> FarmScene:
+	for child in controller.get_children():
+		if child is FarmScene:
+			return child
+	return null
+
+func _find_ranch_scene_child(controller: MainController) -> RanchScene:
+	for child in controller.get_children():
+		if child is RanchScene:
+			return child
+	return null
+
+func _test_main_controller_boots_into_farm_scene() -> void:
+	var controller := _make_main_controller_with_intro_seen()
+	_check(controller.current_location() == "Farm", "MainController should boot into the Farm starting location")
+	_check(_find_farm_scene_child(controller) != null,
+		"booting should instantiate FarmScene as the active world scene")
+	controller.queue_free()
+
+func _test_main_controller_travel_to_switches_active_world_scene() -> void:
+	var controller := _make_main_controller_with_intro_seen()
+	controller.travel_to("Ranch")
+	_check(controller.current_location() == "Ranch", "travel_to should update current_location()")
+	_check(_find_ranch_scene_child(controller) != null and _find_farm_scene_child(controller) == null,
+		"travel_to should replace the old world scene with the new one (free(), not queue_free(), so the old one is gone immediately)")
+	controller.queue_free()
+
+func _test_main_controller_travel_to_ignores_unknown_location() -> void:
+	var controller := _make_main_controller_with_intro_seen()
+	controller.travel_to("Atlantis")
+	_check(controller.current_location() == "Farm", "travel_to should no-op for an unrecognized location string")
+	controller.queue_free()
+
+func _test_main_controller_travel_to_ignores_same_location() -> void:
+	var controller := _make_main_controller_with_intro_seen()
+	var farm_scene_before := _find_farm_scene_child(controller)
+	controller.travel_to("Farm")
+	var farm_scene_after := _find_farm_scene_child(controller)
+	_check(farm_scene_before == farm_scene_after and farm_scene_before != null,
+		"travel_to should no-op (not recreate the scene) when already at that location")
+	controller.queue_free()
 
 ## --- Frontend: FarmScene (#52 sub-scope, world/tile-rendering for
 ## FarmPlotManager, design/art/isometric-grid-spec.md) ---
