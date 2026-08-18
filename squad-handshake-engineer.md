@@ -7,6 +7,18 @@
   <sprint_completion_percentage>100</sprint_completion_percentage>
 </squad_metadata>
 
+## Epoch 25 update
+Shipped PR #71 (squash-merged): three Infrastructure automation devices
+(sprinkler_system/auto_feeder/collection_hub) closing a real gap
+QA-Tester's epoch 2 review found -- Decision C (#4)'s resolution named
+these explicitly as Infrastructure Upgrades' scope, but PR #50 shipped
+none of them. Gated same as house/coop/artisan (quest-unlock +
+material/gold), wired to actually run daily via TimeManager.day_started.
+Added two small Backend-to-Backend public getters
+(FarmPlotManager.get_all_positions(), AnimalManager.get_all_animal_ids())
+rather than reaching into private state. 802/802 tests pass, clean smoke
+boot. Commented on PR #50 and issue #4 confirming the gap is closed.
+
 ## Epoch 23 update
 Shipped WeatherManager via PR #62 (squash-merged) -- a genuine Backend
 task, not Content or Frontend: NPCScheduleEntry.weather has been dead

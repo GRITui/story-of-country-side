@@ -1254,3 +1254,36 @@ either, so the remote branches remain as harmless merged-and-stale refs).
     squad-handshake-frontend.md).
   </description>
 </task_item>
+
+<!-- Epoch 25 (this session, Backend/Engineer). Step 0 found no new open
+     issues (#52/#53/#1 only). Picked up a real finding from QA-Tester's
+     epoch 2 review (PR #50 comment thread): Decision C (#4)'s resolution
+     explicitly named sprinklers/auto-feeders/collection-hub as
+     Infrastructure Upgrades' scope, but none shipped in the original PR.
+     Fix-forward, claimed via comment on PR #50. -->
+
+<task_item>
+  <id>ENG-INFRA-AUTOMATION</id>
+  <status>DONE</status>
+  <description>
+    Added three one-shot automation devices to InfrastructureManager --
+    sprinkler_system, auto_feeder, collection_hub -- gated by the same
+    quest-unlock + material/gold pattern as the existing house/coop/
+    artisan tracks (can_build_automation()/build_automation()/
+    is_automation_built()), each with a matching DELIVER_ITEM quest.
+    Wired into _on_day_started(): sprinkler_system calls
+    FarmPlotManager.water() on every plot, auto_feeder calls
+    AnimalManager.feed() on every animal, collection_hub calls
+    AnimalManager.collect_product() on every animal -- all three target
+    methods are already safe no-ops on invalid state. New public getters
+    FarmPlotManager.get_all_positions()/AnimalManager.get_all_animal_ids()
+    so InfrastructureManager never reaches into their private state
+    (Backend-to-Backend contract discipline, same rule Frontend/Backend
+    already follows). to_save_dict()/from_save_dict() extended with
+    built_automation. PR: gritui/story-of-country-side#71 (base:
+    claude/farming-game-pm-requirements-w9ugtk). 802/802 tests pass (9
+    new) against the real Godot 4.3 engine headless, clean smoke boot.
+    Self-merged per standing authorization. Commented on PR #50 and
+    issue #4 confirming Decision C's automation scope is now represented.
+  </description>
+</task_item>
