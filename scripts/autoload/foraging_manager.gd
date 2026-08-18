@@ -78,7 +78,7 @@ func register_node(position: Vector2i) -> void:
 		return
 	var node := ForageNode.new()
 	_nodes[position] = node
-	_reroll_node(node)
+	_reroll_node(node, TimeManager.current_season())
 
 func get_forage_node(position: Vector2i) -> ForageNode:
 	return _nodes.get(position)
@@ -111,12 +111,18 @@ func gather(position: Vector2i) -> Dictionary:
 	forage_gathered.emit(position, item_id, quantity)
 	return {"item_id": item_id, "quantity": quantity, "xp_reward": def.xp_reward}
 
-## Picks a ForageableDefinition valid for the current season and assigns
-## it to `node`, resetting its cooldown to 0 (immediately available). If
-## nothing is valid for the current season, the node goes dormant (empty
-## item_id) rather than holding stale out-of-season content.
-func _reroll_node(node: ForageNode) -> void:
-	var season := TimeManager.current_season()
+## Picks a ForageableDefinition valid for `season` and assigns it to
+## `node`, resetting its cooldown to 0 (immediately available). If nothing
+## is valid for that season, the node goes dormant (empty item_id) rather
+## than holding stale out-of-season content.
+##
+## Takes `season` explicitly rather than reading TimeManager.current_season()
+## itself -- _on_day_started already receives the authoritative season for
+## the day that just started as an argument (same reasoning as
+## FarmPlotManager._on_day_started's wither check), and using that instead
+## keeps this method callable/testable independent of TimeManager's own
+## internal state.
+func _reroll_node(node: ForageNode, season: String) -> void:
 	var candidates: Array[ForageableDefinition] = []
 	for def in _definitions.values():
 		if (def as ForageableDefinition).valid_seasons.has(season):
@@ -141,19 +147,19 @@ func _on_day_started(_day_in_season: int, season: String, _day_of_week: String) 
 		if node.cooldown_days_remaining > 0:
 			node.cooldown_days_remaining -= 1
 			if node.cooldown_days_remaining <= 0:
-				_reroll_node(node)
+				_reroll_node(node, season)
 				forage_node_rerolled.emit(position, node.item_id)
 			continue
 
 		if node.is_empty():
-			_reroll_node(node)
+			_reroll_node(node, season)
 			if not node.is_empty():
 				forage_node_rerolled.emit(position, node.item_id)
 			continue
 
 		var def: ForageableDefinition = _definitions.get(node.item_id)
 		if def == null or not def.valid_seasons.has(season):
-			_reroll_node(node)
+			_reroll_node(node, season)
 			forage_node_rerolled.emit(position, node.item_id)
 
 func get_sell_price(item_id: String) -> int:
