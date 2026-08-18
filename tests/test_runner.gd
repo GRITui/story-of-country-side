@@ -43,6 +43,7 @@ var _bundle_contribution_events: Array = [] ## Array[Array] of [bundle_id, item_
 var _bundle_completed_events: Array = [] ## Array[String] of bundle_id, same reason
 var _year_three_evaluation_events: Array = [] ## Array[Array] of [challenge_mode, completed, total, passed], same reason
 var _game_over_events: Array = [] ## Array[String] of reason, same reason
+var _weather_changed_events: Array = [] ## Array[String] of weather, same reason
 var _inventory_overlay_closed_count := 0 ## member, not a local -- GDScript lambdas capture locals by value
 
 func _ready() -> void:
@@ -247,6 +248,12 @@ func _ready() -> void:
 	_test_year_three_evaluation_challenge_mode_pass()
 	_test_year_three_evaluation_challenge_mode_fail_triggers_game_over()
 	_test_community_goal_save_round_trip()
+
+	_test_weather_rolls_valid_values_for_non_winter_season()
+	_test_weather_winter_uses_snowy_not_rainy()
+	_test_weather_changed_only_fires_on_actual_change()
+	_test_weather_save_round_trip()
+	_test_npc_schedule_entry_weather_gating()
 
 	if _failures.is_empty():
 		print("ALL TESTS PASSED (%d checks)" % _pass_count)
@@ -3006,3 +3013,78 @@ func _test_community_goal_save_round_trip() -> void:
 	_check(CommunityGoalManager.contributed_count("pantry_bundle", "parsnip") == 2,
 		"bundle contribution progress should round-trip through save/load, got %d" \
 		% CommunityGoalManager.contributed_count("pantry_bundle", "parsnip"))
+
+## --- WeatherManager (closing NPCScheduleEntry.weather's dead-scaffolding
+## gap from #18, and issue #52's flagged "no WeatherManager exists yet") ---
+
+func _on_weather_changed_for_test(weather: String) -> void:
+	_weather_changed_events.append(weather)
+
+func _reset_weather_manager() -> void:
+	WeatherManager._current_weather = WeatherManager.SUNNY
+
+func _test_weather_rolls_valid_values_for_non_winter_season() -> void:
+	_reset_weather_manager()
+	for i in range(50):
+		WeatherManager._roll_weather("Spring")
+		_check(WeatherManager.get_current_weather() in [WeatherManager.SUNNY, WeatherManager.RAINY],
+			"non-Winter rolls should only ever produce Sunny or Rainy, got %s" % WeatherManager.get_current_weather())
+
+func _test_weather_winter_uses_snowy_not_rainy() -> void:
+	_reset_weather_manager()
+	var saw_snowy := false
+	for i in range(50):
+		WeatherManager._roll_weather("Winter")
+		var weather := WeatherManager.get_current_weather()
+		_check(weather in [WeatherManager.SUNNY, WeatherManager.SNOWY],
+			"Winter rolls should only ever produce Sunny or Snowy (never Rainy), got %s" % weather)
+		if weather == WeatherManager.SNOWY:
+			saw_snowy = true
+	_check(saw_snowy, "Winter rolls should be able to surface Snowy across enough samples")
+
+func _test_weather_changed_only_fires_on_actual_change() -> void:
+	_reset_weather_manager()
+	_weather_changed_events = []
+	WeatherManager.weather_changed.connect(_on_weather_changed_for_test)
+
+	for i in range(50):
+		var before := WeatherManager.get_current_weather()
+		var count_before := _weather_changed_events.size()
+		WeatherManager._roll_weather("Spring")
+		var after := WeatherManager.get_current_weather()
+		var count_after := _weather_changed_events.size()
+		if before == after:
+			_check(count_after == count_before,
+				"a no-op roll (weather unchanged) should not fire weather_changed")
+		else:
+			_check(count_after == count_before + 1 and _weather_changed_events[-1] == after,
+				"an actual weather change should fire weather_changed exactly once with the new value")
+
+	WeatherManager.weather_changed.disconnect(_on_weather_changed_for_test)
+
+func _test_weather_save_round_trip() -> void:
+	_reset_weather_manager()
+	WeatherManager._current_weather = WeatherManager.RAINY
+
+	var saved := SaveManager.build_save_data()
+
+	WeatherManager._current_weather = WeatherManager.SUNNY
+	_check(WeatherManager.get_current_weather() == WeatherManager.SUNNY,
+		"sanity: perturbing should change current weather before applying save data")
+
+	SaveManager.apply_save_data(saved)
+
+	_check(WeatherManager.get_current_weather() == WeatherManager.RAINY,
+		"current weather should round-trip through save/load, got %s" % WeatherManager.get_current_weather())
+
+func _test_npc_schedule_entry_weather_gating() -> void:
+	var any_weather := NPCScheduleEntry.new()
+	any_weather.weather = "Any"
+	_check(any_weather.matches("Spring", WeatherManager.SUNNY), "weather='Any' should match Sunny")
+	_check(any_weather.matches("Spring", WeatherManager.RAINY), "weather='Any' should match Rainy")
+
+	var rainy_only := NPCScheduleEntry.new()
+	rainy_only.weather = WeatherManager.RAINY
+	_check(rainy_only.matches("Spring", WeatherManager.RAINY), "a Rainy-only entry should match Rainy")
+	_check(not rainy_only.matches("Spring", WeatherManager.SUNNY),
+		"a Rainy-only entry should not match Sunny")
