@@ -111,6 +111,13 @@ func get_species_definition(species_id: String) -> AnimalDefinition:
 func get_animal(animal_id: String) -> Animal:
 	return _animals.get(animal_id)
 
+## Every registered animal_id -- read-only integration point for
+## InfrastructureManager's auto-feeder/collection-hub automation devices,
+## so they can feed()/collect_product() every animal without reaching
+## into _animals directly.
+func get_all_animal_ids() -> Array:
+	return _animals.keys()
+
 func has_animal(animal_id: String) -> bool:
 	return _animals.has(animal_id)
 

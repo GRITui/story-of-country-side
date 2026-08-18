@@ -264,6 +264,13 @@ func _ready() -> void:
 	_test_collect_job_before_ready_returns_empty()
 	_test_start_job_rejects_duplicate_job_id()
 	_test_infrastructure_save_round_trip()
+	_test_cannot_build_automation_without_quest_unlock()
+	_test_build_automation_succeeds_and_deducts_costs()
+	_test_sprinkler_system_auto_waters_all_plots()
+	_test_auto_feeder_auto_feeds_all_animals()
+	_test_collection_hub_auto_collects_ready_animals()
+	_test_automation_not_run_when_not_built()
+	_test_automation_save_round_trip()
 	_test_marriage_cannot_propose_ineligible_npc()
 	_test_marriage_cannot_propose_without_enough_hearts()
 	_test_marriage_cannot_propose_without_item()
@@ -2969,6 +2976,7 @@ func _reset_infrastructure_manager() -> void:
 	im._coop_tier = InfrastructureManager.COOP_TIER_START
 	im._built_machines = {}
 	im._jobs = {}
+	im._built_automation = {}
 
 func _reset_infra_gates() -> void:
 	_reset_infrastructure_manager()
@@ -3125,6 +3133,126 @@ func _test_infrastructure_save_round_trip() -> void:
 	_check(not InfrastructureManager.is_job_ready("job1"), "sanity: job should still be pending after round-trip")
 	_check(InfrastructureManager.get_job("job1").get("days_remaining") == 3,
 		"active job progress should round-trip through save/load, got %s" % [InfrastructureManager.get_job("job1")])
+
+## --- Infrastructure automation devices (sprinkler_system/auto_feeder/
+## collection_hub -- closes the Decision C (#4) gap QA flagged) ---
+
+func _test_cannot_build_automation_without_quest_unlock() -> void:
+	_reset_infra_gates()
+	ShippingBinManager.gold = 100000
+	InventoryManager.add_item("stone", 500)
+	_check(not InfrastructureManager.can_build_automation(InfrastructureManager.SPRINKLER_SYSTEM),
+		"sprinkler_system should stay locked without its quest unlock flag even with plenty of gold/material")
+	_check(not InfrastructureManager.build_automation(InfrastructureManager.SPRINKLER_SYSTEM),
+		"build_automation should fail without the quest unlock")
+	_check(not InfrastructureManager.is_automation_built(InfrastructureManager.SPRINKLER_SYSTEM),
+		"sprinkler_system should not be marked built on a failed build")
+
+func _test_build_automation_succeeds_and_deducts_costs() -> void:
+	_reset_infra_gates()
+	QuestManager._unlocked_flags["sprinkler_system_unlocked"] = true
+	ShippingBinManager.gold = 5000
+	InventoryManager.add_item("stone", 500)
+
+	var ok := InfrastructureManager.build_automation(InfrastructureManager.SPRINKLER_SYSTEM)
+	_check(ok, "build_automation should succeed once quest-unlocked and affordable")
+	_check(InfrastructureManager.is_automation_built(InfrastructureManager.SPRINKLER_SYSTEM),
+		"sprinkler_system should be marked built after a successful build")
+	_check(ShippingBinManager.gold == 3000, "gold should be deducted by sprinkler_system's build cost, got %d" % ShippingBinManager.gold)
+	_check(InventoryManager.get_count("stone") == 450, "material should be deducted by sprinkler_system's build cost, got %d" % InventoryManager.get_count("stone"))
+
+func _test_sprinkler_system_auto_waters_all_plots() -> void:
+	_reset_infra_gates()
+	_reset_farm_plot_manager()
+	QuestManager._unlocked_flags["sprinkler_system_unlocked"] = true
+	ShippingBinManager.gold = 5000
+	InventoryManager.add_item("stone", 500)
+	InfrastructureManager.build_automation(InfrastructureManager.SPRINKLER_SYSTEM)
+
+	FarmPlotManager.plant(Vector2i(0, 0), "parsnip")
+	FarmPlotManager.plant(Vector2i(1, 0), "parsnip")
+	_check(not FarmPlotManager.get_plot(Vector2i(0, 0)).watered_today,
+		"sanity: freshly planted plots should not start watered")
+
+	InfrastructureManager._on_day_started(2, "Spring", "Tue")
+
+	_check(FarmPlotManager.get_plot(Vector2i(0, 0)).watered_today,
+		"a built sprinkler_system should water every planted plot on day_started")
+	_check(FarmPlotManager.get_plot(Vector2i(1, 0)).watered_today,
+		"a built sprinkler_system should water every planted plot on day_started, including a second plot")
+
+func _test_auto_feeder_auto_feeds_all_animals() -> void:
+	_reset_infra_gates()
+	_reset_animal_manager()
+	QuestManager._unlocked_flags["auto_feeder_unlocked"] = true
+	ShippingBinManager.gold = 5000
+	InventoryManager.add_item("wood", 500)
+	InfrastructureManager.build_automation(InfrastructureManager.AUTO_FEEDER)
+
+	AnimalManager.add_animal("hen1", "chicken")
+	AnimalManager.add_animal("cow1", "cow")
+	_check(not AnimalManager.get_animal("hen1").fed_today, "sanity: a freshly added animal should not start fed")
+
+	InfrastructureManager._on_day_started(2, "Spring", "Tue")
+
+	_check(AnimalManager.get_animal("hen1").fed_today,
+		"a built auto_feeder should feed every animal on day_started")
+	_check(AnimalManager.get_animal("cow1").fed_today,
+		"a built auto_feeder should feed every animal on day_started, including a second animal")
+
+func _test_collection_hub_auto_collects_ready_animals() -> void:
+	_reset_infra_gates()
+	_reset_animal_manager()
+	QuestManager._unlocked_flags["collection_hub_unlocked"] = true
+	ShippingBinManager.gold = 5000
+	InventoryManager.add_item("stone", 500)
+	InfrastructureManager.build_automation(InfrastructureManager.COLLECTION_HUB)
+
+	AnimalManager.add_animal("hen1", "chicken")
+	AnimalManager.get_animal("hen1").product_ready = true
+	AnimalManager.get_animal("hen1").happiness = 10 # below QUALITY_SILVER_HAPPINESS -> plain "egg"
+	var count_before := InventoryManager.get_count("egg")
+
+	InfrastructureManager._on_day_started(2, "Spring", "Tue")
+
+	_check(not AnimalManager.get_animal("hen1").product_ready,
+		"a built collection_hub should collect a ready animal's product on day_started")
+	_check(InventoryManager.get_count("egg") > count_before,
+		"a built collection_hub's auto-collection should credit InventoryManager")
+
+func _test_automation_not_run_when_not_built() -> void:
+	_reset_infra_gates()
+	_reset_farm_plot_manager()
+	_reset_animal_manager()
+
+	FarmPlotManager.plant(Vector2i(0, 0), "parsnip")
+	AnimalManager.add_animal("hen1", "chicken")
+
+	InfrastructureManager._on_day_started(2, "Spring", "Tue")
+
+	_check(not FarmPlotManager.get_plot(Vector2i(0, 0)).watered_today,
+		"with no automation devices built, plots should not be auto-watered")
+	_check(not AnimalManager.get_animal("hen1").fed_today,
+		"with no automation devices built, animals should not be auto-fed")
+
+func _test_automation_save_round_trip() -> void:
+	_reset_infra_gates()
+	QuestManager._unlocked_flags["sprinkler_system_unlocked"] = true
+	ShippingBinManager.gold = 5000
+	InventoryManager.add_item("stone", 500)
+	InfrastructureManager.build_automation(InfrastructureManager.SPRINKLER_SYSTEM)
+
+	var saved := SaveManager.build_save_data()
+
+	_reset_infrastructure_manager()
+	_check(not InfrastructureManager.is_automation_built(InfrastructureManager.SPRINKLER_SYSTEM),
+		"sanity: reset should clear built automation devices before applying save data")
+
+	SaveManager.apply_save_data(saved)
+
+	_check(InfrastructureManager.is_automation_built(InfrastructureManager.SPRINKLER_SYSTEM),
+		"built automation devices should round-trip through save/load")
+
 ## --- ENG-20: Marriage & Family ---
 
 func _reset_marriage_manager() -> void:

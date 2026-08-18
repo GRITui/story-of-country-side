@@ -40,6 +40,22 @@ extends Node
 ## machines with one recipe each) are placeholder MVP balance, explicitly
 ## flagged as such -- same honesty as every other content table in this
 ## repo (#19/#23/#25/#31).
+##
+## Automation devices (sprinkler_system/auto_feeder/collection_hub):
+## added after a QA review flagged that Decision C (#4)'s resolution --
+## "include automation as a late-game unlock path (tool/infrastructure
+## upgrade tier)" -- explicitly named sprinklers/auto-feeders as this
+## issue's scope, but the original PR shipped none. One-shot builds, same
+## quest-unlock + material/gold gate as artisan machines. Each runs on
+## TimeManager.day_started once built: sprinkler_system calls
+## FarmPlotManager.water() on every plot from get_all_positions(),
+## auto_feeder calls AnimalManager.feed() on every animal from
+## get_all_animal_ids(), collection_hub calls AnimalManager.
+## collect_product() on every animal (a no-op for any not product_ready).
+## All three target methods are already safe no-ops on invalid/already-
+## done state, so no filtering is needed here beyond "is the device
+## built" -- same "call the real method, don't duplicate its guards"
+## discipline this repo uses throughout.
 
 signal house_upgraded(new_tier: int)
 signal coop_upgraded(new_tier: int)
@@ -47,6 +63,7 @@ signal machine_built(machine_type: String)
 signal artisan_job_started(job_id: String, machine_type: String)
 signal artisan_job_ready(job_id: String, machine_type: String)
 signal artisan_job_collected(job_id: String, machine_type: String, output_item_id: String, quantity: int)
+signal automation_device_built(device_type: String)
 
 const HOUSE_TIER_START := 0
 const COOP_TIER_START := 0
@@ -62,6 +79,12 @@ var _coop_tiers: Dictionary = {}    ## tier_index -> InfrastructureTier
 var _machines: Dictionary = {}      ## machine_type -> ArtisanMachineRecipe
 var _built_machines: Dictionary = {} ## machine_type -> bool
 var _jobs: Dictionary = {}          ## job_id -> {machine_type, days_remaining, ready, output_item_id, output_quantity}
+var _automation_devices: Dictionary = {} ## device_type -> AutomationDeviceDefinition
+var _built_automation: Dictionary = {}   ## device_type -> bool
+
+const SPRINKLER_SYSTEM := "sprinkler_system"
+const AUTO_FEEDER := "auto_feeder"
+const COLLECTION_HUB := "collection_hub"
 
 func _ready() -> void:
 	_register_default_content()
@@ -89,6 +112,13 @@ func register_machine(recipe: ArtisanMachineRecipe) -> void:
 		return
 	_machines[recipe.machine_type] = recipe
 
+## Re-registering the same device_type is a content overwrite, same
+## convention as register_machine.
+func register_automation_device(def: AutomationDeviceDefinition) -> void:
+	if def == null or def.device_type.is_empty():
+		return
+	_automation_devices[def.device_type] = def
+
 ## Placeholder MVP balance -- see this file's top-of-file docstring.
 ## Also registers one DELIVER_ITEM QuestDefinition per unlock_flag used
 ## below with QuestManager, so every gate here is actually reachable (an
@@ -107,6 +137,10 @@ func _register_default_content() -> void:
 	register_machine(_make_machine("mayo_machine", "mayo_machine_unlocked", 200, "wood", 10,
 		"egg", 1, "mayonnaise", 1, 1))
 
+	register_automation_device(_make_automation_device(SPRINKLER_SYSTEM, "sprinkler_system_unlocked", 2000, "stone", 50))
+	register_automation_device(_make_automation_device(AUTO_FEEDER, "auto_feeder_unlocked", 1800, "wood", 60))
+	register_automation_device(_make_automation_device(COLLECTION_HUB, "collection_hub_unlocked", 2500, "stone", 60))
+
 	if QuestManager:
 		QuestManager.register_quest(_make_deliver_quest("infra_house_tier_1", "wood", 10, "house_tier_1_unlocked"))
 		QuestManager.register_quest(_make_deliver_quest("infra_house_tier_2", "stone", 20, "house_tier_2_unlocked"))
@@ -115,6 +149,9 @@ func _register_default_content() -> void:
 		QuestManager.register_quest(_make_deliver_quest("infra_keg", "wood", 5, "keg_unlocked"))
 		QuestManager.register_quest(_make_deliver_quest("infra_preserves_jar", "stone", 5, "preserves_jar_unlocked"))
 		QuestManager.register_quest(_make_deliver_quest("infra_mayo_machine", "wool", 3, "mayo_machine_unlocked"))
+		QuestManager.register_quest(_make_deliver_quest("infra_sprinkler_system", "stone", 25, "sprinkler_system_unlocked"))
+		QuestManager.register_quest(_make_deliver_quest("infra_auto_feeder", "wood", 30, "auto_feeder_unlocked"))
+		QuestManager.register_quest(_make_deliver_quest("infra_collection_hub", "stone", 30, "collection_hub_unlocked"))
 
 func _make_tier(tier_index: int, unlock_flag: String, gold_cost: int,
 	material_item_id: String, material_quantity: int, payload_value: int) -> InfrastructureTier:
@@ -143,6 +180,16 @@ func _make_machine(machine_type: String, unlock_flag: String, gold_cost: int,
 	r.output_quantity = output_quantity
 	r.process_days = process_days
 	return r
+
+func _make_automation_device(device_type: String, unlock_flag: String, gold_cost: int,
+	material_item_id: String, material_quantity: int) -> AutomationDeviceDefinition:
+	var d := AutomationDeviceDefinition.new()
+	d.device_type = device_type
+	d.unlock_flag = unlock_flag
+	d.gold_cost = gold_cost
+	d.material_item_id = material_item_id
+	d.material_quantity = material_quantity
+	return d
 
 func _make_deliver_quest(quest_id: String, item_id: String, target_quantity: int, unlock_flag: String) -> QuestDefinition:
 	var cond := QuestCondition.new()
@@ -312,9 +359,39 @@ func collect_job(job_id: String) -> Dictionary:
 	artisan_job_collected.emit(job_id, machine_type, output_item_id, output_quantity)
 	return {"machine_type": machine_type, "output_item_id": output_item_id, "output_quantity": output_quantity}
 
+## --- Automation devices ---
+
+func is_automation_built(device_type: String) -> bool:
+	return _built_automation.get(device_type, false)
+
+func can_build_automation(device_type: String) -> bool:
+	if is_automation_built(device_type):
+		return false
+	var def: AutomationDeviceDefinition = _automation_devices.get(device_type)
+	if def == null:
+		return false
+	if QuestManager and not QuestManager.is_unlocked(def.unlock_flag):
+		return false
+	if not InventoryManager.has_item(def.material_item_id, def.material_quantity):
+		return false
+	return ShippingBinManager.gold >= def.gold_cost
+
+func build_automation(device_type: String) -> bool:
+	if not can_build_automation(device_type):
+		return false
+	var def: AutomationDeviceDefinition = _automation_devices.get(device_type)
+	if not ShippingBinManager.spend(def.gold_cost):
+		return false
+	InventoryManager.remove_item(def.material_item_id, def.material_quantity)
+	_built_automation[device_type] = true
+	automation_device_built.emit(device_type)
+	return true
+
 ## Daily tick: every active (not-yet-ready) job counts down by one day,
 ## becoming ready once it hits zero -- mirrors AnimalManager's day-driven
-## progress toward product_ready.
+## progress toward product_ready. Also runs any built automation devices
+## -- see this file's top-of-file docstring for why each one is safe to
+## call unconditionally against every plot/animal.
 func _on_day_started(_day_in_season: int, _season: String, _day_of_week: String) -> void:
 	for job_id in _jobs.keys():
 		var job: Dictionary = _jobs[job_id]
@@ -325,6 +402,16 @@ func _on_day_started(_day_in_season: int, _season: String, _day_of_week: String)
 			job["ready"] = true
 			artisan_job_ready.emit(job_id, job["machine_type"])
 
+	if is_automation_built(SPRINKLER_SYSTEM) and FarmPlotManager:
+		for position in FarmPlotManager.get_all_positions():
+			FarmPlotManager.water(position)
+	if is_automation_built(AUTO_FEEDER) and AnimalManager:
+		for animal_id in AnimalManager.get_all_animal_ids():
+			AnimalManager.feed(animal_id)
+	if is_automation_built(COLLECTION_HUB) and AnimalManager:
+		for animal_id in AnimalManager.get_all_animal_ids():
+			AnimalManager.collect_product(animal_id)
+
 ## --- Save/load ---
 
 func to_save_dict() -> Dictionary:
@@ -333,6 +420,7 @@ func to_save_dict() -> Dictionary:
 		"coop_tier": _coop_tier,
 		"built_machines": _built_machines.duplicate(),
 		"jobs": _jobs.duplicate(true),
+		"built_automation": _built_automation.duplicate(),
 	}
 
 func from_save_dict(data: Dictionary) -> void:
@@ -340,3 +428,4 @@ func from_save_dict(data: Dictionary) -> void:
 	_coop_tier = data.get("coop_tier", COOP_TIER_START)
 	_built_machines = (data.get("built_machines", {}) as Dictionary).duplicate()
 	_jobs = (data.get("jobs", {}) as Dictionary).duplicate(true)
+	_built_automation = (data.get("built_automation", {}) as Dictionary).duplicate()
