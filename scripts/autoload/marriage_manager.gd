@@ -16,11 +16,17 @@ extends Node
 ## --- Content-gap placeholders (no design doc content exists for any of
 ## these yet -- flagged explicitly per SQUAD-SPLIT.md's Content lane so a
 ## future Content-lane pass can retune without touching this file's logic) ---
-## - MARRIAGEABLE_NPCS: "Elena" and "Marcus" are the only two NPC names
-##   that exist anywhere in this codebase (RelationshipManager/QuestManager
-##   test fixtures) -- reused here rather than inventing disconnected new
-##   names, since no NPC roster resource exists yet (scripts/npc/ only has
-##   the schedule *data model*, not named character content).
+## - MARRIAGEABLE_NPCS: a 6-name starter roster (3 bachelors, 3
+##   bachelorettes, no gender-locking on who can court whom). "Elena" and
+##   "Marcus" are the two names that predate this list (RelationshipManager/
+##   QuestManager test fixtures) and are kept first for that reason; the
+##   other four are new Content-lane additions -- still no actual character
+##   writing (portraits, dialogue, backstory) exists anywhere in the repo,
+##   this is just enough of a named roster that "marry someone" isn't a
+##   two-person illusion. no actual NPC roster *resource* exists yet
+##   (scripts/npc/ only has the schedule *data model*, not named character
+##   content) -- this const list is still the only place these six names are
+##   defined.
 ## - PROPOSAL_ITEM_ID: "mermaid_pendant", Stardew Valley's proposal-item
 ##   precedent per the issue text.
 ## - PROPOSAL_HEART_THRESHOLD: 8 of RelationshipManager.MAX_HEARTS (10) --
@@ -46,7 +52,7 @@ signal wedding_scheduled(npc_name: String, days_until: int)
 signal married(npc_name: String)
 signal child_born(npc_name: String, total_children: int)
 
-const MARRIAGEABLE_NPCS: Array[String] = ["Elena", "Marcus"]
+const MARRIAGEABLE_NPCS: Array[String] = ["Elena", "Marcus", "Priya", "Tobias", "Sana", "Colton"]
 const PROPOSAL_ITEM_ID := "mermaid_pendant"
 const PROPOSAL_HEART_THRESHOLD := 8
 const WEDDING_PREP_DAYS := 3
