@@ -2,9 +2,15 @@
 
 Append-only ledger for the multi-squad AI engineering loop. Sourced from
 GitHub issues on `gritui/story-of-country-side` as of the seed epoch below.
-Squads: Researcher, Engineer, QA-Tester, UX-UI-Designer. Do not delete or
-rewrite closed items — append status changes as new entries reference the
-same `<id>`.
+Squads: Researcher, Engineer (= Backend/Squad A), Frontend (Squad B),
+QA-Tester, UX-UI-Designer. Do not delete or rewrite closed items — append
+status changes as new entries reference the same `<id>`.
+
+**See SQUAD-SPLIT.md (repo root) for the Backend/Frontend ownership
+boundary and contract rule, added once multiple concurrent sessions made
+an explicit split worth formalizing.** New task_item descriptions should
+note `(backend)` / `(frontend)` when the split matters for who should
+claim the task.
 
 <!-- Seed epoch: Researcher-Squad, run 1 -->
 
@@ -94,6 +100,70 @@ same `<id>`.
     human rather than guess at.
   </researcher_notes>
 </task_item>
+
+## Epoch 11: multi-session traffic, squad split formalized
+
+Since last epoch, at least two more concurrent actors landed real work:
+ENG-26 (Opening hook — IntroSequence, MainController, SaveManager's
+new_game/save_game/load_game) via PR #41, and ENG-13 (Agriculture +
+a general-purpose InventoryManager, resolving the inventory gap flagged
+in #23's PR) via PR #42. Both PRs based off slightly different points in
+history and conflicted with each other on merge (both touched
+SaveManager and appended to test_runner.gd) — resolved locally by
+merging base into the PR-13 branch, keeping both sides' additions (pure
+appends, no real logic conflict), re-verifying 208/208 tests pass against
+the real engine, then merging. Also spawned a second autonomous session
+(session_01RiogEKTgZhZyp8F2QARYvt) explicitly, and a third unidentified
+session (session_019dLCj2rGD4v9BJDxig6fBa, seen earlier) is still
+presumably active — expect this pattern (concurrent PRs, occasional
+conflicts) to continue, not be an anomaly.
+
+<task_item>
+  <id>ENG-13</id>
+  <status>DONE</status>
+  <description>
+    Merged via PR #42 (with conflict resolved against #41). FarmPlotManager,
+    CropDefinition, and a new general-purpose InventoryManager
+    (scripts/autoload/inventory_manager.gd) live. 208/208 tests pass.
+    Issue #13 closed. InventoryManager now available for #14/#15/#16/#17
+    to consume instead of forking their own ledgers.
+  </description>
+</task_item>
+<task_item>
+  <id>ENG-26</id>
+  <status>DONE</status>
+  <description>
+    Merged via PR #41 (by a concurrent session). IntroSequence,
+    MainController, and SaveManager's new_game()/save_game()/load_game()
+    entry points live. Issue #26 closed.
+  </description>
+</task_item>
+
+**Squad split formalized: SQUAD-SPLIT.md added at repo root.** Backend
+(Squad A) = scripts/autoload, scripts/economy, scripts/quests,
+scripts/farming, scripts/social, NPC schedule data. Frontend (Squad B) =
+scenes, scripts/story, scripts/npc/npc_controller.gd, future scripts/ui,
+design docs. Contract rule: Frontend only touches Backend via public
+methods/signals, never private fields; Backend never imports scenes.
+New squad-handshake-frontend.md created. squad-handshake-engineer.md is
+now understood as Backend/Squad A's log (unchanged in practice — every
+entry logged there so far was already backend work).
+
+<!-- Remaining READY_FOR_PM items, reclassified by the new split:
+     (backend) ENG-14 Ranching, ENG-15 Fishing, ENG-16 Mining, ENG-17
+       Foraging -- data/logic side (growth/catch/dig state machines),
+       consume InventoryManager + SkillManager like ENG-13 did.
+     (backend) ENG-24 Infrastructure Upgrades -- quest-gated automation,
+       QuestManager.is_unlocked(flag) + ShippingBinManager.spend().
+     (backend+frontend, needs splitting when claimed) ENG-20 Marriage,
+       ENG-21 Festivals -- both have real logic (state machines, triggers)
+       and real presentation (ceremony scenes, festival mini-games); split
+       into explicit sub-tasks when claimed rather than one squad building
+       both halves.
+     (frontend) First real HUD/menu scene implementation against
+       design/ui-flows/menu-hud-flow-spec.md -- no issue currently tracks
+       this as code (only the spec doc, #28); worth filing as a new issue
+       if Frontend squad picks it up before a GitHub issue exists for it. -->
 
 ## Epoch 10 update: ENG-23 shipped, discussed with owner before building
 
