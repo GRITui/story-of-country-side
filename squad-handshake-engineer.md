@@ -87,6 +87,12 @@ below.
   spec (design/art/isometric-grid-spec.md).
 * PR #40 (merged): ENG-23 — ToolManager/ToolUpgradeTier (per-tool
   Copper->Iron->Gold, deliberately no quest gate).
+* PR #50 (open, this session): ENG-24 — InfrastructureManager
+  (house expansion, coop/barn capacity via get_max_animal_capacity()
+  integration point, artisan machines keg/preserves_jar/mayo_machine),
+  quest-gated per Decision C via QuestManager.is_unlocked() +
+  ShippingBinManager.spend()/InventoryManager. 385 checks passing after
+  merging concurrent Mining (#16) work.
 
 ## Blockers & QA Failures
 None currently blocking. Sequencing notes for the next pull:
