@@ -89,6 +89,18 @@ func register_bundle(bundle: BundleDefinition) -> void:
 	if not _completed.has(bundle.bundle_id):
 		_completed[bundle.bundle_id] = false
 
+## Read-only integration points for Frontend (flagged as a Cross-Squad
+## Request against a future Community Goal contribution UI): unlike the
+## small, stable lists Infrastructure's overlay hardcodes (4 skill names,
+## 3 machine types), bundle composition is exactly the kind of thing
+## Content-Squad actively retunes, so a UI needs to read it live rather
+## than hardcode a copy that would silently drift stale.
+func list_bundle_ids() -> Array:
+	return _bundles.keys()
+
+func get_bundle_definition(bundle_id: String) -> BundleDefinition:
+	return _bundles.get(bundle_id)
+
 func is_bundle_complete(bundle_id: String) -> bool:
 	return _completed.get(bundle_id, false)
 

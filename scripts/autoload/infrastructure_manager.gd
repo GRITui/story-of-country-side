@@ -207,6 +207,15 @@ func _make_deliver_quest(quest_id: String, item_id: String, target_quantity: int
 func get_house_tier() -> int:
 	return _house_tier
 
+## Read-only integration point for Frontend (flagged as a Cross-Squad
+## Request against InfrastructureOverlay, PR #69): the InfrastructureTier
+## Resource for a given tier_index, or null if no such tier is
+## registered, so a UI can show the next tier's actual cost/material
+## before the player commits -- can_upgrade_house()/can_upgrade_coop()
+## alone only answer yes/no, not "how much".
+func get_house_tier_definition(tier_index: int) -> InfrastructureTier:
+	return _house_tiers.get(tier_index)
+
 ## Cooking mechanics themselves are out of scope for #24 -- this is only
 ## the unlock flag a future cooking system should read.
 func is_cooking_unlocked() -> bool:
@@ -232,6 +241,11 @@ func _next_house_def() -> InfrastructureTier:
 
 func get_coop_tier() -> int:
 	return _coop_tier
+
+## Same read-only cost-visibility integration point as
+## get_house_tier_definition(), for the coop/barn track.
+func get_coop_tier_definition(tier_index: int) -> InfrastructureTier:
+	return _coop_tiers.get(tier_index)
 
 ## Read-only integration point for AnimalManager (see this file's
 ## top-of-file docstring) -- AnimalManager.add_animal() does not call
@@ -282,6 +296,13 @@ func _pay_tier(def: InfrastructureTier) -> bool:
 
 func is_machine_built(machine_type: String) -> bool:
 	return _built_machines.get(machine_type, false)
+
+## Same read-only cost-visibility integration point as
+## get_house_tier_definition(), for artisan machines -- also exposes the
+## recipe's input/output/process_days so a UI can show what a machine
+## actually does before it's built.
+func get_machine_recipe(machine_type: String) -> ArtisanMachineRecipe:
+	return _machines.get(machine_type)
 
 func can_build_machine(machine_type: String) -> bool:
 	if is_machine_built(machine_type):
@@ -363,6 +384,11 @@ func collect_job(job_id: String) -> Dictionary:
 
 func is_automation_built(device_type: String) -> bool:
 	return _built_automation.get(device_type, false)
+
+## Same read-only cost-visibility integration point as
+## get_house_tier_definition(), for automation devices.
+func get_automation_device_definition(device_type: String) -> AutomationDeviceDefinition:
+	return _automation_devices.get(device_type)
 
 func can_build_automation(device_type: String) -> bool:
 	if is_automation_built(device_type):
