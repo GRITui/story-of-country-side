@@ -29,6 +29,8 @@ var _crop_planted_events: Array = [] ## Array[Array] of [position, crop_id], sam
 var _crop_watered_events: Array = [] ## Array[Vector2i], same reason
 var _crop_harvested_events: Array = [] ## Array[Array] of [position, item_id, quality, quantity], same reason
 var _crop_withered_events: Array = [] ## Array[Array] of [position, crop_id], same reason
+var _forage_gathered_events: Array = [] ## Array[Array] of [position, item_id, quantity], same reason
+var _forage_rerolled_events: Array = [] ## Array[Array] of [position, item_id], same reason
 var _intro_finished_count := 0 ## member, not a local — GDScript lambdas capture locals by value
 
 func _ready() -> void:
@@ -112,6 +114,14 @@ func _ready() -> void:
 	_test_crop_withers_when_season_ends_unharvested()
 	_test_farm_plot_save_round_trip()
 
+	_test_forage_register_node_seeds_season_valid_item()
+	_test_forage_gather_credits_inventory_and_xp_and_sets_cooldown()
+	_test_forage_gather_fails_when_unavailable()
+	_test_forage_cooldown_counts_down_and_becomes_available_again()
+	_test_forage_node_rerolls_when_season_ends()
+	_test_forage_node_goes_dormant_with_no_season_valid_content()
+	_test_forage_save_round_trip()
+
 	_test_new_game_resets_state_to_defaults()
 	_test_new_game_grants_starting_gold_and_copper_tools()
 	_test_save_and_load_round_trip_persists_intro_seen()
@@ -137,6 +147,14 @@ func _ready() -> void:
 	_test_hud_stamina_bar_updates_on_signal()
 	_test_hud_clock_label_updates_on_minute_passed()
 	_test_hud_initial_state_reflects_current_backend_values()
+	_test_available_fish_filters_by_location_season_hour()
+	_test_available_fish_sorted_and_ignores_unregistered()
+	_test_attempt_catch_unregistered_fish_returns_empty()
+	_test_attempt_catch_below_difficulty_escapes()
+	_test_attempt_catch_success_credits_inventory_and_xp()
+	_test_catch_quality_tiers_follow_performance()
+	_test_item_id_encodes_quality_for_normal_catch()
+	_test_sell_price_applies_quality_multiplier_for_fish()
 
 	if _failures.is_empty():
 		print("ALL TESTS PASSED (%d checks)" % _pass_count)
@@ -1257,6 +1275,149 @@ func _test_farm_plot_save_round_trip() -> void:
 	_check(plot != null and plot.crop_id == "parsnip" and plot.days_grown == 1 and not plot.watered_today,
 		"farm plot state should round-trip through save/load, got %s" % [plot.to_dict() if plot else null])
 
+## --- ENG-17: Foraging (ForagingManager) ---
+
+func _reset_forage_manager() -> void:
+	ForagingManager._nodes = {}
+
+func _on_forage_gathered_for_test(position: Vector2i, item_id: String, quantity: int) -> void:
+	_forage_gathered_events.append([position, item_id, quantity])
+
+func _on_forage_rerolled_for_test(position: Vector2i, item_id: String) -> void:
+	_forage_rerolled_events.append([position, item_id])
+
+func _test_forage_register_node_seeds_season_valid_item() -> void:
+	_reset_forage_manager()
+	TimeManager.season_index = 0 # Spring
+	var fm := ForagingManager
+	fm.register_node(Vector2i(0, 0))
+	var node := fm.get_forage_node(Vector2i(0, 0))
+	_check(node != null and not node.is_empty(), "register_node should immediately seed a season-valid item")
+	var def := fm.get_forageable_definition(node.item_id)
+	_check(def != null and def.valid_seasons.has("Spring"),
+		"a freshly seeded node's item should be valid for the current season, got '%s'" % node.item_id)
+	_check(fm.is_available(Vector2i(0, 0)), "a freshly seeded node should be immediately available")
+
+func _test_forage_gather_credits_inventory_and_xp_and_sets_cooldown() -> void:
+	_reset_forage_manager()
+	_reset_inventory_manager()
+	SkillManager._xp = {}
+	TimeManager.season_index = 0 # Spring
+	var fm := ForagingManager
+	fm.register_node(Vector2i(1, 1))
+	var item_id := fm.get_forage_node(Vector2i(1, 1)).item_id
+	var def := fm.get_forageable_definition(item_id)
+
+	_forage_gathered_events = []
+	fm.forage_gathered.connect(_on_forage_gathered_for_test)
+	var result := fm.gather(Vector2i(1, 1))
+	fm.forage_gathered.disconnect(_on_forage_gathered_for_test)
+
+	_check(result.get("item_id") == item_id and result.get("quantity") == 1,
+		"gather() should return the gathered item_id/quantity, got %s" % [result])
+	_check(InventoryManager.get_count(item_id) == 1, "gather should credit InventoryManager, got %d" % InventoryManager.get_count(item_id))
+	_check(SkillManager.get_xp("Foraging") == def.xp_reward,
+		"gather should award the item's xp_reward into SkillManager's Foraging skill, got %d" % SkillManager.get_xp("Foraging"))
+	_check(fm.get_forage_node(Vector2i(1, 1)).cooldown_days_remaining == def.respawn_days,
+		"gather should put the node on cooldown for the item's respawn_days, got %d" % fm.get_forage_node(Vector2i(1, 1)).cooldown_days_remaining)
+	_check(not fm.is_available(Vector2i(1, 1)), "a just-gathered node should not be available")
+	_check(_forage_gathered_events.size() == 1 and _forage_gathered_events[0] == [Vector2i(1, 1), item_id, 1],
+		"forage_gathered should fire once with (position, item_id, quantity), got %s" % [_forage_gathered_events])
+
+func _test_forage_gather_fails_when_unavailable() -> void:
+	_reset_forage_manager()
+	_reset_inventory_manager()
+	TimeManager.season_index = 0 # Spring
+	var fm := ForagingManager
+	var missing_result := fm.gather(Vector2i(2, 2))
+	_check(missing_result.is_empty(), "gathering an unregistered position should return an empty Dictionary")
+
+	fm.register_node(Vector2i(3, 3))
+	fm.gather(Vector2i(3, 3))
+	var second_result := fm.gather(Vector2i(3, 3))
+	_check(second_result.is_empty(), "gathering an on-cooldown node should return an empty Dictionary")
+
+func _test_forage_cooldown_counts_down_and_becomes_available_again() -> void:
+	_reset_forage_manager()
+	_reset_inventory_manager()
+	TimeManager.season_index = 0 # Spring
+	var fm := ForagingManager
+	fm.register_node(Vector2i(4, 4))
+	var def := fm.get_forageable_definition(fm.get_forage_node(Vector2i(4, 4)).item_id)
+	fm.gather(Vector2i(4, 4))
+	var respawn_days := def.respawn_days
+
+	for i in range(respawn_days - 1):
+		fm._on_day_started(i + 1, "Spring", "Mon")
+		_check(not fm.is_available(Vector2i(4, 4)),
+			"node should still be on cooldown after %d/%d day(s)" % [i + 1, respawn_days])
+
+	fm._on_day_started(respawn_days, "Spring", "Mon")
+	_check(fm.is_available(Vector2i(4, 4)),
+		"node should become available again once its full respawn_days have elapsed")
+
+func _test_forage_node_rerolls_when_season_ends() -> void:
+	_reset_forage_manager()
+	TimeManager.season_index = 0 # Spring
+	var fm := ForagingManager
+	fm.register_node(Vector2i(5, 5))
+	var node := fm.get_forage_node(Vector2i(5, 5))
+	node.item_id = "wild_flower" # Spring-only placeholder item, forced for a deterministic test
+	node.cooldown_days_remaining = 0
+
+	_forage_rerolled_events = []
+	fm.forage_node_rerolled.connect(_on_forage_rerolled_for_test)
+	fm._on_day_started(1, "Summer", "Mon") # season rolled past Spring
+	fm.forage_node_rerolled.disconnect(_on_forage_rerolled_for_test)
+
+	_check(node.item_id != "wild_flower", "a node holding an out-of-season item should reroll rather than sit stale, got '%s'" % node.item_id)
+	var new_def := fm.get_forageable_definition(node.item_id)
+	_check(new_def != null and new_def.valid_seasons.has("Summer"),
+		"the rerolled item should be valid for the new season, got '%s'" % node.item_id)
+	_check(_forage_rerolled_events.size() == 1 and _forage_rerolled_events[0][0] == Vector2i(5, 5),
+		"forage_node_rerolled should fire once for the rerolled position, got %s" % [_forage_rerolled_events])
+
+func _test_forage_node_goes_dormant_with_no_season_valid_content() -> void:
+	_reset_forage_manager()
+	var fm := ForagingManager
+	var original_definitions: Dictionary = fm._definitions.duplicate()
+	fm._definitions = {}
+	var spring_only := ForageableDefinition.new()
+	spring_only.item_id = "test_spring_only"
+	spring_only.valid_seasons = ["Spring"]
+	spring_only.base_sell_price = 1
+	spring_only.xp_reward = 1
+	spring_only.respawn_days = 1
+	fm.register_forageable(spring_only)
+
+	TimeManager.season_index = 3 # Winter -- nothing registered is valid here
+	fm.register_node(Vector2i(50, 50))
+	var node := fm.get_forage_node(Vector2i(50, 50))
+	_check(node.is_empty(), "a node should go dormant (empty item_id) when nothing is valid for the current season, got item_id='%s'" % node.item_id)
+	_check(not fm.is_available(Vector2i(50, 50)), "a dormant node should not be available")
+
+	fm._definitions = original_definitions
+
+func _test_forage_save_round_trip() -> void:
+	_reset_forage_manager()
+	_reset_inventory_manager()
+	TimeManager.season_index = 0 # Spring
+	var fm := ForagingManager
+	fm.register_node(Vector2i(9, 9))
+	var item_id := fm.get_forage_node(Vector2i(9, 9)).item_id
+	var def := fm.get_forageable_definition(item_id)
+	fm.gather(Vector2i(9, 9))
+
+	var saved := SaveManager.build_save_data()
+	_reset_forage_manager()
+	_check(fm.get_forage_node(Vector2i(9, 9)) == null, "sanity check: reset should clear nodes before applying save data")
+
+	SaveManager.apply_save_data(saved)
+
+	var node := fm.get_forage_node(Vector2i(9, 9))
+	_check(node != null and node.item_id == item_id and node.cooldown_days_remaining == def.respawn_days,
+		"forage node state should round-trip through save/load, got %s" % [node.to_dict() if node else null])
+
 ## --- ENG-26: Opening hook (intro sequence + new_game/save/load) ---
 
 func _test_new_game_resets_state_to_defaults() -> void:
@@ -1270,6 +1431,8 @@ func _test_new_game_resets_state_to_defaults() -> void:
 	SkillManager.add_xp("Farming", 999)
 	ToolManager.add_ore("iron_ore", 10)
 	SaveManager.intro_seen = true
+	TimeManager.season_index = 0 # Spring
+	ForagingManager.register_node(Vector2i(99, 99))
 
 	SaveManager.new_game()
 
@@ -1283,6 +1446,8 @@ func _test_new_game_resets_state_to_defaults() -> void:
 		"new_game should reset SkillManager XP, got %d" % SkillManager.get_xp("Farming"))
 	_check(ToolManager.get_ore_count("iron_ore") == 0,
 		"new_game should reset ToolManager ore counts, got %d" % ToolManager.get_ore_count("iron_ore"))
+	_check(ForagingManager.get_forage_node(Vector2i(99, 99)) == null,
+		"new_game should reset ForagingManager nodes, got %s" % [ForagingManager.get_forage_node(Vector2i(99, 99))])
 	_check(not SaveManager.has_seen_intro(),
 		"new_game should reset intro_seen to false so the intro plays again on a fresh save")
 
@@ -1584,3 +1749,78 @@ func _test_hud_initial_state_reflects_current_backend_values() -> void:
 	var bar: ProgressBar = hud.get_node("BottomBar/StaminaCluster/StaminaBar")
 	_check(bar.value == 55, "stamina bar should be primed from current StaminaManager.current_stamina on _ready(), got %s" % bar.value)
 	hud.queue_free()
+## --- ENG-15: Fishing (FishingManager) ---
+
+func _test_available_fish_filters_by_location_season_hour() -> void:
+	var fm := FishingManager
+	var pool := fm.get_available_fish("river", "Spring", 8)
+	_check(pool == ["carp", "trout"], "river/Spring/08:00 should surface exactly carp and trout, got %s" % [pool])
+
+	var pool_fall := fm.get_available_fish("river", "Fall", 8)
+	_check(pool_fall.has("salmon") and pool_fall.has("trout") and pool_fall.has("carp"),
+		"river/Fall/08:00 should include carp, trout, and salmon, got %s" % [pool_fall])
+
+	var pool_outside_hour := fm.get_available_fish("river", "Spring", 15)
+	_check(not pool_outside_hour.has("trout"),
+		"trout should not be available outside its 06:00-11:00 window, got %s" % [pool_outside_hour])
+	_check(pool_outside_hour.has("carp"), "carp (all-day) should remain available at hour 15")
+
+func _test_available_fish_sorted_and_ignores_unregistered() -> void:
+	var fm := FishingManager
+	var pool := fm.get_available_fish("ocean", "Summer", 10)
+	_check(pool == ["tuna"], "ocean/Summer/10:00 should surface only tuna, got %s" % [pool])
+
+	var empty_pool := fm.get_available_fish("volcano", "Summer", 10)
+	_check(empty_pool.is_empty(), "a location no fish is registered for should return an empty pool, got %s" % [empty_pool])
+
+func _test_attempt_catch_unregistered_fish_returns_empty() -> void:
+	var result := FishingManager.attempt_catch("dragon", 1.0)
+	_check(result.is_empty(), "attempting to catch an unregistered fish_id should return an empty dict")
+
+func _test_attempt_catch_below_difficulty_escapes() -> void:
+	_reset_inventory_manager()
+	var result := FishingManager.attempt_catch("trout", 0.1) # difficulty 0.5
+	_check(not result["success"], "a performance below difficulty should fail to catch")
+	_check(result["fish_id"] == "trout", "an escaped result should still report the fish_id, got %s" % [result])
+	_check(InventoryManager.get_count("trout") == 0, "an escaped catch should not add anything to inventory")
+
+func _test_attempt_catch_success_credits_inventory_and_xp() -> void:
+	_reset_inventory_manager()
+	SkillManager._xp = {}
+	var result := FishingManager.attempt_catch("trout", 0.55) # difficulty 0.5, below the 0.6 Silver threshold
+	_check(result["success"], "a performance at/above difficulty should succeed")
+	_check(result["item_id"] == "trout", "a Normal-quality catch should use the bare fish_id as item_id, got %s" % result["item_id"])
+	_check(InventoryManager.get_count("trout") == 1,
+		"a successful catch should credit InventoryManager, got %d" % InventoryManager.get_count("trout"))
+	_check(SkillManager.get_xp("Fishing") == 5,
+		"a successful catch should credit Fishing XP, got %d" % SkillManager.get_xp("Fishing"))
+
+func _test_catch_quality_tiers_follow_performance() -> void:
+	_reset_inventory_manager()
+	var gold := FishingManager.attempt_catch("carp", 0.95) # difficulty 0.2
+	_check(gold["quality"] == FishingManager.QUALITY_GOLD, "performance 0.95 should be Gold quality, got %s" % [gold])
+
+	var silver := FishingManager.attempt_catch("carp", 0.65)
+	_check(silver["quality"] == FishingManager.QUALITY_SILVER, "performance 0.65 should be Silver quality, got %s" % [silver])
+
+	var normal := FishingManager.attempt_catch("carp", 0.3)
+	_check(normal["quality"] == FishingManager.QUALITY_NORMAL, "performance 0.3 should be Normal quality, got %s" % [normal])
+
+func _test_item_id_encodes_quality_for_normal_catch() -> void:
+	_reset_inventory_manager()
+	var gold_result := FishingManager.attempt_catch("carp", 0.95)
+	_check(gold_result["item_id"] == "carp_gold", "Gold-quality catch should encode quality in the item_id, got %s" % gold_result["item_id"])
+
+	var normal_result := FishingManager.attempt_catch("carp", 0.25)
+	_check(normal_result["item_id"] == "carp", "Normal-quality catch should use the bare fish_id as item_id, got %s" % normal_result["item_id"])
+
+func _test_sell_price_applies_quality_multiplier_for_fish() -> void:
+	var fm := FishingManager
+	_check(fm.get_sell_price("trout", FishingManager.QUALITY_NORMAL) == 40,
+		"Normal trout should sell at base price 40, got %d" % fm.get_sell_price("trout", FishingManager.QUALITY_NORMAL))
+	_check(fm.get_sell_price("trout", FishingManager.QUALITY_SILVER) == 50,
+		"Silver trout should sell at 1.25x base (50), got %d" % fm.get_sell_price("trout", FishingManager.QUALITY_SILVER))
+	_check(fm.get_sell_price("trout", FishingManager.QUALITY_GOLD) == 60,
+		"Gold trout should sell at 1.5x base (60), got %d" % fm.get_sell_price("trout", FishingManager.QUALITY_GOLD))
+	_check(fm.get_sell_price("dragon", FishingManager.QUALITY_GOLD) == 0,
+		"an unregistered fish_id should report 0 sell price")
