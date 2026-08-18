@@ -1165,3 +1165,32 @@ either, so the remote branches remain as harmless merged-and-stale refs).
     Community-Goal.
   </description>
 </task_item>
+
+<task_item>
+  <id>FRONTEND-RELATIONSHIPS-OVERLAY</id>
+  <status>DONE</status>
+  <description>
+    New scenes/ui/RelationshipsOverlay.tscn + scripts/ui/relationships_overlay.gd
+    against MarriageManager: propose()/marry() had no player-facing
+    surface anywhere in the repo. Adds a new "Relationships" pause-menu
+    entry beyond menu-hud-flow-spec.md §1's six listed items
+    (MarriageManager postdates that spec) -- same "Frontend can produce
+    its own convention decisions when claiming unspec'd scope" precedent
+    SQUAD-SPLIT.md's UX-GRID note describes. Lists all six
+    MARRIAGEABLE_NPCS with current hearts (RelationshipManager), a
+    Propose button gated on can_propose() (never duplicating that check
+    itself), and a "Marry Now" button standing in for the "future
+    ceremony scene" MarriageManager's own docstring anticipates (no
+    ceremony art/animation exists). Same chrome as InventoryOverlay/
+    SkillsOverlay, fully reactive to MarriageManager's and
+    RelationshipManager's public signals. PR:
+    gritui/story-of-country-side#68 (base:
+    claude/farming-game-pm-requirements-w9ugtk). 742/742 tests pass
+    against the real Godot 4.3 engine headless (18 new), clean smoke
+    boot. Self-merged per standing authorization.
+
+    Remaining per #52: Map/Settings full-screen overlays (blocked on a
+    backend system), and scenes for Fishing (mini-game contract),
+    Festivals/Infrastructure/Community-Goal.
+  </description>
+</task_item>

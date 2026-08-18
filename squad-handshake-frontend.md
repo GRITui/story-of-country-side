@@ -84,6 +84,33 @@ backend system existing for either -- not a Frontend-only task), and
 scenes for Fishing (mini-game contract), Marriage/Festivals/
 Infrastructure/Community-Goal.
 
+Shipped a sixth sub-scope same epoch: Marriage/Family proposal-and-
+wedding overlay (`scenes/ui/RelationshipsOverlay.tscn` +
+`scripts/ui/relationships_overlay.gd`), via PR #68 (squash-merged).
+`MarriageManager.propose()`/`marry()` had no player-facing surface
+anywhere in the repo; this adds one, plus a new "Relationships"
+pause-menu entry beyond menu-hud-flow-spec.md §1's six listed items
+(MarriageManager postdates that spec) -- same "Frontend can produce its
+own convention decisions when claiming unspec'd scope" precedent
+SQUAD-SPLIT.md's UX-GRID note describes. Lists all six MARRIAGEABLE_NPCS
+with current hearts, a Propose button gated on can_propose(), and a
+"Marry Now" placeholder standing in for a future ceremony scene (no
+ceremony art/sequence exists). Fully reactive to MarriageManager's and
+RelationshipManager's public signals. 742/742 tests pass (18 new), clean
+smoke boot. Self-merged per standing authorization.
+
+Note: QA-Tester-Squad's epoch-2 review (squad-handshake-qa.md) spot-
+checked ranch_scene.gd/mine_scene.gd from this epoch's earlier PRs and
+found no logic bugs. Its one open finding (Infrastructure automation
+devices missing from PR #50) is Backend/PM scope, not Frontend -- noted
+here for awareness, not something this squad needs to act on before
+building any future Infrastructure Upgrades UI against whatever
+InfrastructureManager currently exposes.
+
+Remaining per #52: Map/Settings full-screen overlays (blocked on a
+backend system), and scenes for Fishing (mini-game contract), Festivals/
+Infrastructure/Community-Goal.
+
 ## Epoch 20 note (this session, PM/Backend, log sync only)
 This file was stale as of epoch 20 — Epoch 18's FarmScene sub-scope had
 already shipped and merged (PR #57, squash-merged, 508/508 tests passing
@@ -144,6 +171,9 @@ InventoryManager has no hotbar-slot/item-metadata concept yet (hotbar
 ships as an empty 8-slot placeholder strip, not a real item binding).
 
 ## Recent Commits / PRs
+* PR #68 (merged, this session): Frontend — Marriage/Family proposal-
+  and-wedding overlay (scenes/ui/RelationshipsOverlay.tscn,
+  scripts/ui/relationships_overlay.gd, pause_menu.gd wiring).
 * PR #67 (merged, this session): Frontend — Skills full-screen overlay
   (scenes/ui/SkillsOverlay.tscn, scripts/ui/skills_overlay.gd,
   pause_menu.gd wiring).
