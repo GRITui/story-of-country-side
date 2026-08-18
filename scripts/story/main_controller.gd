@@ -21,9 +21,15 @@ extends Node
 ## intro is a full-screen narrative beat, and layering HUD chrome on top of
 ## it would contradict the spec's "nothing renders as live behind a
 ## full-screen sequence" intent (§3, applied here to the intro too).
+##
+## The pause menu (§1) is added alongside the HUD for the same reason: it
+## should not be reachable (or its Escape toggle armed) while the intro is
+## still playing.
 
 @onready var _hud_scene: PackedScene = load("res://scenes/ui/HUD.tscn")
+@onready var _pause_menu_scene: PackedScene = load("res://scenes/ui/PauseMenu.tscn")
 var _hud: CanvasLayer
+var _pause_menu: CanvasLayer
 
 func _ready() -> void:
 	if not SaveManager.load_game():
@@ -49,3 +55,10 @@ func _show_hud() -> void:
 		return
 	_hud = _hud_scene.instantiate()
 	add_child(_hud)
+	_show_pause_menu()
+
+func _show_pause_menu() -> void:
+	if _pause_menu != null:
+		return
+	_pause_menu = _pause_menu_scene.instantiate()
+	add_child(_pause_menu)
