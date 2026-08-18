@@ -271,6 +271,7 @@ func _ready() -> void:
 	_test_collection_hub_auto_collects_ready_animals()
 	_test_automation_not_run_when_not_built()
 	_test_automation_save_round_trip()
+	_test_infrastructure_definition_getters_expose_real_content()
 	_test_marriage_cannot_propose_ineligible_npc()
 	_test_marriage_cannot_propose_without_enough_hearts()
 	_test_marriage_cannot_propose_without_item()
@@ -314,6 +315,7 @@ func _ready() -> void:
 	_test_year_three_evaluation_challenge_mode_pass()
 	_test_year_three_evaluation_challenge_mode_fail_triggers_game_over()
 	_test_community_goal_save_round_trip()
+	_test_community_goal_enumeration_getters_expose_real_content()
 
 	_test_weather_rolls_valid_values_for_non_winter_season()
 	_test_weather_winter_uses_snowy_not_rainy()
@@ -3253,6 +3255,28 @@ func _test_automation_save_round_trip() -> void:
 	_check(InfrastructureManager.is_automation_built(InfrastructureManager.SPRINKLER_SYSTEM),
 		"built automation devices should round-trip through save/load")
 
+func _test_infrastructure_definition_getters_expose_real_content() -> void:
+	_reset_infra_gates()
+	var house_def := InfrastructureManager.get_house_tier_definition(1)
+	_check(house_def != null and house_def.gold_cost == 1000,
+		"get_house_tier_definition(1) should return the real registered tier, got %s" % house_def)
+	_check(InfrastructureManager.get_house_tier_definition(99) == null,
+		"get_house_tier_definition should return null for an unregistered tier_index")
+
+	var coop_def := InfrastructureManager.get_coop_tier_definition(1)
+	_check(coop_def != null and coop_def.payload_value == 8,
+		"get_coop_tier_definition(1) should return the real registered tier, got %s" % coop_def)
+
+	var recipe := InfrastructureManager.get_machine_recipe("keg")
+	_check(recipe != null and recipe.output_item_id == "wine",
+		"get_machine_recipe('keg') should return the real registered recipe, got %s" % recipe)
+	_check(InfrastructureManager.get_machine_recipe("no_such_machine") == null,
+		"get_machine_recipe should return null for an unregistered machine_type")
+
+	var device_def := InfrastructureManager.get_automation_device_definition(InfrastructureManager.SPRINKLER_SYSTEM)
+	_check(device_def != null and device_def.device_type == InfrastructureManager.SPRINKLER_SYSTEM,
+		"get_automation_device_definition should return the real registered device, got %s" % device_def)
+
 ## --- ENG-20: Marriage & Family ---
 
 func _reset_marriage_manager() -> void:
@@ -3917,6 +3941,19 @@ func _test_community_goal_save_round_trip() -> void:
 	_check(CommunityGoalManager.contributed_count("pantry_bundle", "parsnip") == 2,
 		"bundle contribution progress should round-trip through save/load, got %d" \
 		% CommunityGoalManager.contributed_count("pantry_bundle", "parsnip"))
+
+func _test_community_goal_enumeration_getters_expose_real_content() -> void:
+	_reset_community_goal_manager()
+	var ids := CommunityGoalManager.list_bundle_ids()
+	_check(ids.size() == 10, "list_bundle_ids() should return all 10 registered bundles, got %d" % ids.size())
+	_check(ids.has("pantry_bundle") and ids.has("vault_bundle"),
+		"list_bundle_ids() should include both original and Content-lane-added bundles, got %s" % [ids])
+
+	var def := CommunityGoalManager.get_bundle_definition("pantry_bundle")
+	_check(def != null and def.title == "Pantry Bundle" and def.required_items == {"parsnip": 3, "tomato": 2, "pumpkin": 1},
+		"get_bundle_definition('pantry_bundle') should return the real registered definition, got %s" % def)
+	_check(CommunityGoalManager.get_bundle_definition("no_such_bundle") == null,
+		"get_bundle_definition should return null for an unregistered bundle_id")
 
 ## --- WeatherManager (closing NPCScheduleEntry.weather's dead-scaffolding
 ## gap from #18, and issue #52's flagged "no WeatherManager exists yet") ---
