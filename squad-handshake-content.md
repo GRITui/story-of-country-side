@@ -8,6 +8,27 @@
 </squad_metadata>
 
 ## Current Focus
+Epoch 18: shipped gift preferences + intro narration via PR opened from
+branch `content/gift-preferences-intro-copy` (see "Recent Commits / PRs"
+below) — the other disjoint sub-scope of #53 claimed alongside the
+Marriage/Festival/Infrastructure/Community-Goal pass. Six
+`GiftPreferenceTable` .tres resources (one per `MarriageManager.
+MARRIAGEABLE_NPCS` name: Elena, Marcus, Priya, Tobias, Sana, Colton)
+under `scripts/social/gift_preferences/`, each with a distinct
+personality expressed through loved/liked/disliked/hated item_ids drawn
+from the real Agriculture/Ranching/Fishing/Foraging/Mining rosters (PR
+#56). Rewrote `IntroSequence.DEFAULT_LINES` (scripts/story/
+intro_sequence.gd) with more specific, characterful prose, same 6-line
+beat structure and roughly the same length -- pure string content, no
+logic touched. **Flagged gap (not Content lane's to fix):**
+`RelationshipManager.give_gift()` takes a `GiftPreferenceTable` passed in
+by the caller -- there is no runtime lookup path from an NPC name to
+their `GiftPreferenceTable`/.tres resource anywhere yet, so these six
+.tres files aren't wired to anything until a Backend task adds that
+lookup (e.g. an NPC-name -> resource-path dictionary or a
+`_register_default_content()`-style loader in RelationshipManager or a
+new NPC data layer).
+
 Epoch 16: shipped a content pass on Agriculture/Ranching/Fishing/
 Foraging via PR #56 (squash-merged), verified independently at 499/499
 checks passing (after also merging in the concurrent session's PR #55
@@ -67,6 +88,11 @@ line (Agriculture/Ranching/Fishing/Foraging) are now in flight:
   Infrastructure Upgrades defines its quest-gated unlocks).
 
 ## Recent Commits / PRs
+* PR (this session, branch `content/gift-preferences-intro-copy`): gift
+  preferences (6 `GiftPreferenceTable` .tres resources under
+  `scripts/social/gift_preferences/`) + intro narration rewrite
+  (`IntroSequence.DEFAULT_LINES`). 496/496 checks pass, clean smoke boot.
+  Flags the RelationshipManager wiring gap noted above.
 * PR #56 (merged, this session): Agriculture/Ranching/Fishing/Foraging
   content pass — see "Current Focus" above for the full breakdown.
 * PR #55 (merged, concurrent session — parallel sub-scope, disjoint from

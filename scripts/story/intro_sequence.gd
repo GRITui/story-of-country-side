@@ -9,11 +9,10 @@ extends Node
 ## time, no branching, no timeline/track data. That's out of scope for
 ## this issue (see the PR description).
 ##
-## PLACEHOLDER COPY: the lines below are placeholder narration written for
-## sequencing purposes only -- no writer has produced final intro copy
-## anywhere in the design docs yet. A writer can replace DEFAULT_LINES (or
-## override `lines` before this node enters the tree) without touching any
-## of the advance/finish logic below.
+## DEFAULT_LINES holds the final intro narration (Content lane, issue #53).
+## `lines` can still be overridden before this node enters the tree (e.g.
+## by a test, or a future alternate-intro variant) without touching any of
+## the advance/finish logic below.
 ##
 ## Freezes TimeManager for the duration, reusing the same freeze mechanism
 ## the pause menu and festivals use (one time-freeze mechanism, not a
@@ -23,12 +22,12 @@ signal line_changed(index: int, text: String)
 signal finished
 
 const DEFAULT_LINES: Array[String] = [
-	"Another fluorescent-lit morning. Another inbox that never empties.",
-	"Then the letter arrives: your great-aunt has passed, and left you the only thing she owned outright -- her farm.",
-	"You hand in your resignation before you've finished reading it twice.",
-	"The bus drops you at the edge of a town you've never seen, suitcase in hand.",
-	"The farmhouse is smaller than you remembered from childhood visits, and the fields have gone to weed.",
-	"Still. It's yours now. Time to get to work.",
+	"6:52 AM. The subway's late, the coffee's burnt, and your inbox already has forty new messages -- same as every morning for the last six years.",
+	"The letter is waiting on your desk when you get in: your great-aunt Rosalind has passed, and left you the one thing she owned outright -- forty acres and a farmhouse, out past the county line.",
+	"You read it twice, then type your resignation before the coffee's gone cold. Nobody stops you on the way out.",
+	"Three trains and a bus later, the driver calls your stop -- a town small enough that its name fits on one sign.",
+	"The farmhouse is exactly as your memory left it, only smaller, and the fields around it have long since gone to weed and quiet.",
+	"You set your one suitcase down on the porch and let the silence settle. No inbox. No fluorescent lights. Just dirt, daylight, and a lot of work ahead.",
 ]
 
 const FREEZE_REASON := "intro"
