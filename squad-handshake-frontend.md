@@ -2,21 +2,34 @@
 
 <squad_metadata>
   <squad_name>Frontend-Squad</squad_name>
-  <current_status>IN_PROGRESS</current_status>
-  <active_task_id>FRONTEND-PAUSE-INV</active_task_id>
-  <sprint_completion_percentage>0</sprint_completion_percentage>
+  <current_status>IDLE</current_status>
+  <active_task_id>none</active_task_id>
+  <sprint_completion_percentage>100</sprint_completion_percentage>
 </squad_metadata>
 
 ## Current Focus
-Epoch 16: dispatched a subagent to build the pause menu + full-screen
-Inventory overlay (branch frontend/pause-menu-inventory) against issue
-#52 (the new tracking epic for all remaining frontend scene work, opened
-once the full backend leaf-task backlog closed). This is exactly the
-scope PR #46 deferred. Claimed a sub-scope on #52 via GitHub comment
-first (it's tracking-only, not meant to be closed by one PR). Running in
-parallel with a Content-lane subagent doing a farming/ranching/fishing/
-foraging balance pass (issue #53) — disjoint files, only shared risk is
-tests/test_runner.gd (expected, resolvable per SQUAD-SPLIT.md's pattern).
+Epoch 16: built the pause menu + full-screen Inventory overlay
+(branch frontend/pause-menu-inventory, scenes/ui/PauseMenu.tscn +
+scripts/ui/pause_menu.gd, scenes/ui/InventoryOverlay.tscn +
+scripts/ui/inventory_overlay.gd) against
+design/ui-flows/menu-hud-flow-spec.md §1/§3 — the exact scope PR #46
+deferred. Claimed the sub-scope on issue #52 via GitHub comment first
+(it's tracking-only, not meant to be closed by one PR; left open).
+Pause menu toggles on the built-in `ui_cancel` action, freezes
+TimeManager via freeze("pause")/unfreeze("pause") (same reference-
+counted mechanism festivals already use). Resume + Inventory are real;
+Map/Skills/Settings ship as disabled "(not yet implemented)" stubs;
+Save & Quit saves for real then quits the app outright since there's
+still no title screen to return to. Inventory overlay binds reactively
+to InventoryManager.item_changed, primed on _ready() by reading the
+existing public to_save_dict()["counts"] snapshot (no enumeration
+getter exists on InventoryManager yet — flagged as a possible future
+Backend cross-squad ask below, not a private-field reach-around).
+Opened as PR #54 against claude/farming-game-pm-requirements-w9ugtk.
+9 new headless tests added to tests/test_runner.gd; full suite at 496
+checks passing after merging the base branch in (no conflicts — the
+concurrent Content-lane pass, issue #53, touched only the handshake
+docs on the base branch by the time this PR opened).
 
 ## Prior epoch (12): built the first real HUD scene (scenes/ui/HUD.tscn +
 scripts/ui/hud.gd, new scripts/ui/ folder) against
@@ -41,6 +54,10 @@ InventoryManager has no hotbar-slot/item-metadata concept yet (hotbar
 ships as an empty 8-slot placeholder strip, not a real item binding).
 
 ## Recent Commits / PRs
+* PR #54 (open): Frontend — pause menu + full-screen Inventory overlay
+  (scenes/ui/PauseMenu.tscn, scripts/ui/pause_menu.gd,
+  scenes/ui/InventoryOverlay.tscn, scripts/ui/inventory_overlay.gd,
+  main_controller.gd wiring). Addresses one sub-scope of #52.
 * PR #46 (open): Frontend — always-on HUD implementation
   (scenes/ui/HUD.tscn, scripts/ui/hud.gd, main_controller.gd wiring).
 * PR #28 (merged): UX-UI squad — menu/HUD flow spec (design doc, not
@@ -60,3 +77,9 @@ None. Nothing structural blocks a first HUD/menu scene implementation.
   Frontend needs that isn't exposed via an existing signal/public method
   is a Backend task — flag it here rather than reaching into a manager's
   private fields.
+* To Backend squad: InventoryManager has no "enumerate every non-zero
+  item" getter — the Inventory overlay (PR #54) works around this by
+  reading the public to_save_dict()["counts"] snapshot, which works but
+  is a save-method being reused for a display read. A real
+  get_all_items() -> Dictionary getter would be cleaner if another
+  consumer needs the same thing.
