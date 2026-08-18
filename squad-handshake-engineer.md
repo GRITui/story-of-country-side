@@ -9,12 +9,19 @@
 
 ## Current Focus
 Epoch 12: dispatched ENG-14 (Ranching) and ENG-17 (Foraging) as parallel
-Backend subagents (feature/eng-14-ranching, feature/eng-17-foraging),
-both consuming the settled InventoryManager. A third parallel subagent
+Backend subagents. ENG-14's subagent found a concurrent session had
+already shipped and merged it as PR #43 (241/241 tests, independently
+re-verified) while it was mid-build — stood down cleanly, no duplicate
+PR pushed. ENG-17 is still in flight. A third parallel subagent
 (Frontend/Squad B, frontend/hud-implementation) is building the first
 real HUD scene against design/ui-flows/menu-hud-flow-spec.md — logged in
 squad-handshake-frontend.md, not this file. Claimed #14/#17 via GitHub
-comments per SQUAD-SPLIT.md's coordination convention before dispatch.
+comments per SQUAD-SPLIT.md's coordination convention before dispatch —
+worth noting the claim comment didn't fully prevent the #14 collision
+(the other session's work was likely already in flight before the
+comment posted), so claim comments reduce but don't eliminate this race;
+the real backstop is the pre-PR fetch/merge/re-test step, which worked
+as designed here.
 
 ## Prior epoch (11)
 ENG-13 (Agriculture) and ENG-26 (Opening hook) both shipped —
@@ -32,6 +39,8 @@ Idle between epochs — next pull should be one of the now-unblocked tasks
 below.
 
 ## Recent Commits / PRs
+* PR #43 (merged, concurrent session, verified independently): ENG-14 —
+  AnimalManager/AnimalDefinition/Animal (feed/brush/harvest loop).
 * PR #41 (merged): ENG-26 — Opening hook intro sequence, SaveManager
   disk persistence (new_game/save_game/load_game).
 * PR #42 (merged): ENG-13 — Agriculture (FarmPlotManager/CropDefinition/

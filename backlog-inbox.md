@@ -14,6 +14,29 @@ claim the task.
 
 <!-- Seed epoch: Researcher-Squad, run 1 -->
 
+## Epoch 12 update: ENG-14 (Ranching) shipped by a concurrent session
+
+<task_item>
+  <id>ENG-14</id>
+  <status>DONE</status>
+  <description>
+    Merged via PR #43 (base claude/farming-game-pm-requirements-w9ugtk),
+    delivered by a concurrent session that claimed and shipped it while
+    this session had its own ENG-14 subagent mid-build. That subagent
+    discovered the duplicate via its pre-PR fetch/merge step and correctly
+    stood down without pushing/opening a redundant PR (its local-only
+    build is discarded, never pushed to origin). AnimalManager autoload +
+    AnimalDefinition/Animal in scripts/ranching/ — daily feed/brush loop,
+    egg/milk/wool harvest, quality tied to happiness at collection time
+    (>=80 Gold, >=50 Silver, else Normal) -- their PR description flags
+    this as worth reconciling with FarmPlotManager's separate
+    roll-based quality approach later (not done this epoch; both are
+    valid designs, not a bug). Verified independently against the real
+    merged base: 241/241 checks pass, clean smoke boot. Issue #14 was
+    already closed by the other session.
+  </description>
+</task_item>
+
 ## Epoch 11 update: ENG-13 + ENG-26 shipped in parallel — InventoryManager gap closed
 
 <task_item>
