@@ -36,6 +36,9 @@ var _proposal_rejected_events: Array = [] ## Array[Array] of [npc_name, reason],
 var _wedding_scheduled_events: Array = [] ## Array[Array] of [npc_name, days_until], same reason
 var _married_events: Array = [] ## Array[String] of npc_name, same reason
 var _child_born_events: Array = [] ## Array[Array] of [npc_name, total_children], same reason
+var _festival_started_events: Array = [] ## Array[String] of festival_id, same reason
+var _festival_ended_events: Array = [] ## Array[String] of festival_id, same reason
+var _mini_game_result_events: Array = [] ## Array[Array] of [festival_id, score, success], same reason
 
 func _ready() -> void:
 	_test_minute_and_hour_wrap()
@@ -170,6 +173,18 @@ func _ready() -> void:
 	_test_marriage_daily_gold_bonus_only_when_married()
 	_test_marriage_child_born_rolls_once_per_season_start()
 	_test_marriage_save_round_trip()
+	_test_is_festival_day_matches_registered_date()
+	_test_get_festival_for_date_returns_null_off_date()
+	_test_start_festival_freezes_time_and_emits()
+	_test_start_festival_unregistered_id_fails()
+	_test_start_festival_while_another_active_fails()
+	_test_start_festival_idempotent_for_same_id()
+	_test_end_festival_unfreezes_time_and_emits()
+	_test_end_festival_noop_when_none_active()
+	_test_day_started_auto_triggers_registered_festival()
+	_test_day_started_does_not_trigger_on_non_festival_day()
+	_test_submit_mini_game_result_unregistered_returns_empty()
+	_test_submit_mini_game_result_pass_and_fail()
 
 	_test_generate_floor_places_ladder_without_rock()
 	_test_generate_floor_all_other_tiles_start_as_unbroken_rock()
@@ -2028,6 +2043,131 @@ func _test_marriage_save_round_trip() -> void:
 	_check(MarriageManager.children_count() == 2,
 		"children count should round-trip through save/load, got %d" % MarriageManager.children_count())
 	_check(not MarriageManager.is_engaged(), "engaged state should round-trip as cleared once already married")
+## --- ENG-21: Festivals ---
+
+func _reset_festival_manager() -> void:
+	var fm := FestivalManager
+	fm._active_festival_id = ""
+	TimeManager.unfreeze(FestivalManager.FREEZE_REASON)
+
+func _on_festival_started_for_test(festival_id: String) -> void:
+	_festival_started_events.append(festival_id)
+
+func _on_festival_ended_for_test(festival_id: String) -> void:
+	_festival_ended_events.append(festival_id)
+
+func _on_mini_game_result_for_test(festival_id: String, score: float, success: bool) -> void:
+	_mini_game_result_events.append([festival_id, score, success])
+
+func _test_is_festival_day_matches_registered_date() -> void:
+	_reset_festival_manager()
+	var tm := TimeManager
+	tm.season_index = 0 # Spring
+	tm.day_in_season = 13 # spring_flower_festival's placeholder date
+	_check(FestivalManager.is_festival_day(), "day 13 of Spring should be a registered festival day")
+
+func _test_get_festival_for_date_returns_null_off_date() -> void:
+	_reset_festival_manager()
+	var def := FestivalManager.get_festival_for_date("Spring", 1)
+	_check(def == null, "an unregistered season/day combo should return null, got %s" % [def])
+
+func _test_start_festival_freezes_time_and_emits() -> void:
+	_reset_festival_manager()
+	_festival_started_events = []
+	FestivalManager.festival_started.connect(_on_festival_started_for_test)
+	var ok := FestivalManager.start_festival("spring_flower_festival")
+	FestivalManager.festival_started.disconnect(_on_festival_started_for_test)
+
+	_check(ok, "starting a registered festival should succeed")
+	_check(TimeManager.is_frozen(), "starting a festival should freeze TimeManager")
+	_check(FestivalManager.is_festival_active(), "starting a festival should mark it active")
+	_check(FestivalManager.get_active_festival() != null
+		and FestivalManager.get_active_festival().festival_id == "spring_flower_festival",
+		"get_active_festival should return the started festival's definition")
+	_check(_festival_started_events == ["spring_flower_festival"],
+		"festival_started should fire once with the started festival_id, got %s" % [_festival_started_events]
+	)
+	_reset_festival_manager()
+
+func _test_start_festival_unregistered_id_fails() -> void:
+	_reset_festival_manager()
+	var ok := FestivalManager.start_festival("nonexistent_festival")
+	_check(not ok, "starting an unregistered festival_id should fail")
+	_check(not FestivalManager.is_festival_active(), "an unregistered start attempt should not mark anything active")
+	_check(not TimeManager.is_frozen(), "an unregistered start attempt should not freeze TimeManager")
+
+func _test_start_festival_while_another_active_fails() -> void:
+	_reset_festival_manager()
+	FestivalManager.start_festival("spring_flower_festival")
+	var ok := FestivalManager.start_festival("summer_luau")
+	_check(not ok, "starting a second festival while one is already active should fail")
+	_check(FestivalManager.get_active_festival().festival_id == "spring_flower_festival",
+		"the originally active festival should remain active")
+	_reset_festival_manager()
+
+func _test_start_festival_idempotent_for_same_id() -> void:
+	_reset_festival_manager()
+	FestivalManager.start_festival("spring_flower_festival")
+	var ok := FestivalManager.start_festival("spring_flower_festival")
+	_check(ok, "re-starting the already-active festival with the same id should succeed (idempotent)")
+	_reset_festival_manager()
+
+func _test_end_festival_unfreezes_time_and_emits() -> void:
+	_reset_festival_manager()
+	FestivalManager.start_festival("summer_luau")
+	_festival_ended_events = []
+	FestivalManager.festival_ended.connect(_on_festival_ended_for_test)
+	FestivalManager.end_festival()
+	FestivalManager.festival_ended.disconnect(_on_festival_ended_for_test)
+
+	_check(not TimeManager.is_frozen(), "ending the festival should unfreeze TimeManager")
+	_check(not FestivalManager.is_festival_active(), "ending the festival should clear the active festival")
+	_check(_festival_ended_events == ["summer_luau"],
+		"festival_ended should fire once with the ended festival_id, got %s" % [_festival_ended_events])
+
+func _test_end_festival_noop_when_none_active() -> void:
+	_reset_festival_manager()
+	_festival_ended_events = []
+	FestivalManager.festival_ended.connect(_on_festival_ended_for_test)
+	FestivalManager.end_festival()
+	FestivalManager.festival_ended.disconnect(_on_festival_ended_for_test)
+	_check(_festival_ended_events.is_empty(), "ending with no active festival should not emit festival_ended")
+
+func _test_day_started_auto_triggers_registered_festival() -> void:
+	_reset_festival_manager()
+	TimeManager.season_index = 2 # Fall
+	TimeManager.day_in_season = 16 # fall_harvest_festival's placeholder date
+	FestivalManager._on_day_started(16, "Fall", "Mon")
+	_check(FestivalManager.is_festival_active()
+		and FestivalManager.get_active_festival().festival_id == "fall_harvest_festival",
+		"day_started on a registered festival's date should auto-start it")
+	_reset_festival_manager()
+
+func _test_day_started_does_not_trigger_on_non_festival_day() -> void:
+	_reset_festival_manager()
+	FestivalManager._on_day_started(1, "Spring", "Mon") # day 1 has no registered festival
+	_check(not FestivalManager.is_festival_active(), "day_started on a non-festival date should not start anything")
+
+func _test_submit_mini_game_result_unregistered_returns_empty() -> void:
+	var result := FestivalManager.submit_mini_game_result("nonexistent_festival", 0.9)
+	_check(result.is_empty(), "submit_mini_game_result for an unregistered festival_id should return {}")
+
+func _test_submit_mini_game_result_pass_and_fail() -> void:
+	_mini_game_result_events = []
+	FestivalManager.mini_game_result_submitted.connect(_on_mini_game_result_for_test)
+
+	var pass_result := FestivalManager.submit_mini_game_result("summer_luau", 0.75)
+	_check(pass_result["success"], "score above the pass threshold should succeed, got %s" % [pass_result])
+
+	var fail_result := FestivalManager.submit_mini_game_result("summer_luau", 0.1)
+	_check(not fail_result["success"], "score below the pass threshold should fail, got %s" % [fail_result])
+
+	FestivalManager.mini_game_result_submitted.disconnect(_on_mini_game_result_for_test)
+	_check(_mini_game_result_events.size() == 2
+		and _mini_game_result_events[0] == ["summer_luau", 0.75, true]
+		and _mini_game_result_events[1] == ["summer_luau", 0.1, false],
+		"mini_game_result_submitted should fire once per call with (festival_id, score, success), got %s" % [_mini_game_result_events])
+
 ## --- ENG-16: Mining (MiningManager) ---
 
 func _first_rock_tile() -> Vector2i:
