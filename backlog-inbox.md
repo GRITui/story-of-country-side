@@ -14,6 +14,53 @@ claim the task.
 
 <!-- Seed epoch: Researcher-Squad, run 1 -->
 
+## Epoch 14 update (Session B): ENG-16 shipped — the five-activity set is now complete
+
+<task_item>
+  <id>ENG-16</id>
+  <status>DONE</status>
+  <description>
+    Merged via PR #47 (squash, base claude/farming-game-pm-requirements-w9ugtk).
+    MiningManager (autoload) + OreDefinition content type in scripts/mining/.
+    Scoped per Decision B (#3, resolved peaceful/no-combat): procedurally
+    generated 5x5 floors (seeded RNG for deterministic tests), every tile
+    an intact rock except one reserved ladder-down tile, break_rock()
+    credits stone or a weighted-rolled ore/gem (copper_ore/iron_ore/
+    gold_ore/diamond, floor-gated min_floor) plus Mining XP, descend_ladder()
+    regenerates the next floor. Reuses ToolManager's existing "iron_ore"/
+    "gold_ore" item ids so mined ore feeds straight into tool-upgrade costs
+    -- deliberate cross-system consistency, flagged inline. "copper_ore"
+    and "diamond" are new placeholder ids with no consumer yet (documented
+    gap, not silent scope). Persisted through SaveManager (floor_index +
+    per-tile state) since a floor's progress is meaningful state, unlike
+    ENG-15/Fishing's stateless casts. Rebased cleanly onto PR #46
+    (Frontend HUD, merged mid-build) and the Content-lane/SQUAD-SPLIT.md
+    update -- no real conflicts (all pure appends to shared files).
+    344/344 tests pass (rest new) against the real Godot 4.3 engine
+    headless. Issue #16 closed.
+
+    This closes out the original five-activity set from epic #8:
+    Agriculture (#13), Ranching (#14), Fishing (#15), Mining (#16),
+    Foraging (#17) are now all DONE.
+  </description>
+</task_item>
+
+<!-- Coordination note: claimed #16 via a "Claiming this" GitHub comment
+     before starting (per the process this loop settled on after the
+     ENG-14 near-miss). The concurrent session's own Epoch 14 dispatch
+     (backlog/handshake entries above this one) independently confirmed
+     seeing this claim and picked disjoint issues (#24/#20/#21) instead of
+     colliding again -- the claim-comment-before-dispatch discipline is
+     holding up. -->
+
+<!-- Step 0 discovery this epoch: no new GitHub issues found. Remaining
+     open backend-shaped issues after this PR: #20 (Marriage), #21
+     (Festivals), #24 (Infrastructure Upgrades), #27 (Ultimate-goal
+     structure) -- #20/#21/#24 already claimed by the concurrent session
+     per its Epoch 14 dispatch, so #27 is the only unclaimed backend item
+     left; #8/#9/#10/#11 are epics/trackers, not leaf work; #1 is the
+     process doc. -->
+
 ## Epoch 13 update (Session B): ENG-15 shipped — Fishing pools + catch contract
 
 <task_item>
