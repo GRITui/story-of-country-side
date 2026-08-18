@@ -1014,3 +1014,32 @@ either, so the remote branches remain as harmless merged-and-stale refs).
     (Frontend scope, this PR is backend-only).
   </description>
 </task_item>
+
+<!-- Epoch 24 (Frontend-Squad session, split off to run in parallel with a
+     concurrent Backend/PM session on the same branch). Step 0 found no
+     new open issues (#52/#53/#1 only). Claimed a small, self-contained
+     sub-scope on #52: the HUD weather icon flagged as open by epoch 23's
+     WeatherManager PR. -->
+
+<task_item>
+  <id>FRONTEND-HUD-WEATHER</id>
+  <status>DONE</status>
+  <description>
+    Wired WeatherManager.get_current_weather()/weather_changed (PR #62)
+    into scenes/ui/HUD.tscn's existing top-left date/season cluster --
+    a new WeatherLabel in a new Row HBoxContainer alongside DateLabel,
+    primed on _ready() and kept in sync via the signal, per
+    menu-hud-flow-spec.md §2's diagram which already listed weather
+    there. Read-only via the public getter/signal, no new backend
+    surface needed, per SQUAD-SPLIT.md's contract rule. PR:
+    gritui/story-of-country-side#63 (base:
+    claude/farming-game-pm-requirements-w9ugtk). 677/677 tests pass
+    against the real Godot 4.3 engine headless (6 new: weather label
+    primed on _ready(), updates on weather_changed twice), clean smoke
+    boot. Self-merged per standing authorization.
+
+    Remaining per #52: Map/Skills/Settings full-screen overlays, and
+    world/tile-rendering scenes for Ranching/Fishing/Mining/Foraging/
+    Marriage/Festivals/Infrastructure/Community-Goal.
+  </description>
+</task_item>

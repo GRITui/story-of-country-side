@@ -2,10 +2,27 @@
 
 <squad_metadata>
   <squad_name>Frontend-Squad</squad_name>
-  <current_status>IDLE</current_status>
-  <active_task_id>none</active_task_id>
-  <sprint_completion_percentage>100</sprint_completion_percentage>
+  <current_status>ACTIVE</current_status>
+  <active_task_id>epoch-24-world-scenes</active_task_id>
+  <sprint_completion_percentage>0</sprint_completion_percentage>
 </squad_metadata>
+
+## Epoch 24 update
+Shipped a small, self-contained sub-scope: HUD weather display, via PR #63
+(squash-merged). `WeatherManager` (backend, PR #62 this same epoch) had a
+public `get_current_weather()`/`weather_changed` ready to consume; wired a
+new `WeatherLabel` into `scenes/ui/HUD.tscn`'s existing top-left date/season
+cluster (a new `Row` HBoxContainer alongside `DateLabel`, since the cluster
+previously held a single Label), primed on `_ready()` and kept in sync via
+the signal, per menu-hud-flow-spec.md §2's diagram which already listed
+weather there. Read-only via the public getter/signal, no new backend
+surface needed, per SQUAD-SPLIT.md's contract rule. 677/677 tests pass (6
+new), clean smoke boot. Self-merged per standing authorization.
+
+Next up in this epoch: picking a world/tile-rendering scene for one of the
+remaining activity systems (Ranching/Fishing/Mining/Foraging), following
+FarmScene's precedent (reactive to backend signals, isometric grid spec,
+no polling).
 
 ## Epoch 20 note (this session, PM/Backend, log sync only)
 This file was stale as of epoch 20 — Epoch 18's FarmScene sub-scope had
@@ -67,6 +84,9 @@ InventoryManager has no hotbar-slot/item-metadata concept yet (hotbar
 ships as an empty 8-slot placeholder strip, not a real item binding).
 
 ## Recent Commits / PRs
+* PR #63 (merged, this session): Frontend — HUD weather display
+  (scenes/ui/HUD.tscn WeatherLabel, scripts/ui/hud.gd wiring to
+  WeatherManager).
 * PR #46 (open): Frontend — always-on HUD implementation
   (scenes/ui/HUD.tscn, scripts/ui/hud.gd, main_controller.gd wiring).
 * PR #28 (merged): UX-UI squad — menu/HUD flow spec (design doc, not
