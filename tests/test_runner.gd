@@ -184,6 +184,16 @@ func _ready() -> void:
 	_test_farm_scene_updates_on_crop_withered_signal()
 	_test_farm_scene_click_plants_empty_tile()
 	_test_farm_scene_click_ignores_out_of_grid_position()
+	_test_ranch_scene_instantiates_without_error()
+	_test_ranch_scene_renders_empty_grid_on_ready()
+	_test_ranch_scene_renders_already_occupied_pen_on_ready()
+	_test_ranch_scene_updates_on_animal_added_signal()
+	_test_ranch_scene_updates_on_animal_fed_signal()
+	_test_ranch_scene_updates_on_animal_brushed_signal()
+	_test_ranch_scene_updates_on_product_collected_signal()
+	_test_ranch_scene_click_adds_animal_to_empty_pen()
+	_test_ranch_scene_click_feeds_then_brushes_then_collects()
+	_test_ranch_scene_click_ignores_out_of_grid_position()
 
 	_test_available_fish_filters_by_location_season_hour()
 	_test_available_fish_sorted_and_ignores_unregistered()
@@ -2122,6 +2132,119 @@ func _test_farm_scene_click_ignores_out_of_grid_position() -> void:
 	_check(FarmPlotManager.get_plot(Vector2i(-1, -1)) == null,
 		"a click outside the rendered grid should be a no-op, not reach FarmPlotManager")
 	farm_scene.queue_free()
+
+## --- Frontend: RanchScene (#52 sub-scope, world/tile-rendering for
+## AnimalManager, design/art/isometric-grid-spec.md) ---
+##
+## Same discipline as the FarmScene block above. AnimalManager has no
+## positional concept of its own, so RanchScene derives each pen's
+## animal_id from its grid position ("pen_<x>_<y>") -- these tests exercise
+## that derivation together with the signal-driven tile refresh.
+
+func _make_ranch_scene() -> RanchScene:
+	var scene: PackedScene = load("res://scenes/world/RanchScene.tscn")
+	var ranch_scene: RanchScene = scene.instantiate()
+	add_child(ranch_scene)
+	return ranch_scene
+
+func _ranch_scene_cell_source(ranch_scene: RanchScene, position: Vector2i) -> Vector2i:
+	var tilemap: TileMap = ranch_scene.get_node("TileMap")
+	return tilemap.get_cell_atlas_coords(0, position)
+
+func _test_ranch_scene_instantiates_without_error() -> void:
+	_reset_animal_manager()
+	var ranch_scene := _make_ranch_scene()
+	_check(ranch_scene.get_node("TileMap") is TileMap, "RanchScene should contain a TileMap node")
+	_check(ranch_scene.get_node("TileMap").tile_set != null, "RanchScene's TileMap should have a TileSet assigned on _ready()")
+	ranch_scene.queue_free()
+
+func _test_ranch_scene_renders_empty_grid_on_ready() -> void:
+	_reset_animal_manager()
+	var ranch_scene := _make_ranch_scene()
+	_check(_ranch_scene_cell_source(ranch_scene, Vector2i(0, 0)) == Vector2i(RanchScene.STATE_EMPTY, 0),
+		"a pen with no animal should render as STATE_EMPTY on ready")
+	ranch_scene.queue_free()
+
+func _test_ranch_scene_renders_already_occupied_pen_on_ready() -> void:
+	_reset_animal_manager()
+	AnimalManager.add_animal("pen_2_1", "chicken")
+	var ranch_scene := _make_ranch_scene()
+	_check(_ranch_scene_cell_source(ranch_scene, Vector2i(2, 1)) == Vector2i(RanchScene.STATE_UNFED, 0),
+		"a pen already occupied before the scene enters the tree should render as STATE_UNFED on ready, using get_animal() -- no 'get all animals' API needed")
+	ranch_scene.queue_free()
+
+func _test_ranch_scene_updates_on_animal_added_signal() -> void:
+	_reset_animal_manager()
+	var ranch_scene := _make_ranch_scene()
+	AnimalManager.add_animal("pen_1_1", "chicken")
+	_check(_ranch_scene_cell_source(ranch_scene, Vector2i(1, 1)) == Vector2i(RanchScene.STATE_UNFED, 0),
+		"adding an animal should reactively update the tile to STATE_UNFED via animal_added")
+	ranch_scene.queue_free()
+
+func _test_ranch_scene_updates_on_animal_fed_signal() -> void:
+	_reset_animal_manager()
+	AnimalManager.add_animal("pen_3_2", "chicken")
+	var ranch_scene := _make_ranch_scene()
+	AnimalManager.feed("pen_3_2")
+	_check(_ranch_scene_cell_source(ranch_scene, Vector2i(3, 2)) == Vector2i(RanchScene.STATE_FED, 0),
+		"feeding should reactively update the tile to STATE_FED via animal_fed")
+	ranch_scene.queue_free()
+
+func _test_ranch_scene_updates_on_animal_brushed_signal() -> void:
+	_reset_animal_manager()
+	AnimalManager.add_animal("pen_0_3", "chicken")
+	var ranch_scene := _make_ranch_scene()
+	AnimalManager.brush("pen_0_3")
+	_check(_ranch_scene_cell_source(ranch_scene, Vector2i(0, 3)) == Vector2i(RanchScene.STATE_UNFED, 0),
+		"brushing alone (not fed) should leave the tile at STATE_UNFED -- brushing only affects happiness, not the fed-today state this scene renders")
+	ranch_scene.queue_free()
+
+func _test_ranch_scene_updates_on_product_collected_signal() -> void:
+	_reset_animal_manager()
+	AnimalManager.add_animal("pen_4_3", "chicken")
+	var animal: Animal = AnimalManager.get_animal("pen_4_3")
+	animal.fed_today = true
+	animal.product_ready = true
+	var ranch_scene := _make_ranch_scene()
+	_check(_ranch_scene_cell_source(ranch_scene, Vector2i(4, 3)) == Vector2i(RanchScene.STATE_READY, 0),
+		"a pen with a ready product should render as STATE_READY on ready")
+	AnimalManager.collect_product("pen_4_3")
+	_check(_ranch_scene_cell_source(ranch_scene, Vector2i(4, 3)) == Vector2i(RanchScene.STATE_FED, 0),
+		"collecting should reactively update the tile away from STATE_READY via product_collected -- back to STATE_FED since fed_today is untouched by collection")
+	ranch_scene.queue_free()
+
+func _test_ranch_scene_click_adds_animal_to_empty_pen() -> void:
+	_reset_animal_manager()
+	var ranch_scene := _make_ranch_scene()
+	_check(not AnimalManager.has_animal("pen_0_0"), "sanity: pen should start empty")
+	ranch_scene._handle_tile_click(Vector2i(0, 0))
+	_check(AnimalManager.has_animal("pen_0_0"), "clicking an empty pen should add the placeholder species via AnimalManager.add_animal()")
+	ranch_scene.queue_free()
+
+func _test_ranch_scene_click_feeds_then_brushes_then_collects() -> void:
+	_reset_animal_manager()
+	AnimalManager.add_animal("pen_1_0", "chicken")
+	var animal: Animal = AnimalManager.get_animal("pen_1_0")
+	var ranch_scene := _make_ranch_scene()
+
+	ranch_scene._handle_tile_click(Vector2i(1, 0))
+	_check(animal.fed_today, "first click on an occupied, unfed pen should feed it")
+
+	ranch_scene._handle_tile_click(Vector2i(1, 0))
+	_check(animal.brushed_today, "second click on a fed, unbrushed pen should brush it")
+
+	animal.product_ready = true
+	ranch_scene._handle_tile_click(Vector2i(1, 0))
+	_check(not animal.product_ready, "third click on a fed, brushed, ready pen should collect its product")
+	ranch_scene.queue_free()
+
+func _test_ranch_scene_click_ignores_out_of_grid_position() -> void:
+	_reset_animal_manager()
+	var ranch_scene := _make_ranch_scene()
+	ranch_scene._handle_tile_click(Vector2i(-1, -1)) # outside GRID_WIDTH x GRID_HEIGHT bounds
+	_check(not AnimalManager.has_animal("pen_-1_-1"),
+		"a click outside the rendered grid should be a no-op, not reach AnimalManager")
+	ranch_scene.queue_free()
 
 ## --- ENG-15: Fishing (FishingManager) ---
 
