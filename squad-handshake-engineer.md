@@ -2,7 +2,7 @@
 
 <squad_metadata>
   <squad_name>Engineer-Squad</squad_name>
-  <current_status>IN_PROGRESS</current_status>
+  <current_status>IDLE</current_status>
   <active_task_id>ENG-14,ENG-17</active_task_id>
   <sprint_completion_percentage>50</sprint_completion_percentage>
 </squad_metadata>

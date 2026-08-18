@@ -14,6 +14,34 @@ claim the task.
 
 <!-- Seed epoch: Researcher-Squad, run 1 -->
 
+## Epoch 12 update: ENG-17 (Foraging) shipped
+
+<task_item>
+  <id>ENG-17</id>
+  <status>DONE</status>
+  <description>
+    Merged via PR #44 (squash, base claude/farming-game-pm-requirements-w9ugtk).
+    ForagingManager autoload owns Vector2i -> ForageNode gather spots
+    (same tile-grid convention as FarmPlotManager). gather(position)
+    credits InventoryManager + SkillManager.add_xp("Foraging", ...)
+    (own skill, not folded into Farming) and puts the node on cooldown
+    for its item's respawn_days; nodes reroll to a season-valid item on
+    cooldown expiry or when their current item's season ends (mirrors
+    FarmPlotManager's wither-on-season-end handling). Placeholder
+    content: wild_berries (Spring/Summer, 8g/3xp/2d respawn), wild_flower
+    (Spring, 6g/2xp/2d), mushroom (Fall, 12g/4xp/3d), snow_truffle
+    (Winter, 20g/6xp/4d) -- documented as not final balance. Fixed a real
+    bug found during testing: _reroll_node read TimeManager.current_season()
+    directly instead of the season arg already threaded through
+    _on_day_started, which happened to match in production but broke
+    direct test calls -- fixed to match FarmPlotManager's own convention.
+    No scene/tilemap placement yet (Frontend's lane per SQUAD-SPLIT.md);
+    register_node() is the integration point for later. Verified
+    independently against the real merged base: 262/262 checks pass,
+    clean smoke boot. Issue #17 closed.
+  </description>
+</task_item>
+
 ## Epoch 12 update: ENG-14 (Ranching) shipped by a concurrent session
 
 <task_item>
