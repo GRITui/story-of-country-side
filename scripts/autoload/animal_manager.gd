@@ -28,9 +28,17 @@ extends Node
 ## No feed-item economy (hay/silo) or animal-purchase cost exists anywhere
 ## in this repo -- add_animal()/feed() are free actions, same "no
 ## unrequested economy" boundary #13's plant_seed() drew for seeds.
-## Placeholder species/pricing below (three launch species per #14's
-## "or launch subset" note) are MVP balance, not final numbers, same
-## honesty as every other content table in this repo (#19/#23/#25/#31).
+##
+## Content pass (#53): expanded from 3 to 5 species and retuned wool's
+## price for internal consistency. Per-fed-day value across the roster:
+## chicken 20/day, cow 30/day, duck 22.5/day (2-day), goat 27.5/day
+## (2-day), sheep 25/day (3-day, bumped from 60 to 75 -- the original
+## price left a 3-day producer earning the exact same 20/day as a 1-day
+## producer, no reward for the longer commitment). This roughly brackets
+## Agriculture's single-harvest crops (9-20 gold/day, see
+## FarmPlotManager) since ranching is a recurring daily chore rather than
+## a one-off harvest.
+
 
 signal animal_added(animal_id: String, species_id: String)
 signal animal_fed(animal_id: String)
@@ -65,13 +73,19 @@ func _ready() -> void:
 	if TimeManager:
 		TimeManager.day_started.connect(_on_day_started)
 
-## Placeholder content: chicken/cow are daily producers, sheep is a
-## 3-day-regrow producer -- matches #14's "chickens, cows, sheep" launch
-## subset. Not final game balance -- see this file's top-of-file docstring.
+## Content pass (#53): chicken/cow/sheep kept as-is (species_id and
+## product_item_id, e.g. "wool", are referenced elsewhere -- see
+## InfrastructureManager's mayo-machine quest and CommunityGoalManager's
+## fish_tank/pantry-style bundles) except sheep's price, retuned for
+## consistency (see top-of-file docstring). Two new species added: duck
+## (a faster second poultry option) and goat (a faster second dairy
+## option), both 2-day producers slotting between chicken/cow and sheep.
 func _register_default_content() -> void:
 	register_species(_make_def("chicken", "Chicken", "egg", 1, 20, 3))
+	register_species(_make_def("duck", "Duck", "duck_egg", 2, 45, 5))
 	register_species(_make_def("cow", "Cow", "milk", 1, 30, 4))
-	register_species(_make_def("sheep", "Sheep", "wool", 3, 60, 8))
+	register_species(_make_def("goat", "Goat", "goat_milk", 2, 55, 6))
+	register_species(_make_def("sheep", "Sheep", "wool", 3, 75, 8))
 
 func _make_def(species_id: String, display_name: String, product_item_id: String,
 	days_between_products: int, base_sell_price: int, xp_reward: int) -> AnimalDefinition:

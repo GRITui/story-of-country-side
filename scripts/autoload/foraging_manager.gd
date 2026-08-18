@@ -15,16 +15,26 @@ extends Node
 ## SkillManager.add_xp("Foraging", ...) -- Foraging is its own skill, not
 ## folded into Farming (unlike Ranching, see SkillManager's docstring).
 ##
-## No concrete forageable list, prices, or respawn timing exists anywhere
-## in the design doc -- _register_default_content()'s four items below are
-## placeholder balance, same honesty as ENG-13/ENG-23/ENG-25:
-##   - wild_berries: Spring+Summer, sell 8, xp 3, respawn 2 days
-##   - wild_flower:  Spring only,    sell 6, xp 2, respawn 2 days
-##   - mushroom:     Fall only,      sell 12, xp 4, respawn 3 days
-##   - snow_truffle: Winter only,    sell 20, xp 6, respawn 4 days (rarer/pricier)
-## Every season has at least one available item; Spring has two so a
-## reroll has real variety to pick from. Not final game balance -- see
-## this file's own PR description.
+## Content pass (#53): expanded from 4 to 9 forageables, two per season
+## plus one all-season rare drop. Original 4 kept verbatim (item_id and
+## values) -- CommunityGoalManager's forager_bundle references wild_berries/
+## mushroom/snow_truffle by id and quantity. Sell price still tracks
+## respawn_days at roughly the same 3-5 gold/day rate the original 4
+## established (wild_flower 6/2=3, wild_berries 8/2=4, mushroom 12/3=4,
+## snow_truffle 20/4=5), keeping the "renewable resource" feel comparable
+## to Agriculture's regrow timing rather than introducing a different
+## curve:
+##   - wild_berries:      Spring+Summer, sell 8,  xp 3, respawn 2 days
+##   - wild_flower:        Spring only,   sell 6,  xp 2, respawn 2 days
+##   - spring_onion:        Spring only,  sell 10, xp 3, respawn 2 days (new)
+##   - sweet_pea:            Summer only, sell 9,  xp 3, respawn 2 days (new)
+##   - mushroom:             Fall only,   sell 12, xp 4, respawn 3 days
+##   - hazelnut:             Fall only,   sell 14, xp 4, respawn 3 days (new)
+##   - snow_truffle:       Winter only,   sell 20, xp 6, respawn 4 days
+##   - winter_root:        Winter only,   sell 16, xp 5, respawn 3 days (new)
+##   - four_leaf_clover: all seasons,     sell 30, xp 8, respawn 5 days (new,
+##     rare quirky bonus drop diluting every season's candidate pool)
+## Every season now has at least three available items to reroll among.
 
 signal forage_gathered(position: Vector2i, item_id: String, quantity: int)
 signal forage_node_rerolled(position: Vector2i, item_id: String) ## item_id empty means the node went dormant (no season-valid content)
@@ -42,8 +52,14 @@ func _ready() -> void:
 func _register_default_content() -> void:
 	register_forageable(_make_forageable("wild_berries", "Wild Berries", ["Spring", "Summer"], 8, 3, 2))
 	register_forageable(_make_forageable("wild_flower", "Wild Flower", ["Spring"], 6, 2, 2))
+	register_forageable(_make_forageable("spring_onion", "Spring Onion", ["Spring"], 10, 3, 2))
+	register_forageable(_make_forageable("sweet_pea", "Sweet Pea", ["Summer"], 9, 3, 2))
 	register_forageable(_make_forageable("mushroom", "Mushroom", ["Fall"], 12, 4, 3))
+	register_forageable(_make_forageable("hazelnut", "Hazelnut", ["Fall"], 14, 4, 3))
 	register_forageable(_make_forageable("snow_truffle", "Snow Truffle", ["Winter"], 20, 6, 4))
+	register_forageable(_make_forageable("winter_root", "Winter Root", ["Winter"], 16, 5, 3))
+	register_forageable(_make_forageable("four_leaf_clover", "Four-Leaf Clover",
+		["Spring", "Summer", "Fall", "Winter"], 30, 8, 5))
 
 func _make_forageable(item_id: String, display_name: String, seasons: Array[String],
 	sell_price: int, xp: int, respawn_days: int) -> ForageableDefinition:

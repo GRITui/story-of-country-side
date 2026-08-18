@@ -11,11 +11,17 @@ extends Node
 ## directly. Selling is "player pulls from inventory, ships it" (see
 ## InventoryManager.sell_item), not something crop/tile logic shortcuts.
 ##
-## No concrete crop list, growth-day counts, or sell prices exist anywhere
-## in the design doc -- _register_default_content()'s three crops and the
-## quality-tier odds/multipliers below are placeholder balance, same
-## honesty as ENG-23's tool costs and ENG-25's XP defaults. Pick reasonable
-## values now; a real content pass supersedes them later.
+## Content pass (#53): a fuller seasonal crop roster replacing the original
+## 3-crop MVP placeholder (parsnip/tomato/pumpkin only). Two crops per
+## Spring/Summer/Fall plus one Winter-viable crop (Winter is a real season
+## per TimeManager.SEASONS, previously unused by Agriculture). Sell prices
+## scale with days_to_grow -- roughly 9-13 gold/day for a single-harvest
+## crop, with regrowable crops (tomato, corn) priced lower on their first
+## harvest but higher on the sustained regrow_days cycle, mirroring SDV's
+## own "regrowables trade a slower start for a faster repeat" precedent.
+## Quality-tier odds/multipliers below are still placeholder balance (no
+## quality economy design exists in the doc) -- content pass leaves those
+## untouched, only the crop roster and prices are in scope here.
 
 signal crop_planted(position: Vector2i, crop_id: String)
 signal crop_watered(position: Vector2i)
@@ -48,13 +54,23 @@ func _ready() -> void:
 	if TimeManager:
 		TimeManager.day_started.connect(_on_day_started)
 
-## Placeholder content: 3 crops across 3 seasons, growth days in the 3-7
-## day range, one regrowable (Tomato). Not final game balance -- see this
-## file's top-of-file docstring.
+## Content pass (#53): 7 crops spanning Spring/Summer/Fall (2 each) plus 1
+## Winter crop. parsnip/tomato/pumpkin kept at their original values --
+## other systems (CommunityGoalManager's pantry_bundle) reference these
+## item_ids by name, so ids and quantities stay stable even in a content
+## pass; only newly-added crops are free of that constraint.
 func _register_default_content() -> void:
+	# Spring
 	register_crop(_make_crop("parsnip", "Parsnip", ["Spring"], 4, false, 0, 35, 4))
+	register_crop(_make_crop("cauliflower", "Cauliflower", ["Spring"], 6, false, 0, 80, 8))
+	# Summer
 	register_crop(_make_crop("tomato", "Tomato", ["Summer"], 5, true, 3, 45, 6))
+	register_crop(_make_crop("melon", "Melon", ["Summer"], 7, false, 0, 140, 12))
+	# Fall
 	register_crop(_make_crop("pumpkin", "Pumpkin", ["Fall"], 7, false, 0, 120, 12))
+	register_crop(_make_crop("corn", "Corn", ["Fall"], 8, true, 4, 55, 6))
+	# Winter (Winter is a real TimeManager season; previously had no crop)
+	register_crop(_make_crop("frost_kale", "Frost Kale", ["Winter"], 6, false, 0, 70, 7))
 
 func _make_crop(crop_id: String, display_name: String, seasons: Array[String],
 	days_to_grow: int, regrowable: bool, regrow_days: int, sell_price: int, xp: int) -> CropDefinition:
