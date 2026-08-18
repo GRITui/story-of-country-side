@@ -1043,3 +1043,27 @@ either, so the remote branches remain as harmless merged-and-stale refs).
     Marriage/Festivals/Infrastructure/Community-Goal.
   </description>
 </task_item>
+
+<task_item>
+  <id>FRONTEND-RANCH-SCENE</id>
+  <status>DONE</status>
+  <description>
+    New scenes/world/RanchScene.tscn + scripts/world/ranch_scene.gd: 5x4
+    isometric pen grid per design/art/isometric-grid-spec.md, following
+    FarmScene's precedent. AnimalManager has no positional concept of its
+    own, so each pen's animal_id is derived deterministically from grid
+    position ("pen_<x>_<y>") rather than scene-local duplicate state --
+    get_animal()/has_animal() stay the single source of truth. Fully
+    reactive to animal_added/animal_fed/animal_brushed/product_collected,
+    no polling, no new backend surface needed. Click-to-add/feed/brush/
+    collect stretch interaction mirrors FarmScene's click-to-plant/water/
+    harvest cycle. PR: gritui/story-of-country-side#64 (base:
+    claude/farming-game-pm-requirements-w9ugtk). 689/689 tests pass
+    against the real Godot 4.3 engine headless (12 new), clean smoke
+    boot. Self-merged per standing authorization.
+
+    Remaining per #52: Map/Skills/Settings full-screen overlays, and
+    world scenes for Fishing/Mining/Foraging/Marriage/Festivals/
+    Infrastructure/Community-Goal.
+  </description>
+</task_item>

@@ -24,6 +24,19 @@ remaining activity systems (Ranching/Fishing/Mining/Foraging), following
 FarmScene's precedent (reactive to backend signals, isometric grid spec,
 no polling).
 
+Shipped a second sub-scope same epoch: `scenes/world/RanchScene.tscn` +
+`scripts/world/ranch_scene.gd`, via PR #64 (squash-merged). 5x4 isometric
+pen grid, reactive to `AnimalManager`'s `animal_added`/`animal_fed`/
+`animal_brushed`/`product_collected`. `AnimalManager` has no positional
+concept of its own, so each pen's `animal_id` is derived deterministically
+from grid position (`"pen_<x>_<y>"`) rather than a scene-local duplicate
+lookup table -- `get_animal()`/`has_animal()` stay the single source of
+truth. Click-to-add/feed/brush/collect stretch interaction mirrors
+FarmScene's click-to-plant/water/harvest cycle. 689/689 tests pass (12
+new), clean smoke boot. Self-merged per standing authorization.
+
+Next up: Fishing/Mining/Foraging world scenes remain, same pattern.
+
 ## Epoch 20 note (this session, PM/Backend, log sync only)
 This file was stale as of epoch 20 — Epoch 18's FarmScene sub-scope had
 already shipped and merged (PR #57, squash-merged, 508/508 tests passing
@@ -84,6 +97,9 @@ InventoryManager has no hotbar-slot/item-metadata concept yet (hotbar
 ships as an empty 8-slot placeholder strip, not a real item binding).
 
 ## Recent Commits / PRs
+* PR #64 (merged, this session): Frontend — RanchScene world/tile-
+  rendering for AnimalManager (scenes/world/RanchScene.tscn,
+  scripts/world/ranch_scene.gd).
 * PR #63 (merged, this session): Frontend — HUD weather display
   (scenes/ui/HUD.tscn WeatherLabel, scripts/ui/hud.gd wiring to
   WeatherManager).
