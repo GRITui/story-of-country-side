@@ -2,15 +2,17 @@
 
 <squad_metadata>
   <squad_name>Content-Squad</squad_name>
-  <current_status>DONE_PENDING_REVIEW</current_status>
-  <active_task_id>CONTENT-FARM-RANCH-FISH-FORAGE</active_task_id>
+  <current_status>IDLE</current_status>
+  <active_task_id>none</active_task_id>
   <sprint_completion_percentage>100</sprint_completion_percentage>
 </squad_metadata>
 
 ## Current Focus
-Epoch 16: completed a content pass on Agriculture/Ranching/Fishing/
-Foraging (branch content/agriculture-ranching-fishing-foraging-balance,
-PR opened) against issue #53 — expanded each placeholder roster
+Epoch 16: shipped a content pass on Agriculture/Ranching/Fishing/
+Foraging via PR #56 (squash-merged), verified independently at 499/499
+checks passing (after also merging in the concurrent session's PR #55
+Marriage-roster expansion — clean merge, no conflict). Against issue
+#53 — expanded each placeholder roster
 (crops/animals/fish/forageables) and re-balanced prices/timing for
 internal consistency, value/string edits only per the Content lane's
 strict logic boundary. Claimed this sub-scope via GitHub comment first
@@ -36,9 +38,10 @@ in tests/test_runner.gd, both sides kept).
   all-season "four_leaf_clover" bonus drop; wild_berries/wild_flower/
   mushroom/snow_truffle kept verbatim (CommunityGoalManager's
   forager_bundle references them).
-- Full suite: 496/496 checks pass (`godot --headless --path .
+- Full suite: 499/499 checks pass (`godot --headless --path .
   tests/TestRunner.tscn`) after merging origin's pause-menu/inventory PR
-  in; smoke test (`--quit-after 60`) clean.
+  (#54) and the Marriage-roster PR (#55) in; smoke test (`--quit-after
+  60`) clean.
 
 ## Prior state
 A non-exhaustive list of placeholder content flagged across prior PRs,
@@ -64,16 +67,18 @@ line (Agriculture/Ranching/Fishing/Foraging) are now in flight:
   Infrastructure Upgrades defines its quest-gated unlocks).
 
 ## Recent Commits / PRs
-* PR #55 (merged, this session — parallel sub-scope, disjoint from the
-  farm/ranch/fish/forage pass above): Marriage/Festival/Infrastructure/
+* PR #56 (merged, this session): Agriculture/Ranching/Fishing/Foraging
+  content pass — see "Current Focus" above for the full breakdown.
+* PR #55 (merged, concurrent session — parallel sub-scope, disjoint from
+  the farm/ranch/fish/forage pass above): Marriage/Festival/Infrastructure/
   Community-Goal content sub-scope, claimed via comment on #53.
   MarriageManager.MARRIAGEABLE_NPCS expanded from 2 test-fixture names
   (Elena, Marcus) to 6 (+ Priya, Tobias, Sana, Colton) — value-only
-  const-array edit. 496/496 tests pass. Remaining in this sub-scope:
-  Festival definitions (lower priority, already reasonable placeholders),
-  Infrastructure tier/machine costs (touching these also means updating
-  hardcoded expected values in several tests/test_runner.gd assertions —
-  flagged as possibly crossing the Content lane's "value only, no logic"
+  const-array edit. Remaining in this sub-scope: Festival definitions
+  (lower priority, already reasonable placeholders), Infrastructure
+  tier/machine costs (touching these also means updating hardcoded
+  expected values in several tests/test_runner.gd assertions — flagged
+  as possibly crossing the Content lane's "value only, no logic"
   boundary, left for whoever picks it up next to judge), Community Goal
   bundle composition/balance.
 
@@ -83,11 +88,12 @@ None.
 ## Cross-Squad Requests
 None yet.
 
-## Epoch 16/17 status (this session, PM/Backend covering Content since the
-backend leaf-task backlog is empty)
-This handshake file's `active_task_id`/metadata block above reflects the
-*other* concurrent Content session's in-flight farm/ranch/fish/forage
-pass (no PR from that pass yet as of this update) — not overwritten here
-so their status stays visible. This session's own sub-scope (Marriage/
-Festival/Infrastructure/Community-Goal) delivered its first slice as
-PR #55 and is otherwise idle between epochs.
+## Epoch 16/17 note
+This session (PM/Backend orchestrator covering the Content lane since
+the backend leaf-task backlog is empty) dispatched the farm/ranch/fish/
+forage sub-scope as a subagent; it hit an infra-level API session-limit
+error mid-task twice (unrelated to the code), so this session took over
+directly to finish verification, resolve the concurrent PR #55 merge,
+and open/merge PR #56 itself. Remaining known content gaps: tool upgrade
+costs, quest content, gift preferences, intro narration, plus the
+Festival/Infrastructure/Community-Goal remainder PR #55 flagged.
