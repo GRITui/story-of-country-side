@@ -2,10 +2,77 @@
 
 <squad_metadata>
   <squad_name>Content-Squad</squad_name>
-  <current_status>IDLE</current_status>
+  <current_status>BLOCKED_ON_MERGE_PERMISSION</current_status>
   <active_task_id>none</active_task_id>
   <sprint_completion_percentage>100</sprint_completion_percentage>
 </squad_metadata>
+
+## Epoch 21 update (new Content-Squad session, dedicated to this lane)
+Claimed the sub-scope the prior PM/Backend session handed back on #53:
+Festival definitions, Infrastructure tier/machine costs, tool upgrade
+costs, quest content. Shipped one slice this epoch, PR #61 (**open, not
+yet merged** — see Blockers below):
+
+- Festival calendar: renamed the four placeholder festival ids/display
+  names to real ones -- `bloomtide_fair` (Bloomtide Fair, Spring, day 13),
+  `sunfield_revel` (Sunfield Revel, Summer, day 15), `harvest_moon_festival`
+  (Harvest Moon Festival, Fall, day 16), `hearthlight_festival`
+  (Hearthlight Festival, Winter, day 21). Dates/seasons unchanged, ids
+  renamed too (not just display_name) since keeping e.g. "summer_luau" as
+  the internal id under a "Sunfield Revel" display name would've been a
+  needless mismatch -- 21 total id references across
+  scripts/autoload/festival_manager.gd and tests/test_runner.gd updated
+  together.
+- Tool upgrade costs (scripts/autoload/tool_manager.gd): differentiated
+  the four tools instead of the uniform placeholder structure the file's
+  own docstring flagged ("real balance would likely differentiate").
+  Hoe unchanged (existing tested baseline: iron_ore 5/200g -> gold_ore
+  5/500g); WateringCan cheapest (iron_ore 4/150g -> gold_ore 4/400g,
+  matches Hoe as the other daily-use tool but slightly less demanding);
+  Axe moderate (iron_ore 5/220g -> gold_ore 6/550g); Pickaxe priciest
+  (iron_ore 6/260g -> gold_ore 7/650g, since a bigger mining AoE is the
+  strongest ore/gem income multiplier in the game). AoE shape and
+  stamina-cost progression unchanged for all four -- only ore/gold cost
+  differs.
+- Reviewed Infrastructure tier/machine costs (the other flagged gap):
+  found them already internally consistent on inspection (tier 2 scales
+  sensibly above tier 1 on both the house and coop tracks; the three
+  artisan machines' build costs already track their recipe's process
+  time/value -- keg costliest+slowest, mayo machine cheapest+fastest).
+  Deliberately left these numbers alone rather than reshuffling values
+  that already make sense just to have touched them. Same call on the
+  Infrastructure-gating quest content (InfrastructureManager's
+  `_make_deliver_quest` calls) -- QuestManager is deliberately not a
+  general quest engine (see its own docstring), so there's no separate
+  "quest content" gap beyond what Infrastructure already registers, and
+  those target quantities already read as reasonable relative to their
+  unlock costs.
+- Value/string content only; no method signatures, signal definitions,
+  or control flow touched, per SQUAD-SPLIT.md's Content lane.
+- Updated the corresponding tests/test_runner.gd assertions (festival id
+  references, two stale comments) for the renamed festival ids.
+  Tool-upgrade tests only hard-code Hoe's numbers, which are unchanged, so
+  nothing needed updating there.
+- 514/514 checks pass against the real Godot 4.3 engine headless (both
+  before and after merging the latest base branch in -- clean merge, no
+  conflicts), clean smoke boot (`--quit-after 60`).
+
+## Blockers & QA Failures (this epoch)
+PR #61 is open and green (514/514, clean smoke boot, clean merge against
+latest base) but **could not be self-merged**: this session's `PUT
+.../pulls/61/merge` GitHub API call was denied outright by this
+environment's own auto-mode permission classifier ("Blocked by
+classifier... If you believe this capability is essential to complete
+the user's request, STOP and explain to the user"). Per that tool's own
+guidance, did not attempt to route around it (e.g. a raw `git push` of a
+merge commit straight to the base branch would reproduce the same
+blocked action through a different door). Reported this to the session's
+owner directly rather than guessing at a workaround. **PR #61 needs a
+human (or a session with merge permission) to actually merge it** --
+everything else about it is ready. Next session picking up this lane:
+check PR #61's state first; if still open and still green, it's safe to
+merge as-is, no re-verification needed beyond confirming the base branch
+hasn't moved underneath it in a conflicting way.
 
 ## Epoch 18 update
 Dispatched a subagent for a disjoint sub-scope: gift preferences for the

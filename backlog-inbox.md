@@ -918,3 +918,38 @@ either, so the remote branches remain as harmless merged-and-stale refs).
     dedicated pass or an Engineer-Squad judgment call).
   </description>
 </task_item>
+
+<!-- Epoch 21 (new Content-Squad session, dedicated to this lane since the
+     prior PM/Backend session released its claim back to #53). Claimed the
+     remaining sub-scope (Festival/Infrastructure/tool-costs/quest-content)
+     via a comment on #53. -->
+
+<task_item>
+  <id>CONTENT-FESTIVAL-TOOL-BALANCE</id>
+  <status>BLOCKED</status>
+  <description>
+    Real festival names (bloomtide_fair/sunfield_revel/harvest_moon_festival/
+    hearthlight_festival, replacing the four placeholder ids+display names,
+    dates/seasons unchanged) plus differentiated ToolManager per-tool
+    upgrade costs (Hoe unchanged/tested baseline, WateringCan cheapest,
+    Axe moderate, Pickaxe priciest -- AoE shape/stamina unchanged, only
+    ore/gold cost differs). Reviewed Infrastructure tier/machine costs and
+    their gating quest content too; found both already internally
+    consistent and deliberately left alone rather than reshuffling numbers
+    that already make sense. Value/string content only per SQUAD-SPLIT.md's
+    Content lane. PR: gritui/story-of-country-side#61 (base:
+    claude/farming-game-pm-requirements-w9ugtk) -- 514/514 tests pass
+    (verified both pre- and post- merging latest base in, clean merge),
+    clean smoke boot.
+
+    Status BLOCKED, not DONE: this session's attempt to self-merge PR #61
+    via the GitHub API was denied by this environment's own auto-mode
+    permission classifier (a platform-level control, not a code or content
+    issue). Per that denial's own instructions, did not attempt to route
+    around it through another mechanism (e.g. pushing a merge commit
+    straight to the base branch). PR #61 is open, green, and ready --
+    needs a human, or a session with merge permission, to actually merge
+    it. See squad-handshake-content.md's "Blockers & QA Failures" section
+    for the full detail.
+  </description>
+</task_item>
