@@ -2,13 +2,31 @@
 
 <squad_metadata>
   <squad_name>Engineer-Squad</squad_name>
-  <current_status>IN_PROGRESS</current_status>
-  <active_task_id>ENG-24,ENG-20,ENG-21</active_task_id>
-  <sprint_completion_percentage>0</sprint_completion_percentage>
+  <current_status>IDLE_BETWEEN_EPOCHS</current_status>
+  <active_task_id>none</active_task_id>
+  <sprint_completion_percentage>100</sprint_completion_percentage>
 </squad_metadata>
 
 ## Current Focus
-Epoch 14: dispatched three parallel Backend subagents — ENG-24
+Epoch 15: ENG-27 (Ultimate-goal structure) shipped as PR #51 —
+CommunityGoalManager (Community-Center-style bundle/collection goal
+pulling real item_ids from every activity system) + a year-3 evaluation
+that's non-terminal by default and pass/fail-with-game_over only under
+challenge_mode, per Decision A. Rebased cleanly onto ENG-24/ENG-20/ENG-21
+(all landed concurrently since epoch 14 — PR #50, #49, #48), self-merged
+per standing authorization (no CI, clean mergeable_state, no review
+comments), issue #27 auto-closed. 438/438 tests pass on the real engine
+post-merge, smoke test clean.
+
+**Backend leaf-task backlog is now fully DONE**: ENG-13/14/15/16/17 (five
+activity systems), ENG-18/19 (NPC routines/relationships), ENG-20
+(Marriage), ENG-21 (Festivals), ENG-22 (Shipping bin), ENG-23 (Tool
+upgrades), ENG-24 (Infrastructure), ENG-25 (Skills), ENG-26 (Opening
+hook), ENG-27 (Ultimate goal), ENG-31 (Quests). Next epoch: run Step 0
+issue discovery against GitHub for anything not yet in this list before
+assuming the backend backlog is empty.
+
+## Prior epoch (14): dispatched three parallel Backend subagents — ENG-24
 (Infrastructure Upgrades: quest-gated tiers via QuestManager.is_unlocked
 + ShippingBinManager.spend, artisan processing), ENG-20 (Marriage &
 Family, on top of RelationshipManager), ENG-21 (Festivals, reusing
@@ -57,6 +75,11 @@ Idle between epochs — next pull should be one of the now-unblocked tasks
 below.
 
 ## Recent Commits / PRs
+* PR #51 (merged, this session): ENG-27 — CommunityGoalManager/
+  BundleDefinition: Community-Center-style bundle/collection goal reusing
+  real item_ids from every activity system, contribute_item() pulling
+  from InventoryManager with clamping, and a year-3 evaluation
+  (non-terminal by default, pass/fail + game_over under challenge_mode).
 * PR #47 (merged, this session as Session B): ENG-16 — MiningManager/
   OreDefinition (procedural 5x5 floors, rock-breaking, ore/gem gathering,
   ladder descent). Reuses ToolManager's iron_ore/gold_ore item ids.
@@ -104,18 +127,11 @@ below.
   floors, rock-breaking, ore/gem gathering, ladder descent.
 
 ## Blockers & QA Failures
-None currently blocking. Sequencing notes for the next pull:
-- ENG-13/14/15/16/17 (the full five-activity set: Agriculture/Ranching/
-  Fishing/Mining/Foraging) are all DONE.
-- ENG-24 (Infrastructure Upgrades), ENG-21 (Festivals) are claimed and in
-  flight per this epoch's dispatch above (active_task_id).
-- ENG-20 (Marriage) is now built on `feature/eng-20-marriage`, PR pending
-  (see the entry above with the full placeholder-content list).
-- ENG-27 (Ultimate-goal structure) is READY_FOR_PM and, as of this
-  update, the only remaining backend leaf task with no active claim —
-  check for a claim comment on #27 immediately before picking it up,
-  same discipline that avoided a second ENG-14-style collision this
-  epoch.
+None currently blocking. All known backend leaf tasks (ENG-13 through
+ENG-27, ENG-31) are shipped as of PR #51. Next epoch's job is Step 0
+issue discovery on GitHub — check for any new issue opened since this
+update (frontend polish, cross-squad integration work, or a genuinely new
+system) before declaring the backlog empty.
 
 ## Cross-Squad Requests
 * No WeatherManager exists yet, but NPCSchedule has a weather field ready

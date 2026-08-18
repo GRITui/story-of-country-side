@@ -802,3 +802,51 @@ either, so the remote branches remain as harmless merged-and-stale refs).
   </description>
 </task_item>
 <task_item><id>ENG-20</id><status>READY_FOR_PM</status><description>Unblocked — ENG-19 landed (pending PR #34 review/merge). Marriage &amp; Family: eligible bachelors/bachelorettes, proposal, wedding, children.</description></task_item>
+
+<!-- Epoch 15 (this session, PM/Backend): ENG-27 shipped, closing out the
+     entire backend leaf-task backlog. Also did a PM pass: closed all four
+     design-doc epics (#8/#9/#10/#11) now at 100% sub-issue completion, and
+     opened two new tracking epics (#52 Frontend scenes/UI, #53 Content
+     placeholder pass) so the substantial remaining non-backend work has
+     real issues to claim against instead of loose handshake-log notes. -->
+
+<task_item>
+  <id>ENG-27</id>
+  <status>DONE</status>
+  <description>
+    Claimed via "Claiming this" comment on issue #27. Built
+    CommunityGoalManager (autoload) + BundleDefinition (Resource,
+    .tres-authorable): Community-Center-style bundle/collection goal
+    reusing real item_ids from every activity system (crops, animal
+    products, fish, ore, forageables) rather than inventing new content.
+    contribute_item() pulls from InventoryManager with clamp-to-remaining
+    and no-partial-removal-on-failure semantics. Year-3 evaluation fires on
+    TimeManager.day_started (year 3/Spring/day 1): non-terminal narrative
+    beat by default per Decision A's open-ended resolution, becomes
+    pass/fail with a game_over signal only when challenge_mode is on
+    (Homestead Challenge toggle). Rebased cleanly onto ENG-24/ENG-20/ENG-21
+    which landed concurrently since epoch 14. PR:
+    gritui/story-of-country-side#51 (base:
+    claude/farming-game-pm-requirements-w9ugtk). 438/438 tests pass (11
+    new) against the real Godot 4.3 engine headless, clean smoke test.
+    Self-merged per standing authorization; issue #27 auto-closed.
+  </description>
+</task_item>
+
+<task_item>
+  <id>PM-EPOCH-15-CLOSEOUT</id>
+  <status>DONE</status>
+  <description>
+    All four design-doc epics closed as completed (#8 Core Gameplay Loop,
+    #9 Social Mechanics, #10 Progression &amp; Economy, #11 Story &amp;
+    Meta-Objectives) — each showed 100% sub-issue completion via GitHub's
+    sub_issues_summary once ENG-27 landed. The backend leaf-task backlog
+    (ENG-12 through ENG-31) is now fully DONE. Opened #52 ([Epic] Frontend:
+    scenes &amp; UI for all shipped backend systems) and #53 ([Epic]
+    Content: replace placeholder game content with real balance/copy) to
+    track the substantial real work still remaining outside the backend
+    lane — squad-handshake-frontend.md and squad-handshake-content.md
+    already documented these gaps informally but neither had a tracked
+    GitHub issue to claim sub-work against.
+  </description>
+</task_item>
