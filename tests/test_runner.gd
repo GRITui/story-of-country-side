@@ -32,6 +32,13 @@ var _crop_withered_events: Array = [] ## Array[Array] of [position, crop_id], sa
 var _forage_gathered_events: Array = [] ## Array[Array] of [position, item_id, quantity], same reason
 var _forage_rerolled_events: Array = [] ## Array[Array] of [position, item_id], same reason
 var _intro_finished_count := 0 ## member, not a local — GDScript lambdas capture locals by value
+var _proposal_rejected_events: Array = [] ## Array[Array] of [npc_name, reason], same reason
+var _wedding_scheduled_events: Array = [] ## Array[Array] of [npc_name, days_until], same reason
+var _married_events: Array = [] ## Array[String] of npc_name, same reason
+var _child_born_events: Array = [] ## Array[Array] of [npc_name, total_children], same reason
+var _festival_started_events: Array = [] ## Array[String] of festival_id, same reason
+var _festival_ended_events: Array = [] ## Array[String] of festival_id, same reason
+var _mini_game_result_events: Array = [] ## Array[Array] of [festival_id, score, success], same reason
 
 func _ready() -> void:
 	_test_minute_and_hour_wrap()
@@ -169,6 +176,28 @@ func _ready() -> void:
 	_test_collect_job_before_ready_returns_empty()
 	_test_start_job_rejects_duplicate_job_id()
 	_test_infrastructure_save_round_trip()
+	_test_marriage_cannot_propose_ineligible_npc()
+	_test_marriage_cannot_propose_without_enough_hearts()
+	_test_marriage_cannot_propose_without_item()
+	_test_marriage_propose_consumes_item_and_schedules_wedding()
+	_test_marriage_cannot_propose_twice_while_engaged()
+	_test_marriage_wedding_countdown_finalizes_marriage()
+	_test_marriage_marry_directly_for_ceremony_scene_hook()
+	_test_marriage_daily_gold_bonus_only_when_married()
+	_test_marriage_child_born_rolls_once_per_season_start()
+	_test_marriage_save_round_trip()
+	_test_is_festival_day_matches_registered_date()
+	_test_get_festival_for_date_returns_null_off_date()
+	_test_start_festival_freezes_time_and_emits()
+	_test_start_festival_unregistered_id_fails()
+	_test_start_festival_while_another_active_fails()
+	_test_start_festival_idempotent_for_same_id()
+	_test_end_festival_unfreezes_time_and_emits()
+	_test_end_festival_noop_when_none_active()
+	_test_day_started_auto_triggers_registered_festival()
+	_test_day_started_does_not_trigger_on_non_festival_day()
+	_test_submit_mini_game_result_unregistered_returns_empty()
+	_test_submit_mini_game_result_pass_and_fail()
 
 	_test_generate_floor_places_ladder_without_rock()
 	_test_generate_floor_all_other_tiles_start_as_unbroken_rock()
@@ -2016,6 +2045,309 @@ func _test_infrastructure_save_round_trip() -> void:
 	_check(not InfrastructureManager.is_job_ready("job1"), "sanity: job should still be pending after round-trip")
 	_check(InfrastructureManager.get_job("job1").get("days_remaining") == 3,
 		"active job progress should round-trip through save/load, got %s" % [InfrastructureManager.get_job("job1")])
+## --- ENG-20: Marriage & Family ---
+
+func _reset_marriage_manager() -> void:
+	var mm := MarriageManager
+	mm._engaged_to = ""
+	mm._days_until_wedding = 0
+	mm._spouse = ""
+	mm._children = 0
+
+func _make_elena_eligible() -> void:
+	_reset_relationship_manager()
+	_reset_inventory_manager()
+	RelationshipManager._add_points("Elena", RelationshipManager.POINTS_PER_HEART * MarriageManager.PROPOSAL_HEART_THRESHOLD)
+	InventoryManager.add_item(MarriageManager.PROPOSAL_ITEM_ID, 1)
+
+func _on_proposal_rejected_for_test(npc_name: String, reason: String) -> void:
+	_proposal_rejected_events.append([npc_name, reason])
+
+func _on_wedding_scheduled_for_test(npc_name: String, days_until: int) -> void:
+	_wedding_scheduled_events.append([npc_name, days_until])
+
+func _on_married_for_test(npc_name: String) -> void:
+	_married_events.append(npc_name)
+
+func _on_child_born_for_test(npc_name: String, total_children: int) -> void:
+	_child_born_events.append([npc_name, total_children])
+
+func _test_marriage_cannot_propose_ineligible_npc() -> void:
+	_reset_marriage_manager()
+	_make_elena_eligible()
+	_check(not MarriageManager.is_marriageable("NotAnNPC"), "an unlisted npc_name should not be marriageable")
+
+	_proposal_rejected_events = []
+	MarriageManager.proposal_rejected.connect(_on_proposal_rejected_for_test)
+	var ok := MarriageManager.propose("NotAnNPC")
+	MarriageManager.proposal_rejected.disconnect(_on_proposal_rejected_for_test)
+
+	_check(not ok, "proposing to a non-marriageable NPC should fail")
+	_check(_proposal_rejected_events.size() == 1 and _proposal_rejected_events[0] == ["NotAnNPC", "not_marriageable"],
+		"proposal_rejected should fire with reason 'not_marriageable', got %s" % [_proposal_rejected_events])
+	_check(InventoryManager.get_count(MarriageManager.PROPOSAL_ITEM_ID) == 1,
+		"a rejected proposal must not consume the proposal item")
+
+func _test_marriage_cannot_propose_without_enough_hearts() -> void:
+	_reset_marriage_manager()
+	_reset_relationship_manager()
+	_reset_inventory_manager()
+	InventoryManager.add_item(MarriageManager.PROPOSAL_ITEM_ID, 1)
+	RelationshipManager._add_points("Elena", RelationshipManager.POINTS_PER_HEART) # far below threshold
+
+	_check(not MarriageManager.can_propose("Elena"), "can_propose should be false below the heart threshold")
+	var ok := MarriageManager.propose("Elena")
+	_check(not ok, "propose should fail below the heart threshold")
+	_check(InventoryManager.get_count(MarriageManager.PROPOSAL_ITEM_ID) == 1,
+		"a failed heart-threshold proposal must not consume the item")
+
+func _test_marriage_cannot_propose_without_item() -> void:
+	_reset_marriage_manager()
+	_reset_relationship_manager()
+	_reset_inventory_manager()
+	RelationshipManager._add_points("Elena", RelationshipManager.POINTS_PER_HEART * MarriageManager.PROPOSAL_HEART_THRESHOLD)
+
+	_check(not MarriageManager.can_propose("Elena"), "can_propose should be false without the proposal item")
+	var ok := MarriageManager.propose("Elena")
+	_check(not ok, "propose should fail without the proposal item on hand")
+
+func _test_marriage_propose_consumes_item_and_schedules_wedding() -> void:
+	_reset_marriage_manager()
+	_make_elena_eligible()
+	_check(MarriageManager.can_propose("Elena"), "sanity: can_propose should be true once eligible")
+
+	_wedding_scheduled_events = []
+	MarriageManager.wedding_scheduled.connect(_on_wedding_scheduled_for_test)
+	var ok := MarriageManager.propose("Elena")
+	MarriageManager.wedding_scheduled.disconnect(_on_wedding_scheduled_for_test)
+
+	_check(ok, "propose should succeed once eligible")
+	_check(InventoryManager.get_count(MarriageManager.PROPOSAL_ITEM_ID) == 0,
+		"a successful proposal should consume the proposal item")
+	_check(MarriageManager.is_engaged() and MarriageManager.engaged_to() == "Elena",
+		"a successful proposal should engage the player to that NPC")
+	_check(MarriageManager.days_until_wedding() == MarriageManager.WEDDING_PREP_DAYS,
+		"wedding should be scheduled WEDDING_PREP_DAYS out, got %d" % MarriageManager.days_until_wedding())
+	_check(_wedding_scheduled_events.size() == 1 and _wedding_scheduled_events[0] == ["Elena", MarriageManager.WEDDING_PREP_DAYS],
+		"wedding_scheduled should fire once with (npc_name, days_until), got %s" % [_wedding_scheduled_events])
+	_check(not MarriageManager.is_married(), "player should not be married yet, only engaged")
+
+func _test_marriage_cannot_propose_twice_while_engaged() -> void:
+	_reset_marriage_manager()
+	_make_elena_eligible()
+	MarriageManager.propose("Elena")
+
+	InventoryManager.add_item(MarriageManager.PROPOSAL_ITEM_ID, 1)
+	RelationshipManager._add_points("Marcus", RelationshipManager.POINTS_PER_HEART * MarriageManager.PROPOSAL_HEART_THRESHOLD)
+	var ok := MarriageManager.propose("Marcus")
+	_check(not ok, "proposing to a second NPC while already engaged should fail")
+	_check(MarriageManager.engaged_to() == "Elena", "the original engagement should remain unchanged")
+
+func _test_marriage_wedding_countdown_finalizes_marriage() -> void:
+	_reset_marriage_manager()
+	_make_elena_eligible()
+	MarriageManager.propose("Elena")
+
+	_married_events = []
+	MarriageManager.married.connect(_on_married_for_test)
+	for i in range(MarriageManager.WEDDING_PREP_DAYS):
+		_check(not MarriageManager.is_married(), "should not be married before the countdown finishes (day %d)" % i)
+		MarriageManager._on_day_started(i + 1, "Spring", "Mon")
+	MarriageManager.married.disconnect(_on_married_for_test)
+
+	_check(MarriageManager.is_married() and MarriageManager.spouse_name() == "Elena",
+		"marriage should finalize once the wedding countdown reaches zero")
+	_check(not MarriageManager.is_engaged(), "engaged state should clear once married")
+	_check(_married_events.size() == 1 and _married_events[0] == "Elena",
+		"married should fire exactly once with the spouse's name, got %s" % [_married_events])
+
+func _test_marriage_marry_directly_for_ceremony_scene_hook() -> void:
+	_reset_marriage_manager()
+	_make_elena_eligible()
+	MarriageManager.propose("Elena")
+
+	var ok := MarriageManager.marry("Elena")
+	_check(ok, "marry() should let a future ceremony scene finalize the marriage directly, independent of the day countdown")
+	_check(MarriageManager.is_married() and MarriageManager.spouse_name() == "Elena",
+		"marry() should set married state and spouse_name to the proposed NPC")
+
+	var bad := MarriageManager.marry("Marcus")
+	_check(not bad, "marry() for an NPC that isn't the current engagement should fail")
+
+func _test_marriage_daily_gold_bonus_only_when_married() -> void:
+	_reset_marriage_manager()
+	_check(MarriageManager.daily_gold_bonus() == 0, "unmarried should have no daily gold bonus")
+
+	_make_elena_eligible()
+	MarriageManager.propose("Elena")
+	_check(MarriageManager.daily_gold_bonus() == 0, "engaged-but-not-married should have no daily gold bonus yet")
+
+	MarriageManager.marry("Elena")
+	_check(MarriageManager.daily_gold_bonus() == MarriageManager.MARRIED_DAILY_GOLD_BONUS,
+		"married should grant MARRIED_DAILY_GOLD_BONUS, got %d" % MarriageManager.daily_gold_bonus())
+
+func _test_marriage_child_born_rolls_once_per_season_start() -> void:
+	_reset_marriage_manager()
+	_make_elena_eligible()
+	MarriageManager.propose("Elena")
+	MarriageManager.marry("Elena")
+
+	_child_born_events = []
+	MarriageManager.child_born.connect(_on_child_born_for_test)
+	seed(1) # deterministic randf() sequence for this test
+	MarriageManager._on_day_started(1, "Summer", "Mon") # season start, chance rolled
+	MarriageManager._on_day_started(2, "Summer", "Tue") # not a season start, no roll
+	MarriageManager.child_born.disconnect(_on_child_born_for_test)
+
+	_check(MarriageManager.children_count() <= MarriageManager.MAX_CHILDREN,
+		"children_count should never exceed MAX_CHILDREN, got %d" % MarriageManager.children_count())
+	_check(_child_born_events.size() == MarriageManager.children_count(),
+		"child_born should fire exactly once per child actually added, got %d events for %d children"
+			% [_child_born_events.size(), MarriageManager.children_count()])
+
+func _test_marriage_save_round_trip() -> void:
+	_reset_marriage_manager()
+	_make_elena_eligible()
+	MarriageManager.propose("Elena")
+	MarriageManager.marry("Elena")
+	MarriageManager._children = 2
+
+	var saved := SaveManager.build_save_data()
+
+	_reset_marriage_manager()
+	_check(not MarriageManager.is_married(), "sanity check: reset should clear marriage state before applying save data")
+
+	SaveManager.apply_save_data(saved)
+
+	_check(MarriageManager.is_married() and MarriageManager.spouse_name() == "Elena",
+		"marriage status should round-trip through save/load")
+	_check(MarriageManager.children_count() == 2,
+		"children count should round-trip through save/load, got %d" % MarriageManager.children_count())
+	_check(not MarriageManager.is_engaged(), "engaged state should round-trip as cleared once already married")
+## --- ENG-21: Festivals ---
+
+func _reset_festival_manager() -> void:
+	var fm := FestivalManager
+	fm._active_festival_id = ""
+	TimeManager.unfreeze(FestivalManager.FREEZE_REASON)
+
+func _on_festival_started_for_test(festival_id: String) -> void:
+	_festival_started_events.append(festival_id)
+
+func _on_festival_ended_for_test(festival_id: String) -> void:
+	_festival_ended_events.append(festival_id)
+
+func _on_mini_game_result_for_test(festival_id: String, score: float, success: bool) -> void:
+	_mini_game_result_events.append([festival_id, score, success])
+
+func _test_is_festival_day_matches_registered_date() -> void:
+	_reset_festival_manager()
+	var tm := TimeManager
+	tm.season_index = 0 # Spring
+	tm.day_in_season = 13 # spring_flower_festival's placeholder date
+	_check(FestivalManager.is_festival_day(), "day 13 of Spring should be a registered festival day")
+
+func _test_get_festival_for_date_returns_null_off_date() -> void:
+	_reset_festival_manager()
+	var def := FestivalManager.get_festival_for_date("Spring", 1)
+	_check(def == null, "an unregistered season/day combo should return null, got %s" % [def])
+
+func _test_start_festival_freezes_time_and_emits() -> void:
+	_reset_festival_manager()
+	_festival_started_events = []
+	FestivalManager.festival_started.connect(_on_festival_started_for_test)
+	var ok := FestivalManager.start_festival("spring_flower_festival")
+	FestivalManager.festival_started.disconnect(_on_festival_started_for_test)
+
+	_check(ok, "starting a registered festival should succeed")
+	_check(TimeManager.is_frozen(), "starting a festival should freeze TimeManager")
+	_check(FestivalManager.is_festival_active(), "starting a festival should mark it active")
+	_check(FestivalManager.get_active_festival() != null
+		and FestivalManager.get_active_festival().festival_id == "spring_flower_festival",
+		"get_active_festival should return the started festival's definition")
+	_check(_festival_started_events == ["spring_flower_festival"],
+		"festival_started should fire once with the started festival_id, got %s" % [_festival_started_events]
+	)
+	_reset_festival_manager()
+
+func _test_start_festival_unregistered_id_fails() -> void:
+	_reset_festival_manager()
+	var ok := FestivalManager.start_festival("nonexistent_festival")
+	_check(not ok, "starting an unregistered festival_id should fail")
+	_check(not FestivalManager.is_festival_active(), "an unregistered start attempt should not mark anything active")
+	_check(not TimeManager.is_frozen(), "an unregistered start attempt should not freeze TimeManager")
+
+func _test_start_festival_while_another_active_fails() -> void:
+	_reset_festival_manager()
+	FestivalManager.start_festival("spring_flower_festival")
+	var ok := FestivalManager.start_festival("summer_luau")
+	_check(not ok, "starting a second festival while one is already active should fail")
+	_check(FestivalManager.get_active_festival().festival_id == "spring_flower_festival",
+		"the originally active festival should remain active")
+	_reset_festival_manager()
+
+func _test_start_festival_idempotent_for_same_id() -> void:
+	_reset_festival_manager()
+	FestivalManager.start_festival("spring_flower_festival")
+	var ok := FestivalManager.start_festival("spring_flower_festival")
+	_check(ok, "re-starting the already-active festival with the same id should succeed (idempotent)")
+	_reset_festival_manager()
+
+func _test_end_festival_unfreezes_time_and_emits() -> void:
+	_reset_festival_manager()
+	FestivalManager.start_festival("summer_luau")
+	_festival_ended_events = []
+	FestivalManager.festival_ended.connect(_on_festival_ended_for_test)
+	FestivalManager.end_festival()
+	FestivalManager.festival_ended.disconnect(_on_festival_ended_for_test)
+
+	_check(not TimeManager.is_frozen(), "ending the festival should unfreeze TimeManager")
+	_check(not FestivalManager.is_festival_active(), "ending the festival should clear the active festival")
+	_check(_festival_ended_events == ["summer_luau"],
+		"festival_ended should fire once with the ended festival_id, got %s" % [_festival_ended_events])
+
+func _test_end_festival_noop_when_none_active() -> void:
+	_reset_festival_manager()
+	_festival_ended_events = []
+	FestivalManager.festival_ended.connect(_on_festival_ended_for_test)
+	FestivalManager.end_festival()
+	FestivalManager.festival_ended.disconnect(_on_festival_ended_for_test)
+	_check(_festival_ended_events.is_empty(), "ending with no active festival should not emit festival_ended")
+
+func _test_day_started_auto_triggers_registered_festival() -> void:
+	_reset_festival_manager()
+	TimeManager.season_index = 2 # Fall
+	TimeManager.day_in_season = 16 # fall_harvest_festival's placeholder date
+	FestivalManager._on_day_started(16, "Fall", "Mon")
+	_check(FestivalManager.is_festival_active()
+		and FestivalManager.get_active_festival().festival_id == "fall_harvest_festival",
+		"day_started on a registered festival's date should auto-start it")
+	_reset_festival_manager()
+
+func _test_day_started_does_not_trigger_on_non_festival_day() -> void:
+	_reset_festival_manager()
+	FestivalManager._on_day_started(1, "Spring", "Mon") # day 1 has no registered festival
+	_check(not FestivalManager.is_festival_active(), "day_started on a non-festival date should not start anything")
+
+func _test_submit_mini_game_result_unregistered_returns_empty() -> void:
+	var result := FestivalManager.submit_mini_game_result("nonexistent_festival", 0.9)
+	_check(result.is_empty(), "submit_mini_game_result for an unregistered festival_id should return {}")
+
+func _test_submit_mini_game_result_pass_and_fail() -> void:
+	_mini_game_result_events = []
+	FestivalManager.mini_game_result_submitted.connect(_on_mini_game_result_for_test)
+
+	var pass_result := FestivalManager.submit_mini_game_result("summer_luau", 0.75)
+	_check(pass_result["success"], "score above the pass threshold should succeed, got %s" % [pass_result])
+
+	var fail_result := FestivalManager.submit_mini_game_result("summer_luau", 0.1)
+	_check(not fail_result["success"], "score below the pass threshold should fail, got %s" % [fail_result])
+
+	FestivalManager.mini_game_result_submitted.disconnect(_on_mini_game_result_for_test)
+	_check(_mini_game_result_events.size() == 2
+		and _mini_game_result_events[0] == ["summer_luau", 0.75, true]
+		and _mini_game_result_events[1] == ["summer_luau", 0.1, false],
+		"mini_game_result_submitted should fire once per call with (festival_id, score, success), got %s" % [_mini_game_result_events])
 
 ## --- ENG-16: Mining (MiningManager) ---
 

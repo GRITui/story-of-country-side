@@ -87,19 +87,30 @@ below.
   spec (design/art/isometric-grid-spec.md).
 * PR #40 (merged): ENG-23 — ToolManager/ToolUpgradeTier (per-tool
   Copper->Iron->Gold, deliberately no quest gate).
-* PR #50 (open, this session): ENG-24 — InfrastructureManager
+* PR #50 (this session): ENG-24 — InfrastructureManager
   (house expansion, coop/barn capacity via get_max_animal_capacity()
   integration point, artisan machines keg/preserves_jar/mayo_machine),
   quest-gated per Decision C via QuestManager.is_unlocked() +
-  ShippingBinManager.spend()/InventoryManager. 385 checks passing after
-  merging concurrent Mining (#16) work.
+  ShippingBinManager.spend()/InventoryManager.
+* PR #49 (merged, this session): ENG-20 — MarriageManager: marriage-eligible
+  NPC list, propose()/marry() state machine gated on RelationshipManager
+  hearts + a proposal item consumed via InventoryManager, a wedding-prep
+  day countdown, a minimal daily-gold-bonus post-marriage benefit, and a
+  season-start child-chance roll.
+* PR #48 (merged, this session): ENG-21 — FestivalManager: date-driven
+  seasonal events reusing TimeManager's freeze mechanism, generic
+  submit_mini_game_result() contract for a future mini-game scene.
+* PR #47 (merged, concurrent session): ENG-16 — MiningManager: procedural
+  floors, rock-breaking, ore/gem gathering, ladder descent.
 
 ## Blockers & QA Failures
 None currently blocking. Sequencing notes for the next pull:
 - ENG-13/14/15/16/17 (the full five-activity set: Agriculture/Ranching/
   Fishing/Mining/Foraging) are all DONE.
-- ENG-24 (Infrastructure Upgrades), ENG-20 (Marriage), ENG-21 (Festivals)
-  are claimed and in flight per this epoch's dispatch above (active_task_id).
+- ENG-24 (Infrastructure Upgrades), ENG-21 (Festivals) are claimed and in
+  flight per this epoch's dispatch above (active_task_id).
+- ENG-20 (Marriage) is now built on `feature/eng-20-marriage`, PR pending
+  (see the entry above with the full placeholder-content list).
 - ENG-27 (Ultimate-goal structure) is READY_FOR_PM and, as of this
   update, the only remaining backend leaf task with no active claim —
   check for a claim comment on #27 immediately before picking it up,
