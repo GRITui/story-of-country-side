@@ -119,6 +119,13 @@ func _ready() -> void:
 	_test_intro_sequence_advances_through_lines_then_finishes()
 	_test_intro_sequence_freezes_and_unfreezes_time_manager()
 
+	_test_hud_format_clock()
+	_test_hud_format_date()
+	_test_hud_gold_label_updates_on_signal()
+	_test_hud_stamina_bar_updates_on_signal()
+	_test_hud_clock_label_updates_on_minute_passed()
+	_test_hud_initial_state_reflects_current_backend_values()
+
 	if _failures.is_empty():
 		print("ALL TESTS PASSED (%d checks)" % _pass_count)
 		get_tree().quit(0)
@@ -1341,3 +1348,70 @@ func _test_intro_sequence_freezes_and_unfreezes_time_manager() -> void:
 		"finishing the intro sequence should unfreeze TimeManager's 'intro' reason")
 
 	intro.queue_free()
+
+## --- Frontend: HUD (design/ui-flows/menu-hud-flow-spec.md) ---
+##
+## Godot UI scenes are hard to meaningfully assert on headlessly beyond
+## "does the bound Label/ProgressBar text or value match backend state after
+## a signal fires" -- exact pixel layout, colors, and iconography are not
+## asserted here (there are none yet; see hud.gd's docstring on the
+## placeholder-layout content gap) and can only really be verified by
+## looking at a running scene.
+
+func _make_hud() -> HUD:
+	var hud_scene: PackedScene = load("res://scenes/ui/HUD.tscn")
+	var hud: HUD = hud_scene.instantiate()
+	add_child(hud)
+	return hud
+
+func _test_hud_format_clock() -> void:
+	_check(HUD.format_clock(6, 0) == "6:00 AM", "6:00 should format as '6:00 AM', got '%s'" % HUD.format_clock(6, 0))
+	_check(HUD.format_clock(0, 0) == "12:00 AM", "midnight (hour=0) should format as '12:00 AM', got '%s'" % HUD.format_clock(0, 0))
+	_check(HUD.format_clock(12, 30) == "12:30 PM", "noon should format as '12:30 PM', got '%s'" % HUD.format_clock(12, 30))
+	_check(HUD.format_clock(23, 5) == "11:05 PM", "23:05 should format as '11:05 PM', got '%s'" % HUD.format_clock(23, 5))
+
+func _test_hud_format_date() -> void:
+	var s := HUD.format_date("Mon", "Spring", 1, 1)
+	_check(s == "Mon, Spring 1 (Yr 1)", "format_date should produce 'Mon, Spring 1 (Yr 1)', got '%s'" % s)
+
+func _test_hud_gold_label_updates_on_signal() -> void:
+	_reset_shipping_bin()
+	var hud := _make_hud()
+	ShippingBinManager.gold = 250
+	ShippingBinManager.gold_changed.emit(250)
+	_check(hud.get_node("TopBar/GoldClockCluster/GoldLabel").text == "250 G",
+		"gold label should update when gold_changed fires, got '%s'" % hud.get_node("TopBar/GoldClockCluster/GoldLabel").text)
+	hud.queue_free()
+
+func _test_hud_stamina_bar_updates_on_signal() -> void:
+	var hud := _make_hud()
+	StaminaManager.stamina_changed.emit(30, 100)
+	var bar: ProgressBar = hud.get_node("BottomBar/StaminaCluster/StaminaBar")
+	_check(bar.value == 30 and bar.max_value == 100,
+		"stamina bar should reflect stamina_changed payload, got value=%s max=%s" % [bar.value, bar.max_value])
+
+	StaminaManager.stamina_changed.emit(0, 100)
+	_check(bar.value == 0, "stamina bar should reflect a pass-out (0) value, got %s" % bar.value)
+	hud.queue_free()
+
+func _test_hud_clock_label_updates_on_minute_passed() -> void:
+	var hud := _make_hud()
+	var tm := TimeManager
+	tm.hour = 14
+	tm.minute = 45
+	TimeManager.minute_passed.emit(14, 45)
+	_check(hud.get_node("TopBar/GoldClockCluster/ClockLabel").text == "2:45 PM",
+		"clock label should update from TimeManager's current hour/minute when minute_passed fires, got '%s'" % hud.get_node("TopBar/GoldClockCluster/ClockLabel").text)
+	hud.queue_free()
+
+func _test_hud_initial_state_reflects_current_backend_values() -> void:
+	_reset_shipping_bin()
+	ShippingBinManager.gold = 777
+	StaminaManager.max_stamina = 100
+	StaminaManager.current_stamina = 55
+	var hud := _make_hud() # _ready() should prime labels from current state, not wait for a signal
+	_check(hud.get_node("TopBar/GoldClockCluster/GoldLabel").text == "777 G",
+		"gold label should be primed from current ShippingBinManager.gold on _ready(), got '%s'" % hud.get_node("TopBar/GoldClockCluster/GoldLabel").text)
+	var bar: ProgressBar = hud.get_node("BottomBar/StaminaCluster/StaminaBar")
+	_check(bar.value == 55, "stamina bar should be primed from current StaminaManager.current_stamina on _ready(), got %s" % bar.value)
+	hud.queue_free()
