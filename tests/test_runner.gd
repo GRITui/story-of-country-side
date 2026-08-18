@@ -170,6 +170,16 @@ func _ready() -> void:
 	_test_inventory_overlay_removes_row_when_item_reaches_zero()
 	_test_inventory_overlay_close_emits_closed_signal()
 
+	_test_farm_scene_instantiates_without_error()
+	_test_farm_scene_renders_empty_grid_on_ready()
+	_test_farm_scene_renders_already_planted_plot_on_ready()
+	_test_farm_scene_updates_on_crop_planted_signal()
+	_test_farm_scene_updates_on_crop_watered_signal()
+	_test_farm_scene_updates_on_crop_harvested_signal()
+	_test_farm_scene_updates_on_crop_withered_signal()
+	_test_farm_scene_click_plants_empty_tile()
+	_test_farm_scene_click_ignores_out_of_grid_position()
+
 	_test_available_fish_filters_by_location_season_hour()
 	_test_available_fish_sorted_and_ignores_unregistered()
 	_test_attempt_catch_unregistered_fish_returns_empty()
@@ -1946,6 +1956,117 @@ func _test_inventory_overlay_close_emits_closed_signal() -> void:
 	overlay.get_node("Root/Panel/Margin/VBox/Header/CloseButton").pressed.emit()
 	_check(_inventory_overlay_closed_count == 1, "pressing Close should emit the closed signal exactly once")
 	overlay.queue_free()
+
+## --- Frontend: FarmScene (#52 sub-scope, world/tile-rendering for
+## FarmPlotManager, design/art/isometric-grid-spec.md) ---
+##
+## Same discipline as the HUD/pause-menu blocks above: what's meaningfully
+## testable headlessly is scene instantiation, TileSet/TileMap wiring, and
+## that a signal fires -> the right tile's TileMap cell reflects the state
+## FarmPlotManager reports. Exact pixel rendering/isometric layout can only
+## be verified by looking at a running scene (see farm_scene.gd's
+## docstring for the placeholder-visual content gap).
+
+func _make_farm_scene() -> FarmScene:
+	var scene: PackedScene = load("res://scenes/world/FarmScene.tscn")
+	var farm_scene: FarmScene = scene.instantiate()
+	add_child(farm_scene)
+	return farm_scene
+
+func _farm_scene_cell_source(farm_scene: FarmScene, position: Vector2i) -> Vector2i:
+	var tilemap: TileMap = farm_scene.get_node("TileMap")
+	return tilemap.get_cell_atlas_coords(0, position)
+
+func _test_farm_scene_instantiates_without_error() -> void:
+	_reset_farm_plot_manager()
+	TimeManager.season_index = 0 # Spring
+	var farm_scene := _make_farm_scene()
+	_check(farm_scene.get_node("TileMap") is TileMap, "FarmScene should contain a TileMap node")
+	_check(farm_scene.get_node("TileMap").tile_set != null, "FarmScene's TileMap should have a TileSet assigned on _ready()")
+	farm_scene.queue_free()
+
+func _test_farm_scene_renders_empty_grid_on_ready() -> void:
+	_reset_farm_plot_manager()
+	TimeManager.season_index = 0 # Spring
+	var farm_scene := _make_farm_scene()
+	_check(_farm_scene_cell_source(farm_scene, Vector2i(0, 0)) == Vector2i(FarmScene.STATE_EMPTY, 0),
+		"an unplanted plot should render as STATE_EMPTY on ready")
+	farm_scene.queue_free()
+
+func _test_farm_scene_renders_already_planted_plot_on_ready() -> void:
+	_reset_farm_plot_manager()
+	TimeManager.season_index = 0 # Spring
+	FarmPlotManager.plant(Vector2i(2, 3), "parsnip")
+	var farm_scene := _make_farm_scene()
+	_check(_farm_scene_cell_source(farm_scene, Vector2i(2, 3)) == Vector2i(FarmScene.STATE_PLANTED, 0),
+		"a plot already planted before the scene enters the tree should render as STATE_PLANTED on ready, using get_plot() -- no 'get all plots' API needed")
+	farm_scene.queue_free()
+
+func _test_farm_scene_updates_on_crop_planted_signal() -> void:
+	_reset_farm_plot_manager()
+	TimeManager.season_index = 0 # Spring
+	var farm_scene := _make_farm_scene()
+	FarmPlotManager.plant(Vector2i(1, 1), "parsnip")
+	_check(_farm_scene_cell_source(farm_scene, Vector2i(1, 1)) == Vector2i(FarmScene.STATE_PLANTED, 0),
+		"planting should reactively update the tile to STATE_PLANTED via crop_planted")
+	farm_scene.queue_free()
+
+func _test_farm_scene_updates_on_crop_watered_signal() -> void:
+	_reset_farm_plot_manager()
+	TimeManager.season_index = 0 # Spring
+	FarmPlotManager.plant(Vector2i(4, 4), "parsnip")
+	var farm_scene := _make_farm_scene()
+	FarmPlotManager.water(Vector2i(4, 4))
+	_check(_farm_scene_cell_source(farm_scene, Vector2i(4, 4)) == Vector2i(FarmScene.STATE_WATERED, 0),
+		"watering should reactively update the tile to STATE_WATERED via crop_watered")
+	farm_scene.queue_free()
+
+func _test_farm_scene_updates_on_crop_harvested_signal() -> void:
+	_reset_farm_plot_manager()
+	TimeManager.season_index = 0 # Spring
+	_reset_inventory_manager()
+	FarmPlotManager.plant(Vector2i(5, 5), "parsnip")
+	FarmPlotManager.get_plot(Vector2i(5, 5)).watered_today = true
+	FarmPlotManager.get_plot(Vector2i(5, 5)).days_grown = 4
+	FarmPlotManager.get_plot(Vector2i(5, 5)).harvest_ready = true
+	var farm_scene := _make_farm_scene()
+	_check(_farm_scene_cell_source(farm_scene, Vector2i(5, 5)) == Vector2i(FarmScene.STATE_READY, 0),
+		"a ready-to-harvest plot should render as STATE_READY on ready")
+	FarmPlotManager.harvest(Vector2i(5, 5))
+	_check(_farm_scene_cell_source(farm_scene, Vector2i(5, 5)) == Vector2i(FarmScene.STATE_EMPTY, 0),
+		"harvesting a one-shot (non-regrowable) crop should reactively clear the tile back to STATE_EMPTY via crop_harvested")
+	farm_scene.queue_free()
+
+func _test_farm_scene_updates_on_crop_withered_signal() -> void:
+	_reset_farm_plot_manager()
+	TimeManager.season_index = 0 # Spring
+	FarmPlotManager.plant(Vector2i(6, 6), "parsnip")
+	var farm_scene := _make_farm_scene()
+	FarmPlotManager._plots.erase(Vector2i(6, 6)) # mirror what FarmPlotManager._on_day_started does before it emits crop_withered
+	FarmPlotManager.crop_withered.emit(Vector2i(6, 6), "parsnip")
+	_check(_farm_scene_cell_source(farm_scene, Vector2i(6, 6)) == Vector2i(FarmScene.STATE_WITHERED, 0),
+		"a withered plot should render as STATE_WITHERED via crop_withered, even though get_plot() already reports empty by the time the signal fires")
+	farm_scene.queue_free()
+
+func _test_farm_scene_click_plants_empty_tile() -> void:
+	_reset_farm_plot_manager()
+	TimeManager.season_index = 0 # Spring
+	var farm_scene := _make_farm_scene()
+	_check(FarmPlotManager.get_plot(Vector2i(0, 0)) == null, "sanity: tile should start unplanted")
+	farm_scene._handle_tile_click(Vector2i(0, 0))
+	var plot := FarmPlotManager.get_plot(Vector2i(0, 0))
+	_check(plot != null and plot.crop_id == FarmScene.PLACEHOLDER_PLANT_CROP_ID,
+		"clicking an empty in-season tile should plant the placeholder crop via FarmPlotManager.plant()")
+	farm_scene.queue_free()
+
+func _test_farm_scene_click_ignores_out_of_grid_position() -> void:
+	_reset_farm_plot_manager()
+	TimeManager.season_index = 0 # Spring
+	var farm_scene := _make_farm_scene()
+	farm_scene._handle_tile_click(Vector2i(-1, -1)) # outside the GRID_WIDTH x GRID_HEIGHT bounds
+	_check(FarmPlotManager.get_plot(Vector2i(-1, -1)) == null,
+		"a click outside the rendered grid should be a no-op, not reach FarmPlotManager")
+	farm_scene.queue_free()
 
 ## --- ENG-15: Fishing (FishingManager) ---
 
