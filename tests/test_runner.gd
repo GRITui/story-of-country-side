@@ -141,6 +141,15 @@ func _ready() -> void:
 	_test_multi_day_producer_needs_multiple_fed_days()
 	_test_animal_save_round_trip()
 
+	_test_available_fish_filters_by_location_season_hour()
+	_test_available_fish_sorted_and_ignores_unregistered()
+	_test_attempt_catch_unregistered_fish_returns_empty()
+	_test_attempt_catch_below_difficulty_escapes()
+	_test_attempt_catch_success_credits_inventory_and_xp()
+	_test_catch_quality_tiers_follow_performance()
+	_test_item_id_encodes_quality_for_normal_catch()
+	_test_sell_price_applies_quality_multiplier_for_fish()
+
 	if _failures.is_empty():
 		print("ALL TESTS PASSED (%d checks)" % _pass_count)
 		get_tree().quit(0)
@@ -1667,3 +1676,79 @@ func _test_animal_save_round_trip() -> void:
 	_check(AnimalManager.get_animal("hen1").happiness == 60,
 		"happiness should round-trip through save/load, got %d" % AnimalManager.get_animal("hen1").happiness)
 	_check(AnimalManager.get_animal("hen1").product_ready, "product_ready should round-trip through save/load")
+
+## --- ENG-15: Fishing (FishingManager) ---
+
+func _test_available_fish_filters_by_location_season_hour() -> void:
+	var fm := FishingManager
+	var pool := fm.get_available_fish("river", "Spring", 8)
+	_check(pool == ["carp", "trout"], "river/Spring/08:00 should surface exactly carp and trout, got %s" % [pool])
+
+	var pool_fall := fm.get_available_fish("river", "Fall", 8)
+	_check(pool_fall.has("salmon") and pool_fall.has("trout") and pool_fall.has("carp"),
+		"river/Fall/08:00 should include carp, trout, and salmon, got %s" % [pool_fall])
+
+	var pool_outside_hour := fm.get_available_fish("river", "Spring", 15)
+	_check(not pool_outside_hour.has("trout"),
+		"trout should not be available outside its 06:00-11:00 window, got %s" % [pool_outside_hour])
+	_check(pool_outside_hour.has("carp"), "carp (all-day) should remain available at hour 15")
+
+func _test_available_fish_sorted_and_ignores_unregistered() -> void:
+	var fm := FishingManager
+	var pool := fm.get_available_fish("ocean", "Summer", 10)
+	_check(pool == ["tuna"], "ocean/Summer/10:00 should surface only tuna, got %s" % [pool])
+
+	var empty_pool := fm.get_available_fish("volcano", "Summer", 10)
+	_check(empty_pool.is_empty(), "a location no fish is registered for should return an empty pool, got %s" % [empty_pool])
+
+func _test_attempt_catch_unregistered_fish_returns_empty() -> void:
+	var result := FishingManager.attempt_catch("dragon", 1.0)
+	_check(result.is_empty(), "attempting to catch an unregistered fish_id should return an empty dict")
+
+func _test_attempt_catch_below_difficulty_escapes() -> void:
+	_reset_inventory_manager()
+	var result := FishingManager.attempt_catch("trout", 0.1) # difficulty 0.5
+	_check(not result["success"], "a performance below difficulty should fail to catch")
+	_check(result["fish_id"] == "trout", "an escaped result should still report the fish_id, got %s" % [result])
+	_check(InventoryManager.get_count("trout") == 0, "an escaped catch should not add anything to inventory")
+
+func _test_attempt_catch_success_credits_inventory_and_xp() -> void:
+	_reset_inventory_manager()
+	SkillManager._xp = {}
+	var result := FishingManager.attempt_catch("trout", 0.55) # difficulty 0.5, below the 0.6 Silver threshold
+	_check(result["success"], "a performance at/above difficulty should succeed")
+	_check(result["item_id"] == "trout", "a Normal-quality catch should use the bare fish_id as item_id, got %s" % result["item_id"])
+	_check(InventoryManager.get_count("trout") == 1,
+		"a successful catch should credit InventoryManager, got %d" % InventoryManager.get_count("trout"))
+	_check(SkillManager.get_xp("Fishing") == 5,
+		"a successful catch should credit Fishing XP, got %d" % SkillManager.get_xp("Fishing"))
+
+func _test_catch_quality_tiers_follow_performance() -> void:
+	_reset_inventory_manager()
+	var gold := FishingManager.attempt_catch("carp", 0.95) # difficulty 0.2
+	_check(gold["quality"] == FishingManager.QUALITY_GOLD, "performance 0.95 should be Gold quality, got %s" % [gold])
+
+	var silver := FishingManager.attempt_catch("carp", 0.65)
+	_check(silver["quality"] == FishingManager.QUALITY_SILVER, "performance 0.65 should be Silver quality, got %s" % [silver])
+
+	var normal := FishingManager.attempt_catch("carp", 0.3)
+	_check(normal["quality"] == FishingManager.QUALITY_NORMAL, "performance 0.3 should be Normal quality, got %s" % [normal])
+
+func _test_item_id_encodes_quality_for_normal_catch() -> void:
+	_reset_inventory_manager()
+	var gold_result := FishingManager.attempt_catch("carp", 0.95)
+	_check(gold_result["item_id"] == "carp_gold", "Gold-quality catch should encode quality in the item_id, got %s" % gold_result["item_id"])
+
+	var normal_result := FishingManager.attempt_catch("carp", 0.25)
+	_check(normal_result["item_id"] == "carp", "Normal-quality catch should use the bare fish_id as item_id, got %s" % normal_result["item_id"])
+
+func _test_sell_price_applies_quality_multiplier_for_fish() -> void:
+	var fm := FishingManager
+	_check(fm.get_sell_price("trout", FishingManager.QUALITY_NORMAL) == 40,
+		"Normal trout should sell at base price 40, got %d" % fm.get_sell_price("trout", FishingManager.QUALITY_NORMAL))
+	_check(fm.get_sell_price("trout", FishingManager.QUALITY_SILVER) == 50,
+		"Silver trout should sell at 1.25x base (50), got %d" % fm.get_sell_price("trout", FishingManager.QUALITY_SILVER))
+	_check(fm.get_sell_price("trout", FishingManager.QUALITY_GOLD) == 60,
+		"Gold trout should sell at 1.5x base (60), got %d" % fm.get_sell_price("trout", FishingManager.QUALITY_GOLD))
+	_check(fm.get_sell_price("dragon", FishingManager.QUALITY_GOLD) == 0,
+		"an unregistered fish_id should report 0 sell price")
