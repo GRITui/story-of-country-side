@@ -23,11 +23,14 @@ class_name PauseMenu
 ## and then quits the application outright instead of returning to a title
 ## screen that doesn't exist -- flagged here and in the PR, not faked.
 ##
-## Also has a "Relationships" button beyond the spec's six listed items --
-## see relationships_overlay.gd's own docstring for why: MarriageManager
-## (#20) had no player-facing surface anywhere in the repo, and this menu
-## is the most natural place to hang one given there's no NPC dialogue
-## system yet to launch it from instead.
+## Also has "Relationships" and "Infrastructure" buttons beyond the spec's
+## six listed items -- see relationships_overlay.gd's and
+## infrastructure_overlay.gd's own docstrings for why: both
+## MarriageManager (#20) and InfrastructureManager (#24) shipped after
+## the spec's menu tree was written and had no player-facing surface
+## anywhere in the repo; this menu is the most natural place to hang one
+## for each given there's no NPC dialogue/world-map system yet to launch
+## them from instead.
 
 const PAUSE_REASON := "pause"
 
@@ -37,12 +40,14 @@ const PAUSE_REASON := "pause"
 @onready var _map_button: Button = $Root/MenuPanel/Margin/VBox/MapButton
 @onready var _skills_button: Button = $Root/MenuPanel/Margin/VBox/SkillsButton
 @onready var _relationships_button: Button = $Root/MenuPanel/Margin/VBox/RelationshipsButton
+@onready var _infrastructure_button: Button = $Root/MenuPanel/Margin/VBox/InfrastructureButton
 @onready var _settings_button: Button = $Root/MenuPanel/Margin/VBox/SettingsButton
 @onready var _save_quit_button: Button = $Root/MenuPanel/Margin/VBox/SaveQuitButton
 
 var _inventory_overlay: InventoryOverlay
 var _skills_overlay: SkillsOverlay
 var _relationships_overlay: RelationshipsOverlay
+var _infrastructure_overlay: InfrastructureOverlay
 var _is_open := false
 
 func _ready() -> void:
@@ -51,6 +56,7 @@ func _ready() -> void:
 	_inventory_button.pressed.connect(_on_inventory_pressed)
 	_skills_button.pressed.connect(_on_skills_pressed)
 	_relationships_button.pressed.connect(_on_relationships_pressed)
+	_infrastructure_button.pressed.connect(_on_infrastructure_pressed)
 	_save_quit_button.pressed.connect(_on_save_quit_pressed)
 	# Map/Settings have no destination yet -- disabled, not hidden, so the
 	# menu shape still matches the spec's §1 tree even though two of its
@@ -62,15 +68,17 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not event.is_action_pressed("ui_cancel"):
 		return
 	if _is_open:
-		# While the Inventory, Skills, or Relationships sub-screen is
-		# showing, Escape backs out to the pause menu first rather than
-		# resuming straight through it.
+		# While the Inventory, Skills, Relationships, or Infrastructure
+		# sub-screen is showing, Escape backs out to the pause menu first
+		# rather than resuming straight through it.
 		if _inventory_overlay != null and is_instance_valid(_inventory_overlay):
 			_close_inventory()
 		elif _skills_overlay != null and is_instance_valid(_skills_overlay):
 			_close_skills()
 		elif _relationships_overlay != null and is_instance_valid(_relationships_overlay):
 			_close_relationships()
+		elif _infrastructure_overlay != null and is_instance_valid(_infrastructure_overlay):
+			_close_infrastructure()
 		else:
 			close()
 	else:
@@ -91,6 +99,7 @@ func close() -> void:
 	_close_inventory()
 	_close_skills()
 	_close_relationships()
+	_close_infrastructure()
 	_is_open = false
 	visible = false
 	TimeManager.unfreeze(PAUSE_REASON)
@@ -135,6 +144,18 @@ func _close_relationships() -> void:
 	if _relationships_overlay != null and is_instance_valid(_relationships_overlay):
 		_relationships_overlay.queue_free()
 	_relationships_overlay = null
+	_menu_panel.visible = true
+
+func _on_infrastructure_pressed() -> void:
+	_menu_panel.visible = false
+	_infrastructure_overlay = load("res://scenes/ui/InfrastructureOverlay.tscn").instantiate()
+	add_child(_infrastructure_overlay)
+	_infrastructure_overlay.closed.connect(_close_infrastructure)
+
+func _close_infrastructure() -> void:
+	if _infrastructure_overlay != null and is_instance_valid(_infrastructure_overlay):
+		_infrastructure_overlay.queue_free()
+	_infrastructure_overlay = null
 	_menu_panel.visible = true
 
 func _on_save_quit_pressed() -> void:
