@@ -2,31 +2,30 @@
 
 <squad_metadata>
   <squad_name>Engineer-Squad</squad_name>
-  <current_status>IN_PROGRESS</current_status>
-  <active_task_id>ENG-24,ENG-20,ENG-21</active_task_id>
-  <sprint_completion_percentage>0</sprint_completion_percentage>
+  <current_status>IDLE</current_status>
+  <active_task_id>none</active_task_id>
+  <sprint_completion_percentage>100</sprint_completion_percentage>
 </squad_metadata>
 
 ## Current Focus
-Epoch 14: dispatched three parallel Backend subagents — ENG-24
-(Infrastructure Upgrades: quest-gated tiers via QuestManager.is_unlocked
-+ ShippingBinManager.spend, artisan processing), ENG-20 (Marriage &
-Family, on top of RelationshipManager), ENG-21 (Festivals, reusing
-TimeManager's freeze mechanism, decidable-half-only mini-game contract
-mirroring ENG-15/Fishing's attempt_catch pattern). Claimed all three via
-GitHub comments first — checked issue #16 (Mining) had just been claimed
-by the concurrent session ("Session B") one minute before this epoch
-started, so deliberately picked disjoint issues instead of colliding
-again like the ENG-14 near-miss. Each agent was also told to re-check for
-claims immediately before dispatch as an extra safety net.
+Epoch 14 settled: ENG-24 (Infrastructure Upgrades, PR #50), ENG-20
+(Marriage & Family, PR #49), ENG-21 (Festivals, PR #48) all shipped by
+three parallel Backend subagents this session, plus ENG-16 (Mining,
+PR #47) shipped concurrently by Session B — the mid-epoch dispatch of
+all three hit an infra-level API session-limit error partway through
+(unrelated to the code; reset at 4am UTC) and was cleanly re-dispatched
+fresh after the reset with no work lost (nothing had been pushed).
+Verified all four merges independently against the real engine at each
+step; final state after resolving three rounds of expected shared-file
+merge conflicts (project.godot/save_manager.gd/test_runner.gd, per
+SQUAD-SPLIT.md's documented pattern) is 444/444 tests passing, clean
+smoke boot. Claimed all issues via GitHub comments before dispatch,
+checking for concurrent claims each time — no collisions this epoch.
 
-**Update from Session B:** ENG-16 (Mining) shipped and merged as PR #47
-(344/344 tests, real engine) — the five-activity set from epic #8
-(Agriculture/Ranching/Fishing/Mining/Foraging) is now fully DONE. Rebased
-cleanly onto the Frontend HUD PR #46 and the SQUAD-SPLIT.md Content-lane
-update with no real conflicts. Not touching the ENG-24/ENG-20/ENG-21
-active_task_id above — that's this epoch's genuine in-flight state from
-the other session's dispatch, left as-is for it to update on completion.
+Only ENG-27 (Ultimate-goal structure) remains as unclaimed backend leaf
+work; #8/#9/#10/#11 are epic trackers, #1 is the process doc. A QA-Tester
+squad from the concurrent session has also become active (see
+squad-handshake-qa.md, "QA epoch 1" — retroactive review of merged PRs).
 
 ## Prior epoch (12/13, settled): ENG-14 (Ranching, PR #43), ENG-17 (Foraging,
 PR #44), and ENG-15 (Fishing, PR #45 — this session/"Session B") all
@@ -105,17 +104,15 @@ below.
 
 ## Blockers & QA Failures
 None currently blocking. Sequencing notes for the next pull:
-- ENG-13/14/15/16/17 (the full five-activity set: Agriculture/Ranching/
-  Fishing/Mining/Foraging) are all DONE.
-- ENG-24 (Infrastructure Upgrades), ENG-21 (Festivals) are claimed and in
-  flight per this epoch's dispatch above (active_task_id).
-- ENG-20 (Marriage) is now built on `feature/eng-20-marriage`, PR pending
-  (see the entry above with the full placeholder-content list).
-- ENG-27 (Ultimate-goal structure) is READY_FOR_PM and, as of this
-  update, the only remaining backend leaf task with no active claim —
-  check for a claim comment on #27 immediately before picking it up,
-  same discipline that avoided a second ENG-14-style collision this
-  epoch.
+- ENG-13/14/15/16/17 (the full five-activity set), ENG-19/20 (Relationship
+  + Marriage), ENG-18/21 (NPC Routines + Festivals), ENG-22/23/24/25/31
+  (economy: shipping, tools, infrastructure, skills, quests) are all DONE.
+- ENG-27 (Ultimate-goal structure) is READY_FOR_PM and the only remaining
+  backend leaf task with no active claim — check for a claim comment on
+  #27 immediately before picking it up, same discipline used all epoch.
+- Once #27 lands, every original leaf issue from the design doc's six
+  decisions is DONE — remaining scope, if any, would come from newly
+  filed issues or NEEDS_OWNER_REVIEW items, not the existing backlog.
 
 ## Cross-Squad Requests
 * No WeatherManager exists yet, but NPCSchedule has a weather field ready
