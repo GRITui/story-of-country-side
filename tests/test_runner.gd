@@ -24,6 +24,12 @@ var _tool_upgraded_events: Array = [] ## Array[Array] of [tool_name, new_tier], 
 var _xp_gained_events: Array = [] ## Array[Array] of [skill_name, amount, total_xp], same reason
 var _level_changed_events: Array = [] ## Array[Array] of [skill_name, new_level, old_level], same reason
 var _heart_events: Array = [] ## Array[Array] of [npc_name, heart_level], same reason
+var _item_changed_events: Array = [] ## Array[Array] of [item_id, delta, total], same reason
+var _crop_planted_events: Array = [] ## Array[Array] of [position, crop_id], same reason
+var _crop_watered_events: Array = [] ## Array[Vector2i], same reason
+var _crop_harvested_events: Array = [] ## Array[Array] of [position, item_id, quality, quantity], same reason
+var _crop_withered_events: Array = [] ## Array[Array] of [position, crop_id], same reason
+var _intro_finished_count := 0 ## member, not a local — GDScript lambdas capture locals by value
 
 func _ready() -> void:
 	_test_minute_and_hour_wrap()
@@ -85,6 +91,33 @@ func _ready() -> void:
 	_test_tools_upgrade_independently()
 	_test_cannot_upgrade_past_gold_tier()
 	_test_tool_save_round_trip()
+
+	_test_inventory_add_and_remove()
+	_test_inventory_remove_fails_when_insufficient()
+	_test_inventory_has_item()
+	_test_inventory_sell_item_ships_and_removes()
+	_test_inventory_sell_item_fails_without_removing_on_short_stock()
+	_test_inventory_save_round_trip()
+
+	_test_cannot_plant_wrong_season()
+	_test_plant_and_water_and_growth_progresses_on_watered_days()
+	_test_growth_does_not_progress_on_unwatered_days()
+	_test_watered_today_resets_each_day()
+	_test_cannot_water_twice_same_day()
+	_test_harvest_credits_inventory_and_xp_and_clears_plot()
+	_test_regrowable_crop_resets_instead_of_clearing()
+	_test_forced_quality_skips_random_roll()
+	_test_item_id_encodes_quality()
+	_test_sell_price_applies_quality_multiplier()
+	_test_crop_withers_when_season_ends_unharvested()
+	_test_farm_plot_save_round_trip()
+
+	_test_new_game_resets_state_to_defaults()
+	_test_new_game_grants_starting_gold_and_copper_tools()
+	_test_save_and_load_round_trip_persists_intro_seen()
+	_test_load_game_returns_false_without_save_file()
+	_test_intro_sequence_advances_through_lines_then_finishes()
+	_test_intro_sequence_freezes_and_unfreezes_time_manager()
 
 	if _failures.is_empty():
 		print("ALL TESTS PASSED (%d checks)" % _pass_count)
@@ -940,3 +973,371 @@ func _test_tool_save_round_trip() -> void:
 	_check(tm.get_tool_tier("Hoe") == 1, "tool tier should round-trip through save/load, got %d" % tm.get_tool_tier("Hoe"))
 	_check(tm.get_ore_count("iron_ore") == 5, "remaining ore should round-trip through save/load, got %d" % tm.get_ore_count("iron_ore"))
 	_check(tm.get_ore_count("gold_ore") == 3, "unspent different-ore-type count should round-trip, got %d" % tm.get_ore_count("gold_ore"))
+
+## --- ENG-13: Inventory ledger ---
+
+func _on_item_changed_for_test(item_id: String, delta: int, total: int) -> void:
+	_item_changed_events.append([item_id, delta, total])
+
+func _reset_inventory_manager() -> void:
+	InventoryManager._counts = {}
+
+func _test_inventory_add_and_remove() -> void:
+	_reset_inventory_manager()
+	var im := InventoryManager
+	_item_changed_events = []
+	im.item_changed.connect(_on_item_changed_for_test)
+	im.add_item("parsnip", 3)
+	im.add_item("parsnip", 2)
+	var removed := im.remove_item("parsnip", 4)
+	im.item_changed.disconnect(_on_item_changed_for_test)
+
+	_check(removed, "removing an in-stock quantity should succeed")
+	_check(im.get_count("parsnip") == 1, "count should reflect adds minus removes, got %d" % im.get_count("parsnip"))
+	_check(_item_changed_events.size() == 3
+		and _item_changed_events[0] == ["parsnip", 3, 3]
+		and _item_changed_events[1] == ["parsnip", 2, 5]
+		and _item_changed_events[2] == ["parsnip", -4, 1],
+		"item_changed should report per-call delta and running total, got %s" % [_item_changed_events])
+
+func _test_inventory_remove_fails_when_insufficient() -> void:
+	_reset_inventory_manager()
+	var im := InventoryManager
+	im.add_item("egg", 2)
+	var ok := im.remove_item("egg", 5)
+	_check(not ok, "removing more than in stock should fail")
+	_check(im.get_count("egg") == 2, "a failed removal should not change the count, got %d" % im.get_count("egg"))
+
+func _test_inventory_has_item() -> void:
+	_reset_inventory_manager()
+	var im := InventoryManager
+	im.add_item("wool", 3)
+	_check(im.has_item("wool"), "has_item defaults to checking for at least 1")
+	_check(im.has_item("wool", 3), "has_item(3) should be true with exactly 3 on hand")
+	_check(not im.has_item("wool", 4), "has_item(4) should be false with only 3 on hand")
+
+func _test_inventory_sell_item_ships_and_removes() -> void:
+	_reset_inventory_manager()
+	_reset_shipping_bin()
+	var im := InventoryManager
+	im.add_item("turnip", 5)
+	var ok := im.sell_item("turnip", 3, 10)
+	_check(ok, "selling in-stock quantity should succeed")
+	_check(im.get_count("turnip") == 2, "sell_item should remove the sold quantity from inventory, got %d" % im.get_count("turnip"))
+	_check(ShippingBinManager.pending_item_count() == 3, "sell_item should forward the sale to ShippingBinManager, got %d pending" % ShippingBinManager.pending_item_count())
+
+func _test_inventory_sell_item_fails_without_removing_on_short_stock() -> void:
+	_reset_inventory_manager()
+	_reset_shipping_bin()
+	var im := InventoryManager
+	im.add_item("turnip", 1)
+	var ok := im.sell_item("turnip", 5, 10)
+	_check(not ok, "selling more than on hand should fail")
+	_check(im.get_count("turnip") == 1, "a failed sale should not touch inventory, got %d" % im.get_count("turnip"))
+	_check(ShippingBinManager.pending_item_count() == 0, "a failed sale should not reach the shipping bin")
+
+func _test_inventory_save_round_trip() -> void:
+	_reset_inventory_manager()
+	var im := InventoryManager
+	im.add_item("milk", 7)
+
+	var saved := SaveManager.build_save_data()
+	_reset_inventory_manager()
+	_check(im.get_count("milk") == 0, "sanity check: reset should clear inventory before applying save data")
+
+	SaveManager.apply_save_data(saved)
+	_check(im.get_count("milk") == 7, "inventory counts should round-trip through save/load, got %d" % im.get_count("milk"))
+
+## --- ENG-13: Agriculture (FarmPlotManager) ---
+
+func _reset_farm_plot_manager() -> void:
+	FarmPlotManager._plots = {}
+
+func _on_crop_planted_for_test(position: Vector2i, crop_id: String) -> void:
+	_crop_planted_events.append([position, crop_id])
+
+func _on_crop_watered_for_test(position: Vector2i) -> void:
+	_crop_watered_events.append(position)
+
+func _on_crop_harvested_for_test(position: Vector2i, item_id: String, quality: String, quantity: int) -> void:
+	_crop_harvested_events.append([position, item_id, quality, quantity])
+
+func _on_crop_withered_for_test(position: Vector2i, crop_id: String) -> void:
+	_crop_withered_events.append([position, crop_id])
+
+func _test_cannot_plant_wrong_season() -> void:
+	_reset_farm_plot_manager()
+	TimeManager.season_index = 1 # Summer; Parsnip is Spring-only
+	var ok := FarmPlotManager.plant(Vector2i(0, 0), "parsnip")
+	_check(not ok, "planting a Spring-only crop outside Spring should fail")
+	_check(not FarmPlotManager.is_planted(Vector2i(0, 0)), "a rejected plant() should leave the plot empty")
+
+func _test_plant_and_water_and_growth_progresses_on_watered_days() -> void:
+	_reset_farm_plot_manager()
+	TimeManager.season_index = 0 # Spring
+	var fpm := FarmPlotManager
+	_crop_planted_events = []
+	fpm.crop_planted.connect(_on_crop_planted_for_test)
+	var ok := fpm.plant(Vector2i(1, 1), "parsnip")
+	fpm.crop_planted.disconnect(_on_crop_planted_for_test)
+	_check(ok, "planting a valid crop in-season should succeed")
+	_check(_crop_planted_events.size() == 1 and _crop_planted_events[0] == [Vector2i(1, 1), "parsnip"],
+		"crop_planted should fire once with (position, crop_id), got %s" % [_crop_planted_events])
+
+	# Parsnip takes 4 watered days to grow.
+	for i in range(4):
+		var watered := fpm.water(Vector2i(1, 1))
+		_check(watered, "water() should succeed on an unwatered, not-yet-ready plot (day %d)" % i)
+		fpm._on_day_started(i + 1, "Spring", "Mon")
+
+	var plot := fpm.get_plot(Vector2i(1, 1))
+	_check(plot.harvest_ready, "plot should be harvest_ready after 4 watered days (days_to_grow), got days_grown=%d" % plot.days_grown)
+
+func _test_growth_does_not_progress_on_unwatered_days() -> void:
+	_reset_farm_plot_manager()
+	TimeManager.season_index = 0 # Spring
+	var fpm := FarmPlotManager
+	fpm.plant(Vector2i(2, 2), "parsnip")
+	fpm._on_day_started(1, "Spring", "Mon") # never watered
+	var plot := fpm.get_plot(Vector2i(2, 2))
+	_check(plot.days_grown == 0, "an unwatered day should not advance growth, got days_grown=%d" % plot.days_grown)
+	_check(not plot.harvest_ready, "an unwatered plot should never become harvest_ready")
+
+func _test_watered_today_resets_each_day() -> void:
+	_reset_farm_plot_manager()
+	TimeManager.season_index = 0 # Spring
+	var fpm := FarmPlotManager
+	fpm.plant(Vector2i(3, 3), "parsnip")
+	fpm.water(Vector2i(3, 3))
+	fpm._on_day_started(1, "Spring", "Mon")
+	var plot := fpm.get_plot(Vector2i(3, 3))
+	_check(not plot.watered_today, "watered_today should reset to false after a day rollover, matching #13's reset requirement")
+
+func _test_cannot_water_twice_same_day() -> void:
+	_reset_farm_plot_manager()
+	TimeManager.season_index = 0 # Spring
+	var fpm := FarmPlotManager
+	fpm.plant(Vector2i(4, 4), "parsnip")
+	var first := fpm.water(Vector2i(4, 4))
+	var second := fpm.water(Vector2i(4, 4))
+	_check(first, "first water() this day should succeed")
+	_check(not second, "a second water() the same day should be rejected")
+
+func _grow_to_harvest(position: Vector2i, days: int) -> void:
+	var fpm := FarmPlotManager
+	for i in range(days):
+		fpm.water(position)
+		fpm._on_day_started(i + 1, TimeManager.current_season(), "Mon")
+
+func _test_harvest_credits_inventory_and_xp_and_clears_plot() -> void:
+	_reset_farm_plot_manager()
+	_reset_inventory_manager()
+	TimeManager.season_index = 0 # Spring
+	SkillManager._xp = {}
+	var fpm := FarmPlotManager
+	fpm.plant(Vector2i(5, 5), "parsnip")
+	_grow_to_harvest(Vector2i(5, 5), 4)
+	_check(fpm.get_plot(Vector2i(5, 5)).harvest_ready, "sanity: plot should be ready to harvest")
+
+	_crop_harvested_events = []
+	fpm.crop_harvested.connect(_on_crop_harvested_for_test)
+	var result := fpm.harvest(Vector2i(5, 5), FarmPlotManager.QUALITY_NORMAL)
+	fpm.crop_harvested.disconnect(_on_crop_harvested_for_test)
+
+	_check(result.get("item_id") == "parsnip" and result.get("crop_id") == "parsnip" and result.get("quantity") == 1,
+		"harvest() should return the harvested item_id/crop_id/quantity, got %s" % [result])
+	_check(InventoryManager.get_count("parsnip") == 1, "harvest should credit InventoryManager, got %d" % InventoryManager.get_count("parsnip"))
+	_check(SkillManager.get_xp("Farming") == fpm.get_crop_definition("parsnip").xp_reward,
+		"harvest should award the crop's xp_reward into SkillManager's Farming skill, got %d" % SkillManager.get_xp("Farming"))
+	_check(not fpm.is_planted(Vector2i(5, 5)), "a non-regrowable crop's plot should clear after harvest")
+	_check(_crop_harvested_events.size() == 1 and _crop_harvested_events[0] == [Vector2i(5, 5), "parsnip", "normal", 1],
+		"crop_harvested should fire once with (position, item_id, quality, quantity), got %s" % [_crop_harvested_events])
+
+func _test_regrowable_crop_resets_instead_of_clearing() -> void:
+	_reset_farm_plot_manager()
+	_reset_inventory_manager()
+	TimeManager.season_index = 1 # Summer, Tomato
+	var fpm := FarmPlotManager
+	fpm.plant(Vector2i(6, 6), "tomato")
+	_grow_to_harvest(Vector2i(6, 6), 5) # tomato days_to_grow
+	fpm.harvest(Vector2i(6, 6), FarmPlotManager.QUALITY_NORMAL)
+
+	var plot := fpm.get_plot(Vector2i(6, 6))
+	_check(plot != null and not plot.is_empty(), "a regrowable crop's plot should still exist after harvest, not clear")
+	_check(plot.is_regrowing, "plot should flag is_regrowing after its first harvest")
+	_check(plot.days_grown == 0 and not plot.harvest_ready, "plot should reset progress to start its regrow cycle")
+
+	_grow_to_harvest(Vector2i(6, 6), 3) # tomato regrow_days
+	_check(fpm.get_plot(Vector2i(6, 6)).harvest_ready, "plot should become harvest_ready again after regrow_days watered days")
+
+	var result := fpm.harvest(Vector2i(6, 6), FarmPlotManager.QUALITY_GOLD)
+	_check(result.get("crop_id") == "tomato", "second harvest should still report the same crop_id")
+	_check(fpm.is_planted(Vector2i(6, 6)), "regrowable plot should remain planted after a second harvest too")
+
+func _test_forced_quality_skips_random_roll() -> void:
+	_reset_farm_plot_manager()
+	_reset_inventory_manager()
+	TimeManager.season_index = 0
+	var fpm := FarmPlotManager
+	fpm.plant(Vector2i(7, 7), "parsnip")
+	_grow_to_harvest(Vector2i(7, 7), 4)
+	var result := fpm.harvest(Vector2i(7, 7), FarmPlotManager.QUALITY_GOLD)
+	_check(result.get("quality") == "gold", "forced_quality should bypass the random roll, got %s" % result.get("quality"))
+	_check(result.get("item_id") == "parsnip_gold", "a forced gold-quality harvest should use the gold-suffixed item_id")
+
+func _test_item_id_encodes_quality() -> void:
+	var fpm := FarmPlotManager
+	_check(fpm.get_item_id("parsnip", FarmPlotManager.QUALITY_NORMAL) == "parsnip",
+		"normal quality should use the bare crop_id as item_id")
+	_check(fpm.get_item_id("parsnip", FarmPlotManager.QUALITY_SILVER) == "parsnip_silver",
+		"silver quality should suffix the item_id")
+	_check(fpm.get_item_id("parsnip", FarmPlotManager.QUALITY_GOLD) == "parsnip_gold",
+		"gold quality should suffix the item_id")
+
+func _test_sell_price_applies_quality_multiplier() -> void:
+	var fpm := FarmPlotManager
+	_check(fpm.get_sell_price("parsnip", FarmPlotManager.QUALITY_NORMAL) == 35,
+		"normal quality should sell at the crop's base_sell_price, got %d" % fpm.get_sell_price("parsnip", FarmPlotManager.QUALITY_NORMAL))
+	_check(fpm.get_sell_price("parsnip", FarmPlotManager.QUALITY_SILVER) == 44,
+		"silver quality should sell at 1.25x base (round(35*1.25)=44), got %d" % fpm.get_sell_price("parsnip", FarmPlotManager.QUALITY_SILVER))
+	_check(fpm.get_sell_price("parsnip", FarmPlotManager.QUALITY_GOLD) == 53,
+		"gold quality should sell at 1.5x base (round(35*1.5)=53), got %d" % fpm.get_sell_price("parsnip", FarmPlotManager.QUALITY_GOLD))
+
+func _test_crop_withers_when_season_ends_unharvested() -> void:
+	_reset_farm_plot_manager()
+	TimeManager.season_index = 0 # Spring
+	var fpm := FarmPlotManager
+	fpm.plant(Vector2i(8, 8), "parsnip")
+	fpm.water(Vector2i(8, 8))
+
+	_crop_withered_events = []
+	fpm.crop_withered.connect(_on_crop_withered_for_test)
+	fpm._on_day_started(1, "Summer", "Mon") # season rolled past Spring before harvest
+	fpm.crop_withered.disconnect(_on_crop_withered_for_test)
+
+	_check(not fpm.is_planted(Vector2i(8, 8)), "a plot whose crop's season has ended should clear (wither)")
+	_check(_crop_withered_events.size() == 1 and _crop_withered_events[0] == [Vector2i(8, 8), "parsnip"],
+		"crop_withered should fire once with (position, crop_id), got %s" % [_crop_withered_events])
+
+func _test_farm_plot_save_round_trip() -> void:
+	_reset_farm_plot_manager()
+	_reset_inventory_manager()
+	TimeManager.season_index = 0 # Spring
+	var fpm := FarmPlotManager
+	fpm.plant(Vector2i(9, 9), "parsnip")
+	fpm.water(Vector2i(9, 9))
+	fpm._on_day_started(1, "Spring", "Mon")
+
+	var saved := SaveManager.build_save_data()
+	_reset_farm_plot_manager()
+	_check(not fpm.is_planted(Vector2i(9, 9)), "sanity check: reset should clear plots before applying save data")
+
+	SaveManager.apply_save_data(saved)
+
+	var plot := fpm.get_plot(Vector2i(9, 9))
+	_check(plot != null and plot.crop_id == "parsnip" and plot.days_grown == 1 and not plot.watered_today,
+		"farm plot state should round-trip through save/load, got %s" % [plot.to_dict() if plot else null])
+
+## --- ENG-26: Opening hook (intro sequence + new_game/save/load) ---
+
+func _test_new_game_resets_state_to_defaults() -> void:
+	# Dirty every system's state first.
+	TimeManager.year = 5
+	TimeManager.day_in_season = 20
+	StaminaManager.current_stamina = 1
+	ShippingBinManager.gold = 0
+	ShippingBinManager.ship_item("wool", 1, 1)
+	RelationshipManager._add_points("Elena", 500)
+	SkillManager.add_xp("Farming", 999)
+	ToolManager.add_ore("iron_ore", 10)
+	SaveManager.intro_seen = true
+
+	SaveManager.new_game()
+
+	_check(TimeManager.year == 1 and TimeManager.day_in_season == 1,
+		"new_game should reset TimeManager to defaults, got year=%d day=%d" % [TimeManager.year, TimeManager.day_in_season])
+	_check(StaminaManager.current_stamina == StaminaManager.MAX_STAMINA_DEFAULT,
+		"new_game should reset StaminaManager to full default stamina, got %d" % StaminaManager.current_stamina)
+	_check(RelationshipManager.get_points("Elena") == 0,
+		"new_game should reset RelationshipManager points, got %d" % RelationshipManager.get_points("Elena"))
+	_check(SkillManager.get_xp("Farming") == 0,
+		"new_game should reset SkillManager XP, got %d" % SkillManager.get_xp("Farming"))
+	_check(ToolManager.get_ore_count("iron_ore") == 0,
+		"new_game should reset ToolManager ore counts, got %d" % ToolManager.get_ore_count("iron_ore"))
+	_check(not SaveManager.has_seen_intro(),
+		"new_game should reset intro_seen to false so the intro plays again on a fresh save")
+
+func _test_new_game_grants_starting_gold_and_copper_tools() -> void:
+	ShippingBinManager.gold = 12345
+	SaveManager.new_game()
+	_check(ShippingBinManager.gold == ShippingBinManager.STARTING_GOLD,
+		"new_game should grant STARTING_GOLD, got %d" % ShippingBinManager.gold)
+	_check(ToolManager.get_tool_tier("Hoe") == ToolManager.TIER_COPPER,
+		"new_game should leave tools at their free Copper starting tier, got %d" % ToolManager.get_tool_tier("Hoe"))
+
+func _test_save_and_load_round_trip_persists_intro_seen() -> void:
+	SaveManager.delete_save_file()
+	SaveManager.new_game() # writes a fresh save file with intro_seen = false
+	_check(not SaveManager.has_seen_intro(), "sanity: new_game should start with intro not yet seen")
+
+	SaveManager.mark_intro_seen() # persists intro_seen = true to disk
+	_check(SaveManager.has_seen_intro(), "mark_intro_seen should flip has_seen_intro() immediately")
+
+	# Simulate a fresh boot: clear in-memory state, then reload from disk.
+	SaveManager.intro_seen = false
+	TimeManager.year = 99
+	var loaded := SaveManager.load_game()
+
+	_check(loaded, "load_game should succeed when a save file exists")
+	_check(SaveManager.has_seen_intro(),
+		"intro_seen should round-trip through save/load so the intro doesn't replay on a later boot")
+	_check(TimeManager.year == 1, "load_game should restore other system state alongside intro_seen, got year=%d" % TimeManager.year)
+
+	SaveManager.delete_save_file()
+
+func _test_load_game_returns_false_without_save_file() -> void:
+	SaveManager.delete_save_file()
+	var loaded := SaveManager.load_game()
+	_check(not loaded, "load_game should return false when no save file exists on disk")
+
+func _on_intro_finished_for_test() -> void:
+	_intro_finished_count += 1
+
+func _test_intro_sequence_advances_through_lines_then_finishes() -> void:
+	TimeManager.unfreeze("intro") # in case a prior failing test left this set
+	var intro := IntroSequence.new()
+	intro.lines = ["one", "two", "three"]
+	_intro_finished_count = 0
+	intro.finished.connect(_on_intro_finished_for_test)
+	add_child(intro)
+
+	_check(intro.current_line() == "one", "intro should start on the first line, got '%s'" % intro.current_line())
+	intro.advance()
+	_check(intro.current_line() == "two", "advance() should move to the next line, got '%s'" % intro.current_line())
+	intro.advance()
+	_check(intro.current_line() == "three", "advance() should move to the third line, got '%s'" % intro.current_line())
+	_check(not intro.is_finished(), "intro should not be finished while a line is still showing")
+
+	intro.advance() # advances past the last line -> finishes
+	_check(intro.is_finished(), "intro should be finished once every line has been advanced past")
+	_check(_intro_finished_count == 1, "finished signal should fire exactly once, fired %d times" % _intro_finished_count)
+
+	intro.advance() # should be a no-op once finished
+	_check(_intro_finished_count == 1, "advance() after finishing should not re-fire the finished signal")
+
+	intro.finished.disconnect(_on_intro_finished_for_test)
+	intro.queue_free()
+
+func _test_intro_sequence_freezes_and_unfreezes_time_manager() -> void:
+	TimeManager.unfreeze("intro") # in case a prior failing test left this set
+	var was_frozen_before := TimeManager.is_frozen()
+	var intro := IntroSequence.new()
+	intro.lines = ["only line"]
+	add_child(intro)
+
+	_check(TimeManager.is_frozen(), "starting the intro sequence should freeze TimeManager")
+	intro.advance() # past the only line -> finishes
+	_check(TimeManager.is_frozen() == was_frozen_before,
+		"finishing the intro sequence should unfreeze TimeManager's 'intro' reason")
+
+	intro.queue_free()
