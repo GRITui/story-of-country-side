@@ -171,6 +171,15 @@ func _ready() -> void:
 	_test_marriage_child_born_rolls_once_per_season_start()
 	_test_marriage_save_round_trip()
 
+	_test_generate_floor_places_ladder_without_rock()
+	_test_generate_floor_all_other_tiles_start_as_unbroken_rock()
+	_test_break_rock_credits_stone_or_ore_and_xp()
+	_test_break_rock_twice_returns_empty_second_time()
+	_test_break_rock_on_ladder_tile_returns_empty()
+	_test_roll_ore_respects_min_floor_gating()
+	_test_descend_ladder_advances_floor_and_regenerates()
+	_test_mining_save_round_trip()
+
 	if _failures.is_empty():
 		print("ALL TESTS PASSED (%d checks)" % _pass_count)
 		get_tree().quit(0)
@@ -2019,3 +2028,111 @@ func _test_marriage_save_round_trip() -> void:
 	_check(MarriageManager.children_count() == 2,
 		"children count should round-trip through save/load, got %d" % MarriageManager.children_count())
 	_check(not MarriageManager.is_engaged(), "engaged state should round-trip as cleared once already married")
+## --- ENG-16: Mining (MiningManager) ---
+
+func _first_rock_tile() -> Vector2i:
+	var size := MiningManager.get_floor_size()
+	for x in size.x:
+		for y in size.y:
+			var tile := Vector2i(x, y)
+			if MiningManager.has_rock(tile):
+				return tile
+	return Vector2i(-1, -1)
+
+func _test_generate_floor_places_ladder_without_rock() -> void:
+	MiningManager.generate_floor(1, 42)
+	var ladder := MiningManager.get_ladder_position()
+	var size := MiningManager.get_floor_size()
+	_check(ladder.x >= 0 and ladder.x < size.x and ladder.y >= 0 and ladder.y < size.y,
+		"ladder position should be within floor bounds, got %s (size %s)" % [ladder, size])
+	_check(not MiningManager.has_rock(ladder),
+		"the ladder tile should never have a rock, got has_rock=%s" % MiningManager.has_rock(ladder))
+
+func _test_generate_floor_all_other_tiles_start_as_unbroken_rock() -> void:
+	MiningManager.generate_floor(1, 42)
+	var ladder := MiningManager.get_ladder_position()
+	var size := MiningManager.get_floor_size()
+	var rock_count := 0
+	for x in size.x:
+		for y in size.y:
+			var tile := Vector2i(x, y)
+			if tile == ladder:
+				continue
+			if MiningManager.has_rock(tile):
+				rock_count += 1
+	_check(rock_count == size.x * size.y - 1,
+		"every non-ladder tile should start as an intact rock, got %d/%d" % [rock_count, size.x * size.y - 1])
+
+func _test_break_rock_credits_stone_or_ore_and_xp() -> void:
+	_reset_inventory_manager()
+	SkillManager._xp = {}
+	MiningManager.generate_floor(1, 42)
+	var tile := _first_rock_tile()
+
+	var result := MiningManager.break_rock(tile)
+	_check(not result.is_empty(), "breaking an intact rock should succeed")
+	var item_id: String = result["item_id"]
+	_check(item_id == MiningManager.STONE_ITEM_ID or item_id in ["copper_ore", "iron_ore"],
+		"floor 1 should only yield stone, copper_ore, or iron_ore, got %s" % item_id)
+	_check(InventoryManager.get_count(item_id) == int(result["quantity"]),
+		"break_rock should credit InventoryManager with the returned item/quantity, got %d" % InventoryManager.get_count(item_id))
+	_check(SkillManager.get_xp("Mining") > 0, "breaking a rock should credit Mining XP, got %d" % SkillManager.get_xp("Mining"))
+	_check(not MiningManager.has_rock(tile), "a broken tile should no longer report has_rock")
+
+func _test_break_rock_twice_returns_empty_second_time() -> void:
+	MiningManager.generate_floor(1, 7)
+	var tile := _first_rock_tile()
+	MiningManager.break_rock(tile)
+	var second := MiningManager.break_rock(tile)
+	_check(second.is_empty(), "breaking an already-broken tile should return an empty dict")
+
+func _test_break_rock_on_ladder_tile_returns_empty() -> void:
+	MiningManager.generate_floor(1, 7)
+	var ladder := MiningManager.get_ladder_position()
+	var result := MiningManager.break_rock(ladder)
+	_check(result.is_empty(), "breaking the ladder tile (no rock there) should return an empty dict")
+
+func _test_roll_ore_respects_min_floor_gating() -> void:
+	for i in range(30):
+		var ore1: String = MiningManager._roll_ore(1)
+		_check(ore1 in ["copper_ore", "iron_ore"],
+			"floor 1 rolls should only surface copper_ore/iron_ore (min_floor 1), got %s" % ore1)
+
+	var saw_gold_or_diamond := false
+	for i in range(50):
+		var ore2: String = MiningManager._roll_ore(6)
+		if ore2 in ["gold_ore", "diamond"]:
+			saw_gold_or_diamond = true
+	_check(saw_gold_or_diamond,
+		"floor 6 rolls should be able to surface gold_ore/diamond (min_floor 3/5) across enough samples")
+
+func _test_descend_ladder_advances_floor_and_regenerates() -> void:
+	MiningManager.generate_floor(1, 42)
+	var tile := _first_rock_tile()
+	MiningManager.break_rock(tile)
+	_check(not MiningManager.has_rock(tile), "sanity: tile should be broken before descending")
+
+	var floor_before: int = MiningManager.floor_index
+	var ok := MiningManager.descend_ladder()
+	_check(ok, "descend_ladder should succeed")
+	_check(MiningManager.floor_index == floor_before + 1,
+		"descending should increment floor_index, got %d -> %d" % [floor_before, MiningManager.floor_index])
+	_check(MiningManager.has_rock(tile) or tile == MiningManager.get_ladder_position(),
+		"the new floor should regenerate tile state (previously-broken tile should be intact again unless it's the new ladder), got has_rock=%s" % MiningManager.has_rock(tile))
+
+func _test_mining_save_round_trip() -> void:
+	MiningManager.generate_floor(2, 99)
+	var tile := _first_rock_tile()
+	MiningManager.break_rock(tile)
+	var floor_before: int = MiningManager.floor_index
+
+	var saved := SaveManager.build_save_data()
+
+	MiningManager.generate_floor(1, 1) # perturb state before reload
+	_check(MiningManager.floor_index == 1, "sanity check: perturbing should change floor_index before applying save data")
+
+	SaveManager.apply_save_data(saved)
+
+	_check(MiningManager.floor_index == floor_before,
+		"floor_index should round-trip through save/load, got %d" % MiningManager.floor_index)
+	_check(not MiningManager.has_rock(tile), "the broken tile's state should round-trip through save/load")
