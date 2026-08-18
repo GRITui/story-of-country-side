@@ -3,12 +3,20 @@
 <squad_metadata>
   <squad_name>Frontend-Squad</squad_name>
   <current_status>IN_PROGRESS</current_status>
-  <active_task_id>FRONTEND-PAUSE-INV</active_task_id>
+  <active_task_id>FRONTEND-FARM-SCENE</active_task_id>
   <sprint_completion_percentage>0</sprint_completion_percentage>
 </squad_metadata>
 
 ## Current Focus
-Epoch 16: dispatched a subagent to build the pause menu + full-screen
+Epoch 18: dispatched a subagent to build the FarmPlot world/tile-rendering
+scene (branch frontend/farm-plot-scene) against issue #52 — the single
+biggest player-visible gap (nothing currently renders the farming loop).
+Note: issue #52 got auto-closed by GitHub when PR #54 merged despite
+explicit text saying to leave it open (it's tracking-only) — reopened it;
+told this new subagent to avoid any closing-keyword phrasing near "#52"
+in its PR body to prevent a repeat.
+
+## Prior epoch (16): dispatched a subagent to build the pause menu + full-screen
 Inventory overlay (branch frontend/pause-menu-inventory) against issue
 #52 (the new tracking epic for all remaining frontend scene work, opened
 once the full backend leaf-task backlog closed). This is exactly the
