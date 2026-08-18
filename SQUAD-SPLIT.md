@@ -1,4 +1,7 @@
-# Squad Split: Backend (A) vs. Frontend (B)
+# Squad Split: Backend (A), Frontend (B), Content, QA, PM
+
+This started as a two-lane split and grew a third as the pattern proved
+itself. Current lanes:
 
 Read this before claiming any task if you're operating as either lane.
 This formalizes a split the codebase was already trending toward — every
@@ -110,3 +113,44 @@ PRs from landing in an order that breaks one against the other — the
 contract rule above is discipline, not enforcement. If a frontend PR
 needs a backend method that doesn't exist yet, land backend first and
 say so in the frontend PR description rather than stubbing around it.
+
+## Content lane
+
+Every squad so far has hit the same pattern and moved on: an issue needs
+concrete content (item names, balance numbers, dialogue) that doesn't
+exist anywhere in the design doc, so the squad picks a reasonable
+placeholder, documents it as such, and ships the system around it. That's
+the right call in the moment — don't block a system on unwritten
+content — but the placeholders were piling up (crop/animal/fish/forage
+names and prices, gift preferences, intro narration, quest content, tool
+costs) with nobody's job to go back and actually write them.
+
+**Content squad may edit:** the literal content/value definitions inside
+any file — a `DEFAULT_LINES` array, a `_register_default_content()`
+function's registered values, a `GiftPreferenceTable`'s item lists, a
+`QuestDefinition`'s chosen item/quantity/flag — regardless of which
+lane's directory that file lives in. **Content squad may not edit:**
+method signatures, signal definitions, control flow, or anything that
+isn't a value/string a designer could plausibly tune without touching
+logic. If a content change requires a logic change to express (e.g. a
+new condition type), that's a backend or frontend task to file, not
+something to build around.
+
+Changing a placeholder value will break any test that asserts the old
+placeholder number — updating those specific assertions to match new
+content is part of the content task, not scope creep, since the tests
+were asserting placeholder values on purpose (documented in each PR that
+introduced them).
+
+Status log: `squad-handshake-content.md`.
+
+## PM / orchestrator
+
+One session holds the PM role at any given time: owns `backlog-inbox.md`
+as the single source of truth, resolves cross-lane merge conflicts
+(these have been real and recurring — see git history), decides when a
+QA or Content finding needs a tracked GitHub issue vs. a direct fix, and
+spawns/redirects squad sessions as gaps appear. PM does not own a
+directory the way Backend/Frontend/Content do — PM's job is coordination
+and unblocking, stepping into hands-on work (any lane) only when nothing
+else is picking it up.
