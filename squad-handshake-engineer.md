@@ -2,13 +2,22 @@
 
 <squad_metadata>
   <squad_name>Engineer-Squad</squad_name>
-  <current_status>IDLE</current_status>
-  <active_task_id>none</active_task_id>
-  <sprint_completion_percentage>100</sprint_completion_percentage>
+  <current_status>IN_PROGRESS</current_status>
+  <active_task_id>ENG-14,ENG-17</active_task_id>
+  <sprint_completion_percentage>50</sprint_completion_percentage>
 </squad_metadata>
 
 ## Current Focus
-ENG-13 (Agriculture) and ENG-26 (Opening hook) both shipped this epoch —
+Epoch 12: dispatched ENG-14 (Ranching) and ENG-17 (Foraging) as parallel
+Backend subagents (feature/eng-14-ranching, feature/eng-17-foraging),
+both consuming the settled InventoryManager. A third parallel subagent
+(Frontend/Squad B, frontend/hud-implementation) is building the first
+real HUD scene against design/ui-flows/menu-hud-flow-spec.md — logged in
+squad-handshake-frontend.md, not this file. Claimed #14/#17 via GitHub
+comments per SQUAD-SPLIT.md's coordination convention before dispatch.
+
+## Prior epoch (11)
+ENG-13 (Agriculture) and ENG-26 (Opening hook) both shipped —
 PR #42 and PR #41, 208/208 tests pass (independently re-verified against
 the real merged base branch). InventoryManager now exists
 (scripts/autoload/inventory_manager.gd) as a general item_id->quantity

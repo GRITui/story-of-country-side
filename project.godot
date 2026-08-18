@@ -22,6 +22,7 @@ ToolManager="*res://scripts/autoload/tool_manager.gd"
 InventoryManager="*res://scripts/autoload/inventory_manager.gd"
 FarmPlotManager="*res://scripts/autoload/farm_plot_manager.gd"
 ForagingManager="*res://scripts/autoload/foraging_manager.gd"
+AnimalManager="*res://scripts/autoload/animal_manager.gd"
 SaveManager="*res://scripts/autoload/save_manager.gd"
 
 [rendering]
