@@ -2,13 +2,25 @@
 
 <squad_metadata>
   <squad_name>Engineer-Squad</squad_name>
-  <current_status>IDLE</current_status>
-  <active_task_id>none</active_task_id>
-  <sprint_completion_percentage>100</sprint_completion_percentage>
+  <current_status>IN_PROGRESS</current_status>
+  <active_task_id>ENG-24,ENG-20,ENG-21</active_task_id>
+  <sprint_completion_percentage>0</sprint_completion_percentage>
 </squad_metadata>
 
 ## Current Focus
-Epoch 12/13, now settled: ENG-14 (Ranching, PR #43), ENG-17 (Foraging,
+Epoch 14: dispatched three parallel Backend subagents — ENG-24
+(Infrastructure Upgrades: quest-gated tiers via QuestManager.is_unlocked
++ ShippingBinManager.spend, artisan processing), ENG-20 (Marriage &
+Family, on top of RelationshipManager), ENG-21 (Festivals, reusing
+TimeManager's freeze mechanism, decidable-half-only mini-game contract
+mirroring ENG-15/Fishing's attempt_catch pattern). Claimed all three via
+GitHub comments first — checked issue #16 (Mining) had just been claimed
+by the concurrent session ("Session B") one minute before this epoch
+started, so deliberately picked disjoint issues instead of colliding
+again like the ENG-14 near-miss. Each agent was also told to re-check for
+claims immediately before dispatch as an extra safety net.
+
+## Prior epoch (12/13, settled): ENG-14 (Ranching, PR #43), ENG-17 (Foraging,
 PR #44), and ENG-15 (Fishing, PR #45 — this session/"Session B") all
 shipped. ENG-14 had a same-issue claim collision with a concurrent
 session (see backlog-inbox.md's Epoch 12 coordination note) — claim
