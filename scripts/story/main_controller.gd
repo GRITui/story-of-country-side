@@ -25,11 +25,22 @@ extends Node
 ## The pause menu (§1) is added alongside the HUD for the same reason: it
 ## should not be reachable (or its Escape toggle armed) while the intro is
 ## still playing.
+##
+## #52 sub-scope: FarmScene (the world/tile-rendering scene for
+## FarmPlotManager, scenes/world/FarmScene.tscn) is added as a plain Node2D
+## sibling here rather than under a CanvasLayer -- it's world-space content,
+## not screen-space UI, so it goes in alongside the HUD/pause-menu
+## CanvasLayers but stays a regular child of this Node. Shown at the same
+## point the HUD is (after the intro finishes / immediately if the intro's
+## already been seen) since it's gameplay content the intro's full-screen
+## beat should also hide.
 
 @onready var _hud_scene: PackedScene = load("res://scenes/ui/HUD.tscn")
 @onready var _pause_menu_scene: PackedScene = load("res://scenes/ui/PauseMenu.tscn")
+@onready var _farm_scene_scene: PackedScene = load("res://scenes/world/FarmScene.tscn")
 var _hud: CanvasLayer
 var _pause_menu: CanvasLayer
+var _farm_scene: Node2D
 
 func _ready() -> void:
 	if not SaveManager.load_game():
@@ -56,9 +67,16 @@ func _show_hud() -> void:
 	_hud = _hud_scene.instantiate()
 	add_child(_hud)
 	_show_pause_menu()
+	_show_farm_scene()
 
 func _show_pause_menu() -> void:
 	if _pause_menu != null:
 		return
 	_pause_menu = _pause_menu_scene.instantiate()
 	add_child(_pause_menu)
+
+func _show_farm_scene() -> void:
+	if _farm_scene != null:
+		return
+	_farm_scene = _farm_scene_scene.instantiate()
+	add_child(_farm_scene)
