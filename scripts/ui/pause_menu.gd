@@ -29,14 +29,15 @@ class_name PauseMenu
 ## and then quits the application outright instead of returning to a title
 ## screen that doesn't exist -- flagged here and in the PR, not faked.
 ##
-## Also has "Relationships" and "Infrastructure" buttons beyond the spec's
-## six listed items -- see relationships_overlay.gd's and
-## infrastructure_overlay.gd's own docstrings for why: both
-## MarriageManager (#20) and InfrastructureManager (#24) shipped after
-## the spec's menu tree was written and had no player-facing surface
-## anywhere in the repo; this menu is the most natural place to hang one
-## for each given there's no NPC dialogue/world-map system yet to launch
-## them from instead.
+## Also has "Relationships", "Infrastructure", and "Community Goal"
+## buttons beyond the spec's six listed items -- see
+## relationships_overlay.gd's, infrastructure_overlay.gd's, and
+## community_goal_overlay.gd's own docstrings for why: MarriageManager
+## (#20), InfrastructureManager (#24), and CommunityGoalManager all
+## shipped after the spec's menu tree was written and had no
+## player-facing surface anywhere in the repo; this menu is the most
+## natural place to hang one for each given there's no NPC dialogue/
+## world-map system yet to launch them from instead.
 
 signal travel_requested(location: String)
 
@@ -49,6 +50,7 @@ const PAUSE_REASON := "pause"
 @onready var _skills_button: Button = $Root/MenuPanel/Margin/VBox/SkillsButton
 @onready var _relationships_button: Button = $Root/MenuPanel/Margin/VBox/RelationshipsButton
 @onready var _infrastructure_button: Button = $Root/MenuPanel/Margin/VBox/InfrastructureButton
+@onready var _community_goal_button: Button = $Root/MenuPanel/Margin/VBox/CommunityGoalButton
 @onready var _settings_button: Button = $Root/MenuPanel/Margin/VBox/SettingsButton
 @onready var _save_quit_button: Button = $Root/MenuPanel/Margin/VBox/SaveQuitButton
 
@@ -56,6 +58,7 @@ var _inventory_overlay: InventoryOverlay
 var _skills_overlay: SkillsOverlay
 var _relationships_overlay: RelationshipsOverlay
 var _infrastructure_overlay: InfrastructureOverlay
+var _community_goal_overlay: CommunityGoalOverlay
 var _map_overlay: MapOverlay
 var _is_open := false
 
@@ -67,6 +70,7 @@ func _ready() -> void:
 	_skills_button.pressed.connect(_on_skills_pressed)
 	_relationships_button.pressed.connect(_on_relationships_pressed)
 	_infrastructure_button.pressed.connect(_on_infrastructure_pressed)
+	_community_goal_button.pressed.connect(_on_community_goal_pressed)
 	_save_quit_button.pressed.connect(_on_save_quit_pressed)
 	# Settings has no destination yet -- disabled, not hidden, so the menu
 	# shape still matches the spec's §1 tree even though one of its six
@@ -77,8 +81,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not event.is_action_pressed("ui_cancel"):
 		return
 	if _is_open:
-		# While the Inventory, Map, Skills, Relationships, or
-		# Infrastructure sub-screen is showing, Escape backs out to the
+		# While the Inventory, Map, Skills, Relationships, Infrastructure,
+		# or Community Goal sub-screen is showing, Escape backs out to the
 		# pause menu first rather than resuming straight through it.
 		if _inventory_overlay != null and is_instance_valid(_inventory_overlay):
 			_close_inventory()
@@ -90,6 +94,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			_close_relationships()
 		elif _infrastructure_overlay != null and is_instance_valid(_infrastructure_overlay):
 			_close_infrastructure()
+		elif _community_goal_overlay != null and is_instance_valid(_community_goal_overlay):
+			_close_community_goal()
 		else:
 			close()
 	else:
@@ -112,6 +118,7 @@ func close() -> void:
 	_close_skills()
 	_close_relationships()
 	_close_infrastructure()
+	_close_community_goal()
 	_is_open = false
 	visible = false
 	TimeManager.unfreeze(PAUSE_REASON)
@@ -188,6 +195,18 @@ func _close_infrastructure() -> void:
 	if _infrastructure_overlay != null and is_instance_valid(_infrastructure_overlay):
 		_infrastructure_overlay.queue_free()
 	_infrastructure_overlay = null
+	_menu_panel.visible = true
+
+func _on_community_goal_pressed() -> void:
+	_menu_panel.visible = false
+	_community_goal_overlay = load("res://scenes/ui/CommunityGoalOverlay.tscn").instantiate()
+	add_child(_community_goal_overlay)
+	_community_goal_overlay.closed.connect(_close_community_goal)
+
+func _close_community_goal() -> void:
+	if _community_goal_overlay != null and is_instance_valid(_community_goal_overlay):
+		_community_goal_overlay.queue_free()
+	_community_goal_overlay = null
 	_menu_panel.visible = true
 
 func _on_save_quit_pressed() -> void:
