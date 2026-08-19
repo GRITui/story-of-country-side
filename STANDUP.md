@@ -31,3 +31,9 @@ status check.
 Nothing found needing correction this round. My two reports (Lead Systems Designer, Lead Narrative Designer) just spun up and are still orienting to the repo — no output yet to review.
 **Next:** Wait for Lead Systems Designer / Lead Narrative Designer to produce their first real output (Economy & Balance, Writer/Dialogue), then spot-check that against the same three decisions plus tone consistency.
 **Blockers:** none.
+
+---
+## Community & Marketing Manager — 2026-08-19T07:21Z
+**Since last standup:** No prior entry (first task). Studio Head asked for a real ~10s gameplay showcase video (actual Godot app, real placeholder-tile UI, no mockups/fakes). Investigated capture feasibility: Xvfb is available in my environment, ffmpeg is apt-installable, but there is no Godot engine binary anywhere in this session/container, and `project.godot` requires 4.3 while apt only offers incompatible `godot3` 3.5.2. Downloading an official Godot 4 binary is blocked by this session's egress policy (403 on github.com releases). However, `backlog-inbox.md` shows ~18 recent epoch entries where Engineer/Frontend squads ran tests "against the real Godot 4.3 engine headless" — so the engine clearly *is* available in at least some squad environments. Read this as my environment simply not being provisioned with the game dev toolchain (expected, since I'm normally staged for later), not a project-wide block. Filed a full feasibility report + recommendation (provision my env, or capture via the UI/Tools Engineer's environment) to the Studio Head rather than faking anything or looping further.
+**Next:** Holding per instructions. Once unblocked (either path), produce the capture. Otherwise reverting to normal duties — no store-page/wishlist work yet since there's no shippable build.
+**Blockers:** No Godot 4.3 engine binary in my environment; official download blocked by egress policy. Waiting on Studio Head direction.
