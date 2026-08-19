@@ -1562,3 +1562,34 @@ either, so the remote branches remain as harmless merged-and-stale refs).
     Festivals was in).
   </description>
 </task_item>
+
+<task_item>
+  <id>FRONTEND-FISHING-OVERLAY</id>
+  <status>DONE</status>
+  <description>
+    New scenes/ui/FishingOverlay.tscn + scripts/ui/fishing_overlay.gd
+    against FishingManager.attempt_catch() -- the last genuinely
+    buildable gap in #52. FishingManager's own docstring declines to
+    build a concrete mini-game, same boundary FestivalManager draws;
+    this reuses the exact Poor/Good/Great Effort placeholder buttons the
+    Festival overlay (PR #76) introduced. FishingManager has no
+    player-location concept, so this overlay lets the player pick a
+    location from a flat list (pond/river/lake/ocean, read from existing
+    content) rather than simulating one, then lists available fish via
+    get_available_fish() against TimeManager's current season/hour.
+    Another pause-menu entry beyond menu-hud-flow-spec.md's fixed list.
+    PR: gritui/story-of-country-side#77 (base:
+    claude/farming-game-pm-requirements-w9ugtk). 901/901 tests pass
+    against the real Godot 4.3 engine headless (13 new -- caught a real
+    assumption error before merge: a "Great Effort" catch assertion
+    assumed normal-quality output, but 0.95 performance actually clears
+    the 0.9 gold-quality threshold and credits carp_gold, not carp;
+    fixed to match real engine behavior), clean smoke boot. Self-merged
+    per standing authorization.
+
+    Everything in #52 now has a real player-facing surface except
+    Settings, which stays blocked -- no backend settings system exists
+    anywhere in the repo to build against. Frontend-Squad has no further
+    unblocked sub-scope to claim right now.
+  </description>
+</task_item>
