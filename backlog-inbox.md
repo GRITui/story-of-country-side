@@ -1356,6 +1356,70 @@ either, so the remote branches remain as harmless merged-and-stale refs).
      note -- that squad still owns writing its own epoch entries once it
      resumes. -->
 
+<!-- Epoch 1 (this session, Audio-Squad -- new lane, Composer/Sound
+     Designer role under the "Country Side Crew" org chart, peer branch to
+     Art Director). Confirmed via grep before starting: zero audio anywhere
+     in the repo -- no music, no SFX, no AudioStreamPlayer usage. This
+     squad has no audio-synthesis or music-composition tool available in
+     this environment, so nothing shipped here is real composed music or
+     designed SFX -- see squad-handshake-audio.md and this task's own
+     description for the honesty flag, and a separate note going to the
+     Studio Head about whether this project needs a real
+     composer/sound-designer or licensed audio pack instead of procedural
+     placeholders long-term. -->
+
+<task_item>
+  <id>AUDIO-MANAGER-INTEGRATION</id>
+  <status>DONE</status>
+  <description>
+    New autoload AudioManager (scripts/autoload/audio_manager.gd),
+    registered in project.godot's [autoload] block after WeatherManager
+    and before SaveManager, matching this repo's established convention.
+    Small public API (play_sfx(sfx_id)/play_music(track_id)/stop_music()/
+    get_current_music()/is_sfx_registered()/is_music_registered()) plus
+    sfx_played/music_changed/music_stopped signals for observability --
+    same "signals + read-only getters" contract every other autoload
+    follows. All "sound" is procedurally generated via
+    AudioStreamGenerator/AudioStreamGeneratorPlayback: one-shot sine tones
+    for SFX (pushed in full up front), a continuously-topped-up sine drone
+    for the one registered "ambient" music loop (topped up every _process
+    tick since a generator buffer is finite) -- crude, audibly a beep/
+    chime/drone, explicitly not real composed music or designed SFX (no
+    synthesis/composition tool exists in this environment). Wired four of
+    the most obviously audio-worthy existing signals directly in
+    AudioManager's own _ready(), same "backend-adjacent autoload connects
+    to another autoload's public signal" pattern InfrastructureManager
+    already uses for TimeManager.day_started: ShippingBinManager.
+    payout_processed -> "coin", FarmPlotManager.crop_harvested ->
+    "harvest", RelationshipManager.heart_event_triggered -> "heart",
+    MarriageManager.married -> "wedding". Read-only via public signals
+    only, per SQUAD-SPLIT.md's Backend contract -- no private field access
+    on any other manager. No SaveManager integration -- AudioManager holds
+    no state worth persisting (current music resets fine on load/boot,
+    same as it does on first boot). 838/838 tests pass (23 new) against
+    the real Godot 4.3 engine headless -- new tests verify registration,
+    play_sfx/play_music/stop_music return values and signal firing
+    (including the same-track/already-stopped no-op cases), and that each
+    of the four real manager signals actually triggers the right sfx via
+    a direct .emit() call, same convention test_runner.gd already uses to
+    test HUD signal reactions (e.g. ShippingBinManager.gold_changed.emit()
+    at line ~1925) -- headless has no real audio output device, so these
+    check logic/wiring, not actual sound, as noted in both files' new
+    docstrings. Clean smoke boot (--quit-after 60), no AudioServer errors.
+    Not tied to an existing GitHub issue (#52/#53/#1 are Frontend/Content/
+    process, none audio) -- noted as such in the PR description rather
+    than forcing a link that doesn't exist. Self-merged per standing
+    authorization.
+
+    Cross-Squad Request: none blocking -- all four signals hooked into
+    were already public. Flagged to the Studio Head separately (not
+    decided unilaterally): whether this project should invest in a real
+    composer/sound designer or a licensed SFX/music library, since
+    procedural placeholder tones are a real, durable gap for a game this
+    close to shippable elsewhere.
+  </description>
+</task_item>
+
 <!-- Epoch 29 (Frontend-Squad session, resumed after the Producer's
      epoch 28 nudge -- confirmed the crash, verified PR #71/#72 for real
      via git log before acting on the nudge's claims). -->
