@@ -142,16 +142,45 @@ func _register_default_content() -> void:
 	register_automation_device(_make_automation_device(COLLECTION_HUB, "collection_hub_unlocked", 2500, "stone", 60))
 
 	if QuestManager:
-		QuestManager.register_quest(_make_deliver_quest("infra_house_tier_1", "wood", 10, "house_tier_1_unlocked"))
-		QuestManager.register_quest(_make_deliver_quest("infra_house_tier_2", "stone", 20, "house_tier_2_unlocked"))
-		QuestManager.register_quest(_make_deliver_quest("infra_coop_tier_1", "wood", 15, "coop_tier_1_unlocked"))
-		QuestManager.register_quest(_make_deliver_quest("infra_coop_tier_2", "wood", 30, "coop_tier_2_unlocked"))
-		QuestManager.register_quest(_make_deliver_quest("infra_keg", "wood", 5, "keg_unlocked"))
-		QuestManager.register_quest(_make_deliver_quest("infra_preserves_jar", "stone", 5, "preserves_jar_unlocked"))
-		QuestManager.register_quest(_make_deliver_quest("infra_mayo_machine", "wool", 3, "mayo_machine_unlocked"))
-		QuestManager.register_quest(_make_deliver_quest("infra_sprinkler_system", "stone", 25, "sprinkler_system_unlocked"))
-		QuestManager.register_quest(_make_deliver_quest("infra_auto_feeder", "wood", 30, "auto_feeder_unlocked"))
-		QuestManager.register_quest(_make_deliver_quest("infra_collection_hub", "stone", 30, "collection_hub_unlocked"))
+		var q_house_tier_1 := _make_deliver_quest("infra_house_tier_1", "wood", 10, "house_tier_1_unlocked")
+		q_house_tier_1.title = "Room to Grow"
+		QuestManager.register_quest(q_house_tier_1)
+
+		var q_house_tier_2 := _make_deliver_quest("infra_house_tier_2", "stone", 20, "house_tier_2_unlocked")
+		q_house_tier_2.title = "The Big Renovation"
+		QuestManager.register_quest(q_house_tier_2)
+
+		var q_coop_tier_1 := _make_deliver_quest("infra_coop_tier_1", "wood", 15, "coop_tier_1_unlocked")
+		q_coop_tier_1.title = "A Bigger Barn"
+		QuestManager.register_quest(q_coop_tier_1)
+
+		var q_coop_tier_2 := _make_deliver_quest("infra_coop_tier_2", "wood", 30, "coop_tier_2_unlocked")
+		q_coop_tier_2.title = "Room for the Herd"
+		QuestManager.register_quest(q_coop_tier_2)
+
+		var q_keg := _make_deliver_quest("infra_keg", "wood", 5, "keg_unlocked")
+		q_keg.title = "Something's Brewing"
+		QuestManager.register_quest(q_keg)
+
+		var q_preserves_jar := _make_deliver_quest("infra_preserves_jar", "stone", 5, "preserves_jar_unlocked")
+		q_preserves_jar.title = "Waste Not, Want Not"
+		QuestManager.register_quest(q_preserves_jar)
+
+		var q_mayo_machine := _make_deliver_quest("infra_mayo_machine", "wool", 3, "mayo_machine_unlocked")
+		q_mayo_machine.title = "Whisk and Whir"
+		QuestManager.register_quest(q_mayo_machine)
+
+		var q_sprinkler_system := _make_deliver_quest("infra_sprinkler_system", "stone", 25, "sprinkler_system_unlocked")
+		q_sprinkler_system.title = "Rain or Shine"
+		QuestManager.register_quest(q_sprinkler_system)
+
+		var q_auto_feeder := _make_deliver_quest("infra_auto_feeder", "wood", 30, "auto_feeder_unlocked")
+		q_auto_feeder.title = "Feeding Time, Automated"
+		QuestManager.register_quest(q_auto_feeder)
+
+		var q_collection_hub := _make_deliver_quest("infra_collection_hub", "stone", 30, "collection_hub_unlocked")
+		q_collection_hub.title = "The Collection Point"
+		QuestManager.register_quest(q_collection_hub)
 
 func _make_tier(tier_index: int, unlock_flag: String, gold_cost: int,
 	material_item_id: String, material_quantity: int, payload_value: int) -> InfrastructureTier:
