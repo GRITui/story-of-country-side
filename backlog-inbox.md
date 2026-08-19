@@ -1532,3 +1532,33 @@ either, so the remote branches remain as harmless merged-and-stale refs).
     smoke boot.
   </description>
 </task_item>
+
+<task_item>
+  <id>FRONTEND-FESTIVAL-MINI-GAME-OVERLAY</id>
+  <status>DONE</status>
+  <description>
+    New scenes/ui/FestivalMiniGameOverlay.tscn + scripts/ui/festival_mini_game_overlay.gd
+    against FestivalManager.submit_mini_game_result() -- the last
+    genuinely buildable gap in #52 besides Settings (blocked, no backend
+    system exists). FestivalManager's own docstring declines to build a
+    concrete mini-game (no input/skill-check design exists anywhere in
+    the design doc), same boundary FishingManager draws for
+    attempt_catch(); this is that placeholder implementation, not left
+    unbuilt: three fixed-score difficulty buttons (Poor/Good/Great
+    Effort) stand in for a real timing/skill-check input with no design
+    or precedent to build from. Unlike every pause-menu overlay this
+    squad has built, this one auto-shows on festival_started (wired in
+    main_controller.gd, not PauseMenu) since a festival is the point of
+    the day, not an optional menu. Continue calls end_festival() (no
+    auto-end exists) and closes. PR: gritui/story-of-country-side#76
+    (base: claude/farming-game-pm-requirements-w9ugtk). 888/888 tests
+    pass against the real Godot 4.3 engine headless (14 new, after
+    merging in concurrent Backend PR #75's AudioManager), clean smoke
+    boot against the real Main.tscn flow. Self-merged per standing
+    authorization.
+
+    Remaining per #52: Settings full-screen overlay (blocked, no backend
+    system exists) and the Fishing mini-game (same design-open situation
+    Festivals was in).
+  </description>
+</task_item>

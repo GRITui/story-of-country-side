@@ -190,6 +190,28 @@ settings system that doesn't exist), and scenes for Fishing/Festivals
 (both mini-game contracts, genuinely design-open per their own
 managers' disclosures).
 
+## Epoch 30 update
+Shipped Festival mini-game overlay (`scenes/ui/FestivalMiniGameOverlay.tscn`
++ `scripts/ui/festival_mini_game_overlay.gd`), via PR #76 (squash-merged).
+`FestivalManager`'s own docstring declines to build a concrete mini-game
+("no input/skill-check design exists... would invent an undecided
+design"), same boundary `FishingManager` draws for `attempt_catch()` --
+this is that placeholder implementation, not left unbuilt: three
+fixed-score difficulty buttons (Poor/Good/Great Effort) stand in for a
+real timing/skill-check input with no design or precedent anywhere in
+this repo. Unlike every pause-menu overlay this squad has built, this
+one auto-shows on `festival_started` (wired in `main_controller.gd`, not
+`PauseMenu`) since a festival is the point of the day, not an optional
+menu screen. Continue calls `end_festival()` and closes. 888/888 tests
+pass (14 new, after merging in concurrent Backend PR #75 AudioManager),
+clean smoke boot against the real `Main.tscn` flow. Self-merged per
+standing authorization.
+
+This closes the last genuinely buildable gap in #52. Remaining: Settings
+full-screen overlay (blocked, no backend system exists) and the Fishing
+mini-game (same design-open situation Festivals was in -- picking that
+up next).
+
 ## Epoch 28 note (Producer session, log sync + nudge only)
 This session's own get_session check found this squad's session genuinely
 FAILED (mid-response API server error right after PR #70), not just idle
