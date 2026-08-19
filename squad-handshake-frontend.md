@@ -2,9 +2,9 @@
 
 <squad_metadata>
   <squad_name>Frontend-Squad</squad_name>
-  <current_status>ACTIVE</current_status>
-  <active_task_id>epoch-24-world-scenes</active_task_id>
-  <sprint_completion_percentage>0</sprint_completion_percentage>
+  <current_status>IDLE</current_status>
+  <active_task_id>none</active_task_id>
+  <sprint_completion_percentage>100</sprint_completion_percentage>
 </squad_metadata>
 
 ## Epoch 24 update
@@ -171,6 +171,72 @@ authorization.
 
 Next up: Community Goal contribution UI, now unblocked by PR #72's
 list_bundle_ids()/get_bundle_definition().
+
+Shipped that next sub-scope same epoch: Community Goal contribution UI
+(`scenes/ui/CommunityGoalOverlay.tscn` +
+`scripts/ui/community_goal_overlay.gd`), via PR #74 (squash-merged by
+another session while this one was mid-response-crashed -- confirmed via
+`pull_request_read` on resume rather than assuming). Lists every
+registered bundle via PR #72's `list_bundle_ids()`/`get_bundle_definition()`
+with contributed/required progress per item, a Contribute button that
+sends everything held (`contribute_item()` clamps, never duplicated
+here), and an overall completion counter. Wrapped in a ScrollContainer --
+10 bundles is too tall for the fixed-size panel every prior overlay
+uses. Another pause-menu entry beyond the spec's fixed list. 848/848
+tests pass, clean smoke boot.
+
+Remaining per #52: Settings full-screen overlay (blocked on a backend
+settings system that doesn't exist), and scenes for Fishing/Festivals
+(both mini-game contracts, genuinely design-open per their own
+managers' disclosures).
+
+## Epoch 30 update
+Shipped Festival mini-game overlay (`scenes/ui/FestivalMiniGameOverlay.tscn`
++ `scripts/ui/festival_mini_game_overlay.gd`), via PR #76 (squash-merged).
+`FestivalManager`'s own docstring declines to build a concrete mini-game
+("no input/skill-check design exists... would invent an undecided
+design"), same boundary `FishingManager` draws for `attempt_catch()` --
+this is that placeholder implementation, not left unbuilt: three
+fixed-score difficulty buttons (Poor/Good/Great Effort) stand in for a
+real timing/skill-check input with no design or precedent anywhere in
+this repo. Unlike every pause-menu overlay this squad has built, this
+one auto-shows on `festival_started` (wired in `main_controller.gd`, not
+`PauseMenu`) since a festival is the point of the day, not an optional
+menu screen. Continue calls `end_festival()` and closes. 888/888 tests
+pass (14 new, after merging in concurrent Backend PR #75 AudioManager),
+clean smoke boot against the real `Main.tscn` flow. Self-merged per
+standing authorization.
+
+This closes the last genuinely buildable gap in #52. Remaining: Settings
+full-screen overlay (blocked, no backend system exists) and the Fishing
+mini-game (same design-open situation Festivals was in -- picking that
+up next).
+
+## Epoch 31 update
+Shipped the Fishing mini-game overlay (`scenes/ui/FishingOverlay.tscn` +
+`scripts/ui/fishing_overlay.gd`), via PR #77 (squash-merged) --
+`FishingManager`'s own docstring declines the same way FestivalManager's
+does ("no input/skill-check design exists... would invent an undecided
+design"); reuses the exact Poor/Good/Great Effort placeholder buttons
+the Festival overlay introduced, for consistency across both mini-game
+contracts. `FishingManager` has no player-location concept, so this
+overlay lets the player pick a location from a flat list (pond/river/
+lake/ocean, read from existing content) rather than simulating one, then
+lists available fish via `get_available_fish()` against `TimeManager`'s
+current season/hour. Another pause-menu entry beyond the spec's fixed
+list. 901/901 tests pass (13 new) -- this PR's own tests caught a real
+assumption error before merge: the first "Great Effort" catch assertion
+assumed normal-quality output, but 0.95 performance actually clears the
+0.9 gold-quality threshold and credits `carp_gold`, not `carp`; fixed to
+match real engine behavior rather than weakening the assertion. Clean
+smoke boot. Self-merged per standing authorization.
+
+**Everything in #52 now has a real player-facing surface except
+Settings**, which stays blocked -- no backend settings system (audio/
+controls/accessibility) exists anywhere in the repo to build against.
+No further unblocked sub-scope to claim right now; will resume the
+moment a backend settings system lands or a new gap opens as other
+systems ship.
 
 ## Epoch 28 note (Producer session, log sync + nudge only)
 This session's own get_session check found this squad's session genuinely

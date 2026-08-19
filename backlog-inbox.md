@@ -1356,6 +1356,70 @@ either, so the remote branches remain as harmless merged-and-stale refs).
      note -- that squad still owns writing its own epoch entries once it
      resumes. -->
 
+<!-- Epoch 1 (this session, Audio-Squad -- new lane, Composer/Sound
+     Designer role under the "Country Side Crew" org chart, peer branch to
+     Art Director). Confirmed via grep before starting: zero audio anywhere
+     in the repo -- no music, no SFX, no AudioStreamPlayer usage. This
+     squad has no audio-synthesis or music-composition tool available in
+     this environment, so nothing shipped here is real composed music or
+     designed SFX -- see squad-handshake-audio.md and this task's own
+     description for the honesty flag, and a separate note going to the
+     Studio Head about whether this project needs a real
+     composer/sound-designer or licensed audio pack instead of procedural
+     placeholders long-term. -->
+
+<task_item>
+  <id>AUDIO-MANAGER-INTEGRATION</id>
+  <status>DONE</status>
+  <description>
+    New autoload AudioManager (scripts/autoload/audio_manager.gd),
+    registered in project.godot's [autoload] block after WeatherManager
+    and before SaveManager, matching this repo's established convention.
+    Small public API (play_sfx(sfx_id)/play_music(track_id)/stop_music()/
+    get_current_music()/is_sfx_registered()/is_music_registered()) plus
+    sfx_played/music_changed/music_stopped signals for observability --
+    same "signals + read-only getters" contract every other autoload
+    follows. All "sound" is procedurally generated via
+    AudioStreamGenerator/AudioStreamGeneratorPlayback: one-shot sine tones
+    for SFX (pushed in full up front), a continuously-topped-up sine drone
+    for the one registered "ambient" music loop (topped up every _process
+    tick since a generator buffer is finite) -- crude, audibly a beep/
+    chime/drone, explicitly not real composed music or designed SFX (no
+    synthesis/composition tool exists in this environment). Wired four of
+    the most obviously audio-worthy existing signals directly in
+    AudioManager's own _ready(), same "backend-adjacent autoload connects
+    to another autoload's public signal" pattern InfrastructureManager
+    already uses for TimeManager.day_started: ShippingBinManager.
+    payout_processed -> "coin", FarmPlotManager.crop_harvested ->
+    "harvest", RelationshipManager.heart_event_triggered -> "heart",
+    MarriageManager.married -> "wedding". Read-only via public signals
+    only, per SQUAD-SPLIT.md's Backend contract -- no private field access
+    on any other manager. No SaveManager integration -- AudioManager holds
+    no state worth persisting (current music resets fine on load/boot,
+    same as it does on first boot). 838/838 tests pass (23 new) against
+    the real Godot 4.3 engine headless -- new tests verify registration,
+    play_sfx/play_music/stop_music return values and signal firing
+    (including the same-track/already-stopped no-op cases), and that each
+    of the four real manager signals actually triggers the right sfx via
+    a direct .emit() call, same convention test_runner.gd already uses to
+    test HUD signal reactions (e.g. ShippingBinManager.gold_changed.emit()
+    at line ~1925) -- headless has no real audio output device, so these
+    check logic/wiring, not actual sound, as noted in both files' new
+    docstrings. Clean smoke boot (--quit-after 60), no AudioServer errors.
+    Not tied to an existing GitHub issue (#52/#53/#1 are Frontend/Content/
+    process, none audio) -- noted as such in the PR description rather
+    than forcing a link that doesn't exist. Self-merged per standing
+    authorization.
+
+    Cross-Squad Request: none blocking -- all four signals hooked into
+    were already public. Flagged to the Studio Head separately (not
+    decided unilaterally): whether this project should invest in a real
+    composer/sound designer or a licensed SFX/music library, since
+    procedural placeholder tones are a real, durable gap for a game this
+    close to shippable elsewhere.
+  </description>
+</task_item>
+
 <!-- Epoch 29 (Frontend-Squad session, resumed after the Producer's
      epoch 28 nudge -- confirmed the crash, verified PR #71/#72 for real
      via git log before acting on the nudge's claims). -->
@@ -1384,5 +1448,148 @@ either, so the remote branches remain as harmless merged-and-stale refs).
     backend system), scenes for Fishing/Festivals (mini-game contracts,
     design-open), and Community Goal contribution UI (now unblocked by
     PR #72, next up).
+  </description>
+</task_item>
+
+<task_item>
+  <id>FRONTEND-COMMUNITY-GOAL-OVERLAY</id>
+  <status>DONE</status>
+  <description>
+    New scenes/ui/CommunityGoalOverlay.tscn + scripts/ui/community_goal_overlay.gd
+    against CommunityGoalManager, unblocked by PR #72's list_bundle_ids()/
+    get_bundle_definition() -- hardcoding all 10 bundles' content was
+    considered and rejected, since bundle composition is exactly what
+    Content-Squad actively retunes, unlike the small stable lists other
+    overlays hardcode. Lists every bundle with contributed/required
+    progress per item, a Contribute button that sends everything held
+    (contribute_item() clamps, never duplicated here), and an overall
+    "Bundles completed: X/Y" counter. Wrapped in a ScrollContainer.
+    Another pause-menu entry beyond menu-hud-flow-spec.md's fixed list.
+    PR: gritui/story-of-country-side#74 (base:
+    claude/farming-game-pm-requirements-w9ugtk, merged by another
+    session while this one was mid-response-crashed, confirmed on resume
+    via pull_request_read rather than assumed). 848/848 tests pass
+    against the real Godot 4.3 engine headless, clean smoke boot.
+
+    Remaining per #52: Settings full-screen overlay (blocked on a
+    backend system that doesn't exist), and scenes for Fishing/Festivals
+    (both mini-game contracts, genuinely design-open per their own
+    managers' disclosures).
+  </description>
+</task_item>
+
+<!-- Epoch 30 (Producer session). Step 0: still just #52/#53/#1 open,
+     nothing new. Both PR #74 (Frontend, Community Goal contribution UI)
+     and PR #75 (new Audio-Squad, AudioManager autoload) were sitting
+     open+tested but unmerged -- both originating sessions hit their
+     5-hour rate limit right after opening them (confirmed via
+     get_session, not assumed). Downloaded Godot 4.3-stable headless into
+     this session's scratchpad (not preinstalled here) to verify both
+     independently rather than trust the PR descriptions blind. -->
+
+<task_item>
+  <id>PM-EPOCH-30-MERGE-PR74</id>
+  <status>DONE</status>
+  <description>
+    Verified PR #74 (Frontend: Community Goal contribution UI) independently
+    against the real Godot 4.3 engine headless in a worktree: 848/848 tests
+    pass, clean smoke boot -- matches the PR's own claim exactly. Squash-
+    merged. Directly against tracked issue #52 scope, routine unblocking
+    work per this session's Producer lane.
+  </description>
+</task_item>
+
+<task_item>
+  <id>PM-EPOCH-30-MERGE-PR75-AUDIOMANAGER</id>
+  <status>DONE</status>
+  <description>
+    New scope from a new "Audio-Squad" session (spawned directly under
+    Studio Head, per its parent_session_id) -- not implied by #52/#53/#1,
+    but not this session's scope invention either: Audio-Squad already
+    escalated the real underlying question (does this project need a real
+    composer/licensed SFX library) to the Studio Head separately per its
+    own squad-handshake-audio.md, and its PR was already tested/complete,
+    just blocked on the same rate-limit as PR #74. Treated as unblocking,
+    not proposing.
+
+    Verified independently against the real Godot 4.3 engine headless:
+    850/850 tests passed but `--verbose` revealed a real leaked
+    `AudioStreamGeneratorPlayback` at exit (ObjectDB warning). Traced it to
+    `_start_music_loop()`/`_start_one_shot_tone()` reassigning the player's
+    stream and calling `play()` again without stopping any still-playing
+    prior stream first -- a genuine cumulative leak risk over a long
+    session of repeated track switches/rapid SFX re-triggers, not just
+    test noise. Fixed directly (stop the player before starting a new
+    stream, both paths) -- small, well-scoped Backend/Engineer fix, this
+    session's own standing authorization to do such work directly.
+    Re-verified after the fix: still 850/850 (then 874/874 once merged
+    with PR #74's tests), clean smoke boot. Resolved one real merge
+    conflict against the moving base branch (tests/test_runner.gd, both
+    sides appending new member vars -- kept both). Squash-merged.
+
+    Final combined state on claude/farming-game-pm-requirements-w9ugtk
+    re-verified once more after both merges: 874/874 tests pass, clean
+    smoke boot.
+  </description>
+</task_item>
+
+<task_item>
+  <id>FRONTEND-FESTIVAL-MINI-GAME-OVERLAY</id>
+  <status>DONE</status>
+  <description>
+    New scenes/ui/FestivalMiniGameOverlay.tscn + scripts/ui/festival_mini_game_overlay.gd
+    against FestivalManager.submit_mini_game_result() -- the last
+    genuinely buildable gap in #52 besides Settings (blocked, no backend
+    system exists). FestivalManager's own docstring declines to build a
+    concrete mini-game (no input/skill-check design exists anywhere in
+    the design doc), same boundary FishingManager draws for
+    attempt_catch(); this is that placeholder implementation, not left
+    unbuilt: three fixed-score difficulty buttons (Poor/Good/Great
+    Effort) stand in for a real timing/skill-check input with no design
+    or precedent to build from. Unlike every pause-menu overlay this
+    squad has built, this one auto-shows on festival_started (wired in
+    main_controller.gd, not PauseMenu) since a festival is the point of
+    the day, not an optional menu. Continue calls end_festival() (no
+    auto-end exists) and closes. PR: gritui/story-of-country-side#76
+    (base: claude/farming-game-pm-requirements-w9ugtk). 888/888 tests
+    pass against the real Godot 4.3 engine headless (14 new, after
+    merging in concurrent Backend PR #75's AudioManager), clean smoke
+    boot against the real Main.tscn flow. Self-merged per standing
+    authorization.
+
+    Remaining per #52: Settings full-screen overlay (blocked, no backend
+    system exists) and the Fishing mini-game (same design-open situation
+    Festivals was in).
+  </description>
+</task_item>
+
+<task_item>
+  <id>FRONTEND-FISHING-OVERLAY</id>
+  <status>DONE</status>
+  <description>
+    New scenes/ui/FishingOverlay.tscn + scripts/ui/fishing_overlay.gd
+    against FishingManager.attempt_catch() -- the last genuinely
+    buildable gap in #52. FishingManager's own docstring declines to
+    build a concrete mini-game, same boundary FestivalManager draws;
+    this reuses the exact Poor/Good/Great Effort placeholder buttons the
+    Festival overlay (PR #76) introduced. FishingManager has no
+    player-location concept, so this overlay lets the player pick a
+    location from a flat list (pond/river/lake/ocean, read from existing
+    content) rather than simulating one, then lists available fish via
+    get_available_fish() against TimeManager's current season/hour.
+    Another pause-menu entry beyond menu-hud-flow-spec.md's fixed list.
+    PR: gritui/story-of-country-side#77 (base:
+    claude/farming-game-pm-requirements-w9ugtk). 901/901 tests pass
+    against the real Godot 4.3 engine headless (13 new -- caught a real
+    assumption error before merge: a "Great Effort" catch assertion
+    assumed normal-quality output, but 0.95 performance actually clears
+    the 0.9 gold-quality threshold and credits carp_gold, not carp;
+    fixed to match real engine behavior), clean smoke boot. Self-merged
+    per standing authorization.
+
+    Everything in #52 now has a real player-facing surface except
+    Settings, which stays blocked -- no backend settings system exists
+    anywhere in the repo to build against. Frontend-Squad has no further
+    unblocked sub-scope to claim right now.
   </description>
 </task_item>
