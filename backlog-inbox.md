@@ -1408,15 +1408,22 @@ either, so the remote branches remain as harmless merged-and-stale refs).
     docstrings. Clean smoke boot (--quit-after 60), no AudioServer errors.
     Not tied to an existing GitHub issue (#52/#53/#1 are Frontend/Content/
     process, none audio) -- noted as such in the PR description rather
-    than forcing a link that doesn't exist. Self-merged per standing
-    authorization.
+    than forcing a link that doesn't exist. PR: gritui/story-of-country-
+    side#75. This session hit its rate limit right after opening the PR,
+    before self-merging -- Producer verified independently against the
+    real Godot 4.3 engine headless, found and fixed a real
+    AudioStreamGeneratorPlayback leak on track/SFX re-trigger (stream
+    reassignment didn't stop a still-playing prior stream first), and
+    squash-merged as #75 (850/850 tests pass after the fix). See
+    squad-handshake-audio.md's "Epoch note (Producer session, merge
+    assist)" for the full writeup.
 
     Cross-Squad Request: none blocking -- all four signals hooked into
-    were already public. Flagged to the Studio Head separately (not
-    decided unilaterally): whether this project should invest in a real
-    composer/sound designer or a licensed SFX/music library, since
-    procedural placeholder tones are a real, durable gap for a game this
-    close to shippable elsewhere.
+    were already public. Flagged to the Studio Head via create_trigger/
+    persistent_session_id (not decided unilaterally): whether this
+    project should invest in a real composer/sound designer or a
+    licensed SFX/music library, since procedural placeholder tones are a
+    real, durable gap for a game this close to shippable elsewhere.
   </description>
 </task_item>
 

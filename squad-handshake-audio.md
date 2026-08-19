@@ -58,9 +58,9 @@ contract — no private-field access on any other manager. No `SaveManager`
 integration: `AudioManager` holds no state worth persisting (current
 music track resets cleanly on load/boot, same as first boot).
 
-PR: gritui/story-of-country-side (branch `feature/audio-manager`, base
-`claude/farming-game-pm-requirements-w9ugtk`). 838/838 tests pass (23
-new) against the real Godot 4.3 engine headless — new tests verify
+PR: gritui/story-of-country-side#75 (branch `feature/audio-manager`,
+base `claude/farming-game-pm-requirements-w9ugtk`). 838/838 tests pass
+(23 new) against the real Godot 4.3 engine headless — new tests verify
 registration, `play_sfx`/`play_music`/`stop_music` return values and
 signal firing (including the same-track-twice and already-stopped no-op
 cases), and that each of the four real manager signals actually triggers
@@ -69,10 +69,12 @@ the right sfx via a direct `.emit()` call in the test, same convention
 (e.g. `ShippingBinManager.gold_changed.emit()` around line 1925 for HUD
 tests). Headless has no real audio output device, so these tests verify
 logic/wiring, not actual sound — called out in both files' docstrings.
-Clean smoke boot (`--quit-after 60`), no `AudioServer` errors. Self-merged
-per standing authorization. Not tied to an existing GitHub issue
-(#52/#53/#1 are Frontend/Content/process, none audio) — noted in the PR
-description rather than forcing a link that doesn't exist.
+Clean smoke boot (`--quit-after 60`), no `AudioServer` errors. Not tied
+to an existing GitHub issue (#52/#53/#1 are Frontend/Content/process,
+none audio) — noted in the PR description rather than forcing a link
+that doesn't exist. Merge itself: see the Producer's note right below —
+this session hit its rate limit right after opening the PR, so it
+didn't self-merge this round.
 
 ## Epoch note (Producer session, merge assist)
 This squad's session hit its 5-hour rate limit right after opening PR
@@ -101,9 +103,10 @@ public before this PR.
 ## Escalation raised separately (not decided unilaterally)
 
 Sent to the Studio Head (`session_01B5vPtzVbyrN4Xw86RSmBD6`) via
-`create_trigger`/`persistent_session_id`: whether this project should
-invest in a real composer/sound designer or a licensed SFX/music library
-rather than continuing on procedural placeholder tones. This is a genuine
+`create_trigger`/`persistent_session_id` (`trig_01SmE36gWWmYhv4WUrmQHW2D`,
+fired 2026-08-19T07:21Z): whether this project should invest in a real
+composer/sound designer or a licensed SFX/music library rather than
+continuing on procedural placeholder tones. This is a genuine
 scope/budget question, not something this squad can settle by building
 more procedural content — flagging once and moving on rather than
 re-raising it every epoch unless something changes.
