@@ -29,18 +29,23 @@ class_name RanchScene
 ## scene parses the position back out of that same "pen_<x>_<y>" id it
 ## chose in the first place (see _position_for_animal_id below).
 ##
-## PLACEHOLDER VISUALS (Decision E / #6 still unresolved, same blocker every
-## prior frontend scene has documented): solid-color tiles baked into a
-## runtime-generated TileSet atlas, one color per pen state:
+## VISUALS (Decision E / #6 still unresolved, same blocker every prior
+## frontend scene has documented; no image-generation tool exists in this
+## environment either, see squad-handshake-art.md): Art Squad replaced
+## this scene's flat-color placeholder tileset with a procedurally-
+## generated one (ProceduralTileArt.build_isometric_tileset, in
+## scripts/world/procedural_tile_art.gd) -- real alpha-masked isometric
+## diamonds with directional shading, an edge outline, and speckle-grain
+## texture, still one base color per pen state:
 ##   empty              -> bare pen dirt   (Color(0.42, 0.34, 0.24))
 ##   occupied, not fed  -> neutral hay     (Color(0.62, 0.55, 0.32))
 ##   occupied, fed      -> content green   (Color(0.35, 0.58, 0.30))
 ##   product ready      -> bright gold     (Color(0.86, 0.71, 0.18))
 ## Species and happiness-tier detail (silver/gold quality) have no visual
-## representation yet -- out of scope for a placeholder tileset with no art
-## asset behind it. A later UX-UI visual pass should replace
-## _build_placeholder_tileset with real tile/animal art without needing to
-## touch the signal-binding logic below.
+## representation yet -- out of scope for a tileset with no illustrated
+## art asset behind it. A later pass with real art (human artist or an
+## image-gen pipeline) should replace _build_tileset with real tile/animal
+## art without needing to touch the signal-binding logic below.
 ##
 ## Rendering model: fully reactive, no polling. _ready() does one pass over
 ## every (x, y) in the grid, deriving that pen's animal_id and calling
@@ -83,7 +88,7 @@ const ATLAS_SOURCE_ID := 0
 @onready var _tilemap: TileMap = $TileMap
 
 func _ready() -> void:
-	_build_placeholder_tileset()
+	_build_tileset()
 	_render_all_pens()
 
 	AnimalManager.animal_added.connect(_on_animal_added)
@@ -91,29 +96,10 @@ func _ready() -> void:
 	AnimalManager.animal_brushed.connect(_on_animal_changed)
 	AnimalManager.product_collected.connect(_on_product_collected)
 
-## Same runtime-generated-atlas approach as FarmScene._build_placeholder_tileset
-## -- see class docstring for why there's no art asset to load instead.
-func _build_placeholder_tileset() -> void:
-	var state_count := STATE_COLORS.size()
-	var image := Image.create(TILE_WIDTH * state_count, TILE_HEIGHT, false, Image.FORMAT_RGBA8)
-	for state in range(state_count):
-		var color: Color = STATE_COLORS[state]
-		image.fill_rect(Rect2i(state * TILE_WIDTH, 0, TILE_WIDTH, TILE_HEIGHT), color)
-	var texture := ImageTexture.create_from_image(image)
-
-	var tile_set := TileSet.new()
-	tile_set.tile_shape = TileSet.TILE_SHAPE_ISOMETRIC
-	tile_set.tile_layout = TileSet.TILE_LAYOUT_DIAMOND_DOWN
-	tile_set.tile_size = Vector2i(TILE_WIDTH, TILE_HEIGHT)
-
-	var atlas_source := TileSetAtlasSource.new()
-	atlas_source.texture = texture
-	atlas_source.texture_region_size = Vector2i(TILE_WIDTH, TILE_HEIGHT)
-	for state in range(state_count):
-		atlas_source.create_tile(Vector2i(state, 0))
-	tile_set.add_source(atlas_source, ATLAS_SOURCE_ID)
-
-	_tilemap.tile_set = tile_set
+## Same shared ProceduralTileArt approach as FarmScene._build_tileset --
+## see class docstring for why there's no art asset to load instead.
+func _build_tileset() -> void:
+	_tilemap.tile_set = ProceduralTileArt.build_isometric_tileset(STATE_COLORS, TILE_WIDTH, TILE_HEIGHT, ATLAS_SOURCE_ID)
 
 func _render_all_pens() -> void:
 	for x in range(GRID_WIDTH):
