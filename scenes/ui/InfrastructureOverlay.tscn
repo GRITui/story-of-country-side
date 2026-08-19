@@ -75,3 +75,13 @@ text = "Upgrade Coop"
 layout_mode = 2
 size_flags_vertical = 3
 theme_override_constants/separation = 4
+
+[node name="AutomationLabel" type="Label" parent="Root/Panel/Margin/VBox"]
+layout_mode = 2
+text = "Automation Devices"
+theme_override_font_sizes/font_size = 18
+
+[node name="AutomationList" type="VBoxContainer" parent="Root/Panel/Margin/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 4
