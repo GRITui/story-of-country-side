@@ -155,3 +155,27 @@ spawns/redirects squad sessions as gaps appear. PM does not own a
 directory the way Backend/Frontend/Content do — PM's job is coordination
 and unblocking, stepping into hands-on work (any lane) only when nothing
 else is picking it up.
+
+### Studio Head / Producer split (added once the "Country Side Crew" org
+### chart — https://claude.ai/code/artifact/3c80a276-f140-494a-a509-bd9c836ee06a
+### — was designed and the squads below were already running)
+
+Two layers now sit above the squads instead of one:
+
+- **Studio Head**: greenlight/scope authority. Does not run the recurring
+  epoch loop. Validates genuinely new ideas/features/directions before
+  they're allowed into `backlog-inbox.md` — a Producer or squad session
+  proposing new scope pings the Studio Head session directly (via
+  `create_trigger`/`persistent_session_id`) rather than adding it
+  themselves.
+- **Producer**: "owns the coordination process — claims, sequencing,
+  phase gates" (issue #1). Runs the same ai-engineering-loop epoch/standup
+  cadence the PM role used to run directly, and still does hands-on
+  Backend/Engineer work when nothing else is picking it up (same as PM
+  always did). The Producer's own routine execution against
+  already-open issues/epics doesn't need Studio Head sign-off — only
+  scope that isn't implied by anything currently open does.
+
+Squads (Backend/Frontend/Content/QA) report to the Producer exactly as
+they did to PM before; nothing about SQUAD-SPLIT.md's lane ownership or
+contract rules below changed.
