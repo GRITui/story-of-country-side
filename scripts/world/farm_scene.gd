@@ -18,19 +18,23 @@ class_name FarmScene
 ## design-doc number -- there isn't one -- so this is this PR's own content
 ## placeholder, documented as such per SQUAD-SPLIT.md's content-gap norm.
 ##
-## PLACEHOLDER VISUALS (Decision E / #6 is still unresolved -- no tile art
-## exists anywhere in the repo, same blocker every prior frontend PR #46/#54
-## hit and documented the same way): every tile is a solid-color rectangle
-## baked into a runtime-generated TileSet atlas texture (see
-## _build_placeholder_tileset below), one color per FarmPlot state:
+## VISUALS (Decision E / #6 is still unresolved -- no illustrated tile art
+## exists anywhere in the repo, and no image-generation tool exists in this
+## environment; see squad-handshake-art.md): Art Squad replaced this
+## scene's flat-color placeholder tileset with a procedurally-generated
+## one (ProceduralTileArt.build_isometric_tileset, in
+## scripts/world/procedural_tile_art.gd) -- real alpha-masked isometric
+## diamonds with directional shading, an edge outline, and speckle-grain
+## texture, still one base color per FarmPlot state:
 ##   empty        -> bare dirt brown   (Color(0.45, 0.36, 0.22))
 ##   planted      -> seedling green    (Color(0.31, 0.55, 0.25))
 ##   watered      -> darker wet green  (Color(0.16, 0.35, 0.32))
 ##   harvest_ready-> bright gold       (Color(0.86, 0.71, 0.18))
 ##   withered     -> ash gray          (Color(0.35, 0.32, 0.30))
 ## No crop-specific sprites, no growth-stage variants -- state alone drives
-## color. A later UX-UI visual pass should replace _build_placeholder_tileset
-## with real tile art without needing to touch the signal-binding logic below.
+## color. A later pass with real illustrated art (human artist or an
+## image-gen pipeline) should replace _build_tileset with real tile art
+## without needing to touch the signal-binding logic below.
 ##
 ## Rendering model: fully reactive, no polling. _ready() does one pass over
 ## every (x, y) in the grid calling FarmPlotManager.get_plot(position) --
@@ -77,7 +81,7 @@ const ATLAS_SOURCE_ID := 0
 @onready var _tilemap: TileMap = $TileMap
 
 func _ready() -> void:
-	_build_placeholder_tileset()
+	_build_tileset()
 	_render_all_plots()
 
 	FarmPlotManager.crop_planted.connect(_on_crop_planted)
@@ -85,32 +89,13 @@ func _ready() -> void:
 	FarmPlotManager.crop_harvested.connect(_on_crop_harvested)
 	FarmPlotManager.crop_withered.connect(_on_crop_withered)
 
-## Builds one small TileSet at runtime: a single atlas texture containing
-## five solid-color 64x32 tiles (one per STATE_* above), procedurally drawn
-## with Image.fill_rect rather than loaded from a file -- there is no art
-## asset to load (see class docstring). tile_shape/tile_layout/tile_size
-## match design/art/isometric-grid-spec.md sections 1-2 exactly.
-func _build_placeholder_tileset() -> void:
-	var state_count := STATE_COLORS.size()
-	var image := Image.create(TILE_WIDTH * state_count, TILE_HEIGHT, false, Image.FORMAT_RGBA8)
-	for state in range(state_count):
-		var color: Color = STATE_COLORS[state]
-		image.fill_rect(Rect2i(state * TILE_WIDTH, 0, TILE_WIDTH, TILE_HEIGHT), color)
-	var texture := ImageTexture.create_from_image(image)
-
-	var tile_set := TileSet.new()
-	tile_set.tile_shape = TileSet.TILE_SHAPE_ISOMETRIC
-	tile_set.tile_layout = TileSet.TILE_LAYOUT_DIAMOND_DOWN
-	tile_set.tile_size = Vector2i(TILE_WIDTH, TILE_HEIGHT)
-
-	var atlas_source := TileSetAtlasSource.new()
-	atlas_source.texture = texture
-	atlas_source.texture_region_size = Vector2i(TILE_WIDTH, TILE_HEIGHT)
-	for state in range(state_count):
-		atlas_source.create_tile(Vector2i(state, 0))
-	tile_set.add_source(atlas_source, ATLAS_SOURCE_ID)
-
-	_tilemap.tile_set = tile_set
+## Builds one TileSet at runtime via ProceduralTileArt -- see class
+## docstring and scripts/world/procedural_tile_art.gd for why there's no
+## art asset to load instead. tile_shape/tile_layout/tile_size match
+## design/art/isometric-grid-spec.md sections 1-2 exactly (enforced inside
+## the shared generator).
+func _build_tileset() -> void:
+	_tilemap.tile_set = ProceduralTileArt.build_isometric_tileset(STATE_COLORS, TILE_WIDTH, TILE_HEIGHT, ATLAS_SOURCE_ID)
 
 func _render_all_plots() -> void:
 	for x in range(GRID_WIDTH):

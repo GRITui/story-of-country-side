@@ -361,6 +361,14 @@ func _ready() -> void:
 	_test_heart_event_triggered_triggers_heart_sfx()
 	_test_married_triggers_wedding_sfx()
 
+	_test_procedural_tile_art_shape_matches_iso_grid_spec()
+	_test_procedural_tile_art_diamond_corners_are_transparent()
+	_test_procedural_tile_art_atlas_tiles_use_distinct_base_colors()
+	_test_procedural_tile_art_is_deterministic_across_calls()
+	_test_procedural_tile_art_orders_atlas_by_ascending_state_key_regardless_of_dict_order()
+	_test_npc_controller_has_visible_sprite_after_ready()
+	_test_npc_controller_sprite_tint_is_deterministic_per_name()
+
 	if _failures.is_empty():
 		print("ALL TESTS PASSED (%d checks)" % _pass_count)
 		get_tree().quit(0)
@@ -4537,3 +4545,133 @@ func _test_married_triggers_wedding_sfx() -> void:
 	_check(_sfx_played_events == ["wedding"],
 		"MarriageManager.married should trigger the 'wedding' sfx, got %s" % [_sfx_played_events])
 	AudioManager.sfx_played.disconnect(_on_sfx_played_for_test)
+
+## --- Art Squad: ProceduralTileArt (#52 adjacent sub-scope,
+## scripts/world/procedural_tile_art.gd) ---
+##
+## Covers the shared tileset generator's own guarantees -- shape/layout/
+## size match the isometric grid spec, each tile's corners are transparent
+## (so diamond-down rows don't occlude each other), atlas addressing stays
+## Vector2i(state, 0) regardless of dictionary insertion order (the exact
+## contract every world scene's own tests above already exercise via real
+## scene instantiation), and generation is deterministic (no per-run
+## randomness that would make a screenshot or a save flicker between
+## runs). Exact pixel shading/speckle can only be judged by looking at a
+## running scene, same disclosure every world scene's own docstring makes.
+
+func _sample_state_colors() -> Dictionary:
+	return {
+		0: Color(0.45, 0.36, 0.22),
+		1: Color(0.31, 0.55, 0.25),
+		2: Color(0.86, 0.71, 0.18),
+	}
+
+func _test_procedural_tile_art_shape_matches_iso_grid_spec() -> void:
+	var tile_set := ProceduralTileArt.build_isometric_tileset(_sample_state_colors(), 64, 32)
+	_check(tile_set.tile_shape == TileSet.TILE_SHAPE_ISOMETRIC,
+		"generated tileset should be TILE_SHAPE_ISOMETRIC per isometric-grid-spec.md")
+	_check(tile_set.tile_layout == TileSet.TILE_LAYOUT_DIAMOND_DOWN,
+		"generated tileset should be TILE_LAYOUT_DIAMOND_DOWN per isometric-grid-spec.md")
+	_check(tile_set.tile_size == Vector2i(64, 32),
+		"generated tileset tile_size should match the requested 64x32 footprint")
+
+func _test_procedural_tile_art_diamond_corners_are_transparent() -> void:
+	var tile_set := ProceduralTileArt.build_isometric_tileset(_sample_state_colors(), 64, 32, 0)
+	var source: TileSetAtlasSource = tile_set.get_source(0)
+	var image := source.texture.get_image()
+	_check(image.get_pixel(0, 0).a == 0.0, "a tile's top-left corner should be fully transparent (outside the diamond)")
+	_check(image.get_pixel(63, 0).a == 0.0, "a tile's top-right corner should be fully transparent (outside the diamond)")
+	_check(image.get_pixel(0, 31).a == 0.0, "a tile's bottom-left corner should be fully transparent (outside the diamond)")
+	_check(image.get_pixel(63, 31).a == 0.0, "a tile's bottom-right corner should be fully transparent (outside the diamond)")
+	_check(image.get_pixel(32, 16).a == 1.0, "a tile's center should be fully opaque (inside the diamond)")
+
+func _test_procedural_tile_art_atlas_tiles_use_distinct_base_colors() -> void:
+	var state_colors := _sample_state_colors()
+	var tile_set := ProceduralTileArt.build_isometric_tileset(state_colors, 64, 32, 0)
+	var source: TileSetAtlasSource = tile_set.get_source(0)
+	var image := source.texture.get_image()
+	for state in state_colors.keys():
+		var center := image.get_pixel(state * 64 + 32, 16)
+		var base: Color = state_colors[state]
+		_check(absf(center.r - base.r) < 0.15 and absf(center.g - base.g) < 0.15 and absf(center.b - base.b) < 0.15,
+			"state %d's center pixel should be a shaded/speckled variant of its own base_color, not another state's" % state)
+
+func _test_procedural_tile_art_is_deterministic_across_calls() -> void:
+	var state_colors := _sample_state_colors()
+	var tile_set_a := ProceduralTileArt.build_isometric_tileset(state_colors, 64, 32, 0)
+	var tile_set_b := ProceduralTileArt.build_isometric_tileset(state_colors, 64, 32, 0)
+	var image_a: Image = (tile_set_a.get_source(0) as TileSetAtlasSource).texture.get_image()
+	var image_b: Image = (tile_set_b.get_source(0) as TileSetAtlasSource).texture.get_image()
+	_check(image_a.get_pixel(40, 10) == image_b.get_pixel(40, 10),
+		"generating the same states twice should be pixel-identical (no per-run randomness)")
+
+func _test_procedural_tile_art_orders_atlas_by_ascending_state_key_regardless_of_dict_order() -> void:
+	var out_of_order_colors := {
+		2: Color(0.86, 0.71, 0.18),
+		0: Color(0.45, 0.36, 0.22),
+		1: Color(0.31, 0.55, 0.25),
+	}
+	var tile_set := ProceduralTileArt.build_isometric_tileset(out_of_order_colors, 64, 32, 0)
+	var source: TileSetAtlasSource = tile_set.get_source(0)
+	var image := source.texture.get_image()
+	var state0_center := image.get_pixel(32, 16)
+	var expected: Color = out_of_order_colors[0]
+	_check(absf(state0_center.r - expected.r) < 0.15 and absf(state0_center.g - expected.g) < 0.15 and absf(state0_center.b - expected.b) < 0.15,
+		"atlas index 0 (Vector2i(0, 0)) should always hold state key 0's color regardless of dictionary insertion order, since scenes address tiles by Vector2i(state, 0)")
+
+## --- Art Squad: NPCController placeholder sprite (#52 adjacent
+## sub-scope, scripts/npc/procedural_character_art.gd) ---
+##
+## NPCController had no visual representation at all before this -- a bare
+## Node2D, no Sprite2D anywhere in its tree, in this repo's history (and no
+## scene currently instantiates one, so this doesn't fix a visible bug
+## today, it closes the gap for when one does). These tests only cover
+## that a sprite now exists and is deterministic per npc_name; the
+## shape/shading itself is only meaningfully verifiable by looking at a
+## running scene.
+
+func _find_sprite_child(node: Node) -> Sprite2D:
+	for child in node.get_children():
+		if child is Sprite2D:
+			return child
+	return null
+
+func _test_npc_controller_has_visible_sprite_after_ready() -> void:
+	var npc := NPCController.new()
+	npc.npc_name = "Willow"
+	add_child(npc)
+
+	var sprite := _find_sprite_child(npc)
+	_check(sprite != null, "NPCController should have a Sprite2D child after _ready()")
+	_check(sprite != null and sprite.texture != null, "NPCController's sprite should have a texture assigned")
+	_check(sprite != null and not sprite.centered,
+		"sprite should be non-centered so its offset can anchor bottom-center per isometric-grid-spec.md section 4")
+
+	npc.queue_free()
+
+func _test_npc_controller_sprite_tint_is_deterministic_per_name() -> void:
+	var npc_a := NPCController.new()
+	npc_a.npc_name = "Willow"
+	add_child(npc_a)
+	var npc_b := NPCController.new()
+	npc_b.npc_name = "Willow"
+	add_child(npc_b)
+	var npc_c := NPCController.new()
+	npc_c.npc_name = "Otis"
+	add_child(npc_c)
+
+	var image_a := _find_sprite_child(npc_a).texture.get_image()
+	var image_b := _find_sprite_child(npc_b).texture.get_image()
+	var image_c := _find_sprite_child(npc_c).texture.get_image()
+
+	# Sample a pixel inside the body (bottom-center area, above the feet
+	# shadow) for comparison.
+	var sample_pos := Vector2i(image_a.get_width() / 2, image_a.get_height() - 6)
+	_check(image_a.get_pixel(sample_pos.x, sample_pos.y) == image_b.get_pixel(sample_pos.x, sample_pos.y),
+		"two NPCs with the same npc_name should render with the exact same tint")
+	_check(image_a.get_pixel(sample_pos.x, sample_pos.y) != image_c.get_pixel(sample_pos.x, sample_pos.y),
+		"NPCs with different npc_name should render with different tints")
+
+	npc_a.queue_free()
+	npc_b.queue_free()
+	npc_c.queue_free()

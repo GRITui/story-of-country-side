@@ -24,17 +24,22 @@ class_name MineScene
 ## rock_broken's own item_id payload), not a gap this scene works around:
 ## every rock tile renders identically regardless of what's inside it.
 ##
-## PLACEHOLDER VISUALS (Decision E / #6 still unresolved, same blocker
-## every prior frontend scene has documented): solid-color tiles baked
-## into a runtime-generated TileSet atlas, one color per tile state:
+## VISUALS (Decision E / #6 still unresolved, same blocker every prior
+## frontend scene has documented; no image-generation tool exists in this
+## environment either, see squad-handshake-art.md): Art Squad replaced
+## this scene's flat-color placeholder tileset with a procedurally-
+## generated one (ProceduralTileArt.build_isometric_tileset, in
+## scripts/world/procedural_tile_art.gd) -- real alpha-masked isometric
+## diamonds with directional shading, an edge outline, and speckle-grain
+## texture, still one base color per tile state:
 ##   rock (unbroken)  -> mine wall gray  (Color(0.38, 0.36, 0.34))
 ##   floor (broken)   -> cleared floor   (Color(0.20, 0.18, 0.16))
 ##   ladder           -> descent gold    (Color(0.70, 0.58, 0.22))
 ## No visual distinction between plain stone and ore-bearing rock (can't
 ## be, see above), no per-ore-type sprite variety once broken (the tile
-## just becomes floor). A later UX-UI visual pass should replace
-## _build_placeholder_tileset with real tile/prop art without needing to
-## touch the signal-binding logic below.
+## just becomes floor). A later pass with real art (human artist or an
+## image-gen pipeline) should replace _build_tileset with real tile/prop
+## art without needing to touch the signal-binding logic below.
 ##
 ## Rendering model: fully reactive, no polling. _ready() does one pass
 ## over every (x, y) in the current floor's grid calling
@@ -72,35 +77,16 @@ const ATLAS_SOURCE_ID := 0
 @onready var _tilemap: TileMap = $TileMap
 
 func _ready() -> void:
-	_build_placeholder_tileset()
+	_build_tileset()
 	_render_all_tiles()
 
 	MiningManager.rock_broken.connect(_on_rock_broken)
 	MiningManager.floor_descended.connect(_on_floor_descended)
 
-## Same runtime-generated-atlas approach as every prior world scene -- see
-## class docstring for why there's no art asset to load instead.
-func _build_placeholder_tileset() -> void:
-	var state_count := STATE_COLORS.size()
-	var image := Image.create(TILE_WIDTH * state_count, TILE_HEIGHT, false, Image.FORMAT_RGBA8)
-	for state in range(state_count):
-		var color: Color = STATE_COLORS[state]
-		image.fill_rect(Rect2i(state * TILE_WIDTH, 0, TILE_WIDTH, TILE_HEIGHT), color)
-	var texture := ImageTexture.create_from_image(image)
-
-	var tile_set := TileSet.new()
-	tile_set.tile_shape = TileSet.TILE_SHAPE_ISOMETRIC
-	tile_set.tile_layout = TileSet.TILE_LAYOUT_DIAMOND_DOWN
-	tile_set.tile_size = Vector2i(TILE_WIDTH, TILE_HEIGHT)
-
-	var atlas_source := TileSetAtlasSource.new()
-	atlas_source.texture = texture
-	atlas_source.texture_region_size = Vector2i(TILE_WIDTH, TILE_HEIGHT)
-	for state in range(state_count):
-		atlas_source.create_tile(Vector2i(state, 0))
-	tile_set.add_source(atlas_source, ATLAS_SOURCE_ID)
-
-	_tilemap.tile_set = tile_set
+## Same shared ProceduralTileArt approach as every prior world scene --
+## see class docstring for why there's no art asset to load instead.
+func _build_tileset() -> void:
+	_tilemap.tile_set = ProceduralTileArt.build_isometric_tileset(STATE_COLORS, TILE_WIDTH, TILE_HEIGHT, ATLAS_SOURCE_ID)
 
 func _render_all_tiles() -> void:
 	var floor_size := MiningManager.get_floor_size()

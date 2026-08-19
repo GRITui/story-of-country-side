@@ -25,17 +25,22 @@ class_name ForageScene
 ## a save load) and renders it, rather than assuming some other system
 ## seeds the grid.
 ##
-## PLACEHOLDER VISUALS (Decision E / #6 still unresolved, same blocker
-## every prior frontend scene has documented): solid-color tiles baked
-## into a runtime-generated TileSet atlas, one color per node state:
+## VISUALS (Decision E / #6 still unresolved, same blocker every prior
+## frontend scene has documented; no image-generation tool exists in this
+## environment either, see squad-handshake-art.md): Art Squad replaced
+## this scene's flat-color placeholder tileset with a procedurally-
+## generated one (ProceduralTileArt.build_isometric_tileset, in
+## scripts/world/procedural_tile_art.gd) -- real alpha-masked isometric
+## diamonds with directional shading, an edge outline, and speckle-grain
+## texture, still one base color per node state:
 ##   dormant (no season-valid item) -> bare forest floor (Color(0.30, 0.26, 0.18))
 ##   on cooldown (gathered recently) -> disturbed earth   (Color(0.40, 0.33, 0.22))
 ##   available to gather              -> lush undergrowth (Color(0.28, 0.50, 0.22))
 ## No per-forageable sprite variety (wild_berries vs. mushroom, etc.) --
-## out of scope for a placeholder tileset with no art asset behind it. A
-## later UX-UI visual pass should replace _build_placeholder_tileset with
-## real tile/prop art without needing to touch the signal-binding logic
-## below.
+## out of scope for a tileset with no illustrated art asset behind it. A
+## later pass with real art (human artist or an image-gen pipeline) should
+## replace _build_tileset with real tile/prop art without needing to touch
+## the signal-binding logic below.
 ##
 ## Rendering model: fully reactive, no polling. _ready() registers every
 ## grid position then reads back ForagingManager.get_forage_node() for its
@@ -70,35 +75,16 @@ const ATLAS_SOURCE_ID := 0
 @onready var _tilemap: TileMap = $TileMap
 
 func _ready() -> void:
-	_build_placeholder_tileset()
+	_build_tileset()
 	_populate_and_render_all_nodes()
 
 	ForagingManager.forage_gathered.connect(_on_forage_gathered)
 	ForagingManager.forage_node_rerolled.connect(_on_forage_node_rerolled)
 
-## Same runtime-generated-atlas approach as FarmScene/RanchScene -- see
+## Same shared ProceduralTileArt approach as FarmScene/RanchScene -- see
 ## class docstring for why there's no art asset to load instead.
-func _build_placeholder_tileset() -> void:
-	var state_count := STATE_COLORS.size()
-	var image := Image.create(TILE_WIDTH * state_count, TILE_HEIGHT, false, Image.FORMAT_RGBA8)
-	for state in range(state_count):
-		var color: Color = STATE_COLORS[state]
-		image.fill_rect(Rect2i(state * TILE_WIDTH, 0, TILE_WIDTH, TILE_HEIGHT), color)
-	var texture := ImageTexture.create_from_image(image)
-
-	var tile_set := TileSet.new()
-	tile_set.tile_shape = TileSet.TILE_SHAPE_ISOMETRIC
-	tile_set.tile_layout = TileSet.TILE_LAYOUT_DIAMOND_DOWN
-	tile_set.tile_size = Vector2i(TILE_WIDTH, TILE_HEIGHT)
-
-	var atlas_source := TileSetAtlasSource.new()
-	atlas_source.texture = texture
-	atlas_source.texture_region_size = Vector2i(TILE_WIDTH, TILE_HEIGHT)
-	for state in range(state_count):
-		atlas_source.create_tile(Vector2i(state, 0))
-	tile_set.add_source(atlas_source, ATLAS_SOURCE_ID)
-
-	_tilemap.tile_set = tile_set
+func _build_tileset() -> void:
+	_tilemap.tile_set = ProceduralTileArt.build_isometric_tileset(STATE_COLORS, TILE_WIDTH, TILE_HEIGHT, ATLAS_SOURCE_ID)
 
 func _populate_and_render_all_nodes() -> void:
 	for x in range(GRID_WIDTH):
