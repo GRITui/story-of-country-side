@@ -1419,3 +1419,34 @@ either, so the remote branches remain as harmless merged-and-stale refs).
     close to shippable elsewhere.
   </description>
 </task_item>
+
+<!-- Epoch 29 (Frontend-Squad session, resumed after the Producer's
+     epoch 28 nudge -- confirmed the crash, verified PR #71/#72 for real
+     via git log before acting on the nudge's claims). -->
+
+<task_item>
+  <id>FRONTEND-INFRASTRUCTURE-COST-DISPLAY</id>
+  <status>DONE</status>
+  <description>
+    Wired PR #72's get_house_tier_definition()/get_coop_tier_definition()/
+    get_machine_recipe()/get_automation_device_definition() into
+    InfrastructureOverlay (PR #69): every row now previews real
+    gold/material costs instead of just an enabled/disabled button --
+    can_upgrade_house()/can_build_machine()/can_build_automation() still
+    own the actual gating, this only reads the definitions for display.
+    Also added an Automation Devices section (sprinkler_system/
+    auto_feeder/collection_hub, PR #71) that had zero player-facing
+    surface before -- same "shipped but unreachable" pattern the Map
+    overlay PR fixed for Ranch/Forage/Mine. PR:
+    gritui/story-of-country-side#73 (base:
+    claude/farming-game-pm-requirements-w9ugtk). 824/824 tests pass
+    against the real Godot 4.3 engine headless, clean smoke boot.
+    Self-merged per standing authorization. Closes both Cross-Squad
+    Requests Frontend-Squad flagged in epoch 24.
+
+    Remaining per #52: Settings full-screen overlay (blocked on a
+    backend system), scenes for Fishing/Festivals (mini-game contracts,
+    design-open), and Community Goal contribution UI (now unblocked by
+    PR #72, next up).
+  </description>
+</task_item>

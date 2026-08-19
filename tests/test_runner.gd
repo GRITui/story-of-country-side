@@ -196,8 +196,10 @@ func _ready() -> void:
 	_test_relationships_overlay_close_emits_closed_signal()
 	_test_pause_menu_relationships_button_shows_overlay_and_hides_menu_panel()
 	_test_infrastructure_overlay_shows_initial_tiers_and_machine_rows_on_ready()
+	_test_infrastructure_overlay_shows_real_cost_numbers()
 	_test_infrastructure_overlay_upgrade_house_button_gated_and_reactive()
 	_test_infrastructure_overlay_machine_build_then_start_then_collect()
+	_test_infrastructure_overlay_automation_build_flow()
 	_test_infrastructure_overlay_close_emits_closed_signal()
 	_test_pause_menu_infrastructure_button_shows_overlay_and_hides_menu_panel()
 	_test_map_overlay_lists_all_locations_on_ready()
@@ -2272,13 +2274,39 @@ func _make_infrastructure_overlay() -> InfrastructureOverlay:
 func _test_infrastructure_overlay_shows_initial_tiers_and_machine_rows_on_ready() -> void:
 	_reset_infra_gates()
 	var overlay := _make_infrastructure_overlay()
-	_check(overlay.get_node("Root/Panel/Margin/VBox/HouseRow/HouseLabel").text == "House: Tier 0",
+	_check(overlay.get_node("Root/Panel/Margin/VBox/HouseRow/HouseLabel").text.begins_with("House: Tier 0"),
 		"house label should be primed from current InfrastructureManager state")
-	_check(overlay.get_node("Root/Panel/Margin/VBox/CoopRow/CoopLabel").text == "Coop: Tier 0 (max animals: 4)",
+	_check(overlay.get_node("Root/Panel/Margin/VBox/CoopRow/CoopLabel").text.begins_with("Coop: Tier 0 (max animals: 4)"),
 		"coop label should be primed with the base animal capacity")
 	for machine_type in InfrastructureOverlay.MACHINE_TYPES:
 		_check(overlay.get_node("Root/Panel/Margin/VBox/MachineList/Machine_%s" % machine_type) != null,
 			"overlay should list a row for machine type %s" % machine_type)
+	for device_type in InfrastructureOverlay.AUTOMATION_DEVICE_TYPES:
+		_check(overlay.get_node("Root/Panel/Margin/VBox/AutomationList/Automation_%s" % device_type) != null,
+			"overlay should list a row for automation device type %s" % device_type)
+	overlay.queue_free()
+
+## Cost preview (PR #72's get_house_tier_definition()/get_coop_tier_definition()/
+## get_machine_recipe()/get_automation_device_definition() getters).
+func _test_infrastructure_overlay_shows_real_cost_numbers() -> void:
+	_reset_infra_gates()
+	var overlay := _make_infrastructure_overlay()
+	var house_tier1: InfrastructureTier = InfrastructureManager.get_house_tier_definition(1)
+	_check(overlay.get_node("Root/Panel/Margin/VBox/HouseRow/HouseLabel").text ==
+		"House: Tier 0 -- next: %d gold, %d %s" % [house_tier1.gold_cost, house_tier1.material_quantity, house_tier1.material_item_id],
+		"house label should preview the next tier's real cost, got '%s'" % overlay.get_node("Root/Panel/Margin/VBox/HouseRow/HouseLabel").text)
+
+	var coop_tier1: InfrastructureTier = InfrastructureManager.get_coop_tier_definition(1)
+	_check(overlay.get_node("Root/Panel/Margin/VBox/CoopRow/CoopLabel").text ==
+		"Coop: Tier 0 (max animals: 4) -- next: %d gold, %d %s" % [coop_tier1.gold_cost, coop_tier1.material_quantity, coop_tier1.material_item_id],
+		"coop label should preview the next tier's real cost, got '%s'" % overlay.get_node("Root/Panel/Margin/VBox/CoopRow/CoopLabel").text)
+
+	var keg_recipe: ArtisanMachineRecipe = InfrastructureManager.get_machine_recipe("keg")
+	var keg_status: Label = overlay.get_node("Root/Panel/Margin/VBox/MachineList/Machine_keg").get_child(1)
+	_check(keg_status.text == "Not built -- %d gold, %d %s (%s->%s, %d day(s))" % [
+		keg_recipe.gold_cost, keg_recipe.material_quantity, keg_recipe.material_item_id,
+		keg_recipe.input_item_id, keg_recipe.output_item_id, keg_recipe.process_days],
+		"keg's status should preview its real recipe/cost, got '%s'" % keg_status.text)
 	overlay.queue_free()
 
 func _test_infrastructure_overlay_upgrade_house_button_gated_and_reactive() -> void:
@@ -2295,8 +2323,32 @@ func _test_infrastructure_overlay_upgrade_house_button_gated_and_reactive() -> v
 
 	button.pressed.emit()
 	_check(InfrastructureManager.get_house_tier() == 1, "clicking Upgrade House should call InfrastructureManager.upgrade_house()")
-	_check(overlay.get_node("Root/Panel/Margin/VBox/HouseRow/HouseLabel").text == "House: Tier 1",
+	_check(overlay.get_node("Root/Panel/Margin/VBox/HouseRow/HouseLabel").text.begins_with("House: Tier 1"),
 		"house label should reactively update via house_upgraded")
+	overlay.queue_free()
+
+func _test_infrastructure_overlay_automation_build_flow() -> void:
+	_reset_infra_gates()
+	var overlay := _make_infrastructure_overlay()
+	var row: HBoxContainer = overlay.get_node("Root/Panel/Margin/VBox/AutomationList/Automation_sprinkler_system")
+	var status_label: Label = row.get_child(1)
+	var action_button: Button = row.get_child(2)
+	_check(action_button.disabled, "sprinkler_system's Build button should start disabled without unlock/funds")
+
+	var def: AutomationDeviceDefinition = InfrastructureManager.get_automation_device_definition("sprinkler_system")
+	_check(status_label.text == "Not built -- %d gold, %d %s" % [def.gold_cost, def.material_quantity, def.material_item_id],
+		"sprinkler_system's status should preview its real cost, got '%s'" % status_label.text)
+
+	QuestManager._unlocked_flags["sprinkler_system_unlocked"] = true
+	ShippingBinManager.gold = 5000
+	InventoryManager.add_item("stone", 500)
+	overlay._refresh_automation_row("sprinkler_system")
+	_check(not action_button.disabled, "Build should become enabled once quest-unlocked and affordable")
+
+	action_button.pressed.emit()
+	_check(InfrastructureManager.is_automation_built("sprinkler_system"), "clicking Build should call InfrastructureManager.build_automation()")
+	_check(status_label.text == "Built -- running automatically", "status should reactively update via automation_device_built, got '%s'" % status_label.text)
+	_check(not action_button.visible, "Build button should hide once the device is built -- nothing left to click")
 	overlay.queue_free()
 
 func _test_infrastructure_overlay_machine_build_then_start_then_collect() -> void:
