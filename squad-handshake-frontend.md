@@ -172,6 +172,24 @@ authorization.
 Next up: Community Goal contribution UI, now unblocked by PR #72's
 list_bundle_ids()/get_bundle_definition().
 
+Shipped that next sub-scope same epoch: Community Goal contribution UI
+(`scenes/ui/CommunityGoalOverlay.tscn` +
+`scripts/ui/community_goal_overlay.gd`), via PR #74 (squash-merged by
+another session while this one was mid-response-crashed -- confirmed via
+`pull_request_read` on resume rather than assuming). Lists every
+registered bundle via PR #72's `list_bundle_ids()`/`get_bundle_definition()`
+with contributed/required progress per item, a Contribute button that
+sends everything held (`contribute_item()` clamps, never duplicated
+here), and an overall completion counter. Wrapped in a ScrollContainer --
+10 bundles is too tall for the fixed-size panel every prior overlay
+uses. Another pause-menu entry beyond the spec's fixed list. 848/848
+tests pass, clean smoke boot.
+
+Remaining per #52: Settings full-screen overlay (blocked on a backend
+settings system that doesn't exist), and scenes for Fishing/Festivals
+(both mini-game contracts, genuinely design-open per their own
+managers' disclosures).
+
 ## Epoch 28 note (Producer session, log sync + nudge only)
 This session's own get_session check found this squad's session genuinely
 FAILED (mid-response API server error right after PR #70), not just idle
