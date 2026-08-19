@@ -156,6 +156,12 @@ func is_music_registered(track_id: String) -> bool:
 ## --- Procedural tone generation ---
 
 func _start_one_shot_tone(frequency: float, duration: float) -> void:
+	if _sfx_player.playing:
+		## Same leak risk as _start_music_loop below -- stop any
+		## still-playing one-shot before handing the player a fresh
+		## stream/playback so the old AudioStreamGeneratorPlayback is
+		## released instead of orphaned.
+		_sfx_player.stop()
 	var gen := AudioStreamGenerator.new()
 	gen.mix_rate = MIX_RATE
 	gen.buffer_length = GENERATOR_BUFFER_LENGTH
@@ -175,6 +181,11 @@ func _start_one_shot_tone(frequency: float, duration: float) -> void:
 		phase = fmod(phase + increment, 1.0)
 
 func _start_music_loop(frequency: float) -> void:
+	if _music_player.playing:
+		## Switching tracks while one is already playing -- stop the old
+		## player first so its AudioStreamGeneratorPlayback is released
+		## before we hand the player a new stream, instead of leaking it.
+		_music_player.stop()
 	var gen := AudioStreamGenerator.new()
 	gen.mix_rate = MIX_RATE
 	gen.buffer_length = GENERATOR_BUFFER_LENGTH
