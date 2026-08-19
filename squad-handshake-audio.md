@@ -7,6 +7,20 @@
   <sprint_completion_percentage>100</sprint_completion_percentage>
 </squad_metadata>
 
+## Epoch 31 note (Producer session, fix-forward on QA's finding)
+QA-Tester's epoch 3 review found a residual `AudioStreamGeneratorPlayback`
+leak reproducing on every test run since PR #75 -- narrower than the
+track-switching leak this session's epoch 30 fix already covered:
+`play_sfx()` had no way to release a one-shot's playback once it
+finished naturally, unlike `play_music`'s `stop_music()` symmetry. Fixed
+via PR #80 (squash-merged): a token-guarded `get_tree().create_timer()`
+release on natural completion, plus a new public `stop_sfx()` the tests
+now call in cleanup. 921/921 tests pass, zero leak warnings on
+`--verbose`, clean smoke boot. Worth knowing for future audio work:
+`stop_sfx()` is now the deterministic way to silence a one-shot early
+(e.g. a Settings mute toggle, once one exists) rather than reaching into
+the player directly.
+
 ## Real constraint (read this first)
 
 This squad has no audio-synthesis or music-composition tool available in

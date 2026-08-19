@@ -1707,3 +1707,47 @@ either, so the remote branches remain as harmless merged-and-stale refs).
     comment on #53 before building, per issue #1's process.
   </description>
 </task_item>
+
+<!-- Epoch 31 (Producer session). Step 0: still just #52/#53/#1 open,
+     nothing new. Lots of concurrent org-chart growth since last epoch
+     (Art Squad PR #79, Writer/Dialogue Designer PR #78, new
+     squad-handshake-art.md/-writer.md, Game Director + Lead Systems/
+     Narrative Designer standups) -- all read fresh, none needed this
+     session's action. QA-Tester's epoch 3 review (squad-handshake-qa.md)
+     surfaced one real, actionable fix-forward item: a residual
+     AudioManager leak PR #75's original fix didn't fully cover. -->
+
+<task_item>
+  <id>PM-EPOCH-31-AUDIOMANAGER-SFX-LEAK-FIX</id>
+  <status>DONE</status>
+  <description>
+    QA-Tester's epoch 3 review found `ObjectDB` leak warnings reproducing
+    on every test run since PR #75 -- separate from (and narrower than)
+    the track-switching leak this session's own epoch 30 fix already
+    closed. Root cause: `play_sfx()` -> `_start_one_shot_tone()` had no
+    way to release its `AudioStreamGeneratorPlayback` once a tone
+    finished on its own -- only a *later* SFX call superseding it
+    happened to release it, unlike the music path where every
+    `play_music` caller already ends in `stop_music()`.
+
+    Genuine Backend/Engineer fix, done directly: `_start_one_shot_tone()`
+    now schedules a real release via `get_tree().create_timer(duration)`
+    once the tone's synthesized duration has actually played out
+    (token-guarded so a stale timer can never cut off a newer tone
+    reusing the player) -- the real-play-correctness half. Added a new
+    public `stop_sfx()` (symmetric with `stop_music()`) for a
+    deterministic immediate stop, and updated the 5 SFX-triggering tests
+    to call it in cleanup, exactly like every music test already calls
+    `stop_music()` -- this is what actually silences the leak warning in
+    the test suite itself (the timer alone doesn't, since tests run
+    synchronously without the real frame-time it needs to fire). Added
+    `_test_stop_sfx_is_idempotent_and_leaves_player_reusable()`.
+
+    PR: gritui/story-of-country-side#80 (base:
+    claude/farming-game-pm-requirements-w9ugtk, squash-merged). 921/921
+    tests pass (2 new) against the real Godot 4.3 engine headless,
+    `--verbose` run confirms zero `ObjectDB` leak warnings (was
+    reproducing every run since PR #75), clean smoke boot. Self-merged
+    per standing authorization.
+  </description>
+</task_item>

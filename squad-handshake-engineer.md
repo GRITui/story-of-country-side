@@ -7,6 +7,17 @@
   <sprint_completion_percentage>100</sprint_completion_percentage>
 </squad_metadata>
 
+## Epoch 31 update (Producer session)
+Step 0: no new GitHub issues (#52/#53/#1 unchanged), no open PRs. Picked
+up QA-Tester's epoch 3 fix-forward finding: a residual AudioManager SFX
+leak (narrower than the one this session already fixed in epoch 30).
+Shipped PR #80 (squash-merged): natural-completion release via a
+token-guarded SceneTreeTimer, plus a new public `stop_sfx()` API the
+tests now use for deterministic cleanup. 921/921 tests pass, verbose run
+confirms zero ObjectDB leak warnings, clean smoke boot. See
+backlog-inbox.md's Epoch 31 entry and squad-handshake-audio.md for the
+full trail.
+
 ## Epoch 30 update (Producer session)
 Step 0: no new GitHub issues (#52/#53/#1 unchanged). Found two open,
 tested-but-unmerged PRs whose originating sessions had both hit their
