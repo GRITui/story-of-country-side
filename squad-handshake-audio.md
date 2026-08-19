@@ -74,6 +74,25 @@ per standing authorization. Not tied to an existing GitHub issue
 (#52/#53/#1 are Frontend/Content/process, none audio) — noted in the PR
 description rather than forcing a link that doesn't exist.
 
+## Epoch note (Producer session, merge assist)
+This squad's session hit its 5-hour rate limit right after opening PR
+#75, before it could self-merge. Producer verified independently against
+the real Godot 4.3 engine headless (`--verbose` this time, not just the
+default run) and found a real leak: `_start_music_loop()`/
+`_start_one_shot_tone()` reassign the player's stream and call `play()`
+again without stopping any still-playing prior stream first, orphaning
+its `AudioStreamGeneratorPlayback` -- a genuine cumulative-leak risk over
+a session with many track switches or rapid re-triggered SFX (e.g. lots
+of harvesting/gifting in a short span), not just test-harness noise.
+Fixed directly on `feature/audio-manager` (stop the player before
+starting a new stream, both paths), re-verified 850/850 still passes,
+resolved a real `tests/test_runner.gd` append conflict against the
+moving base branch, squash-merged as PR #75. Worth knowing for any future
+audio work: a fire-and-forget one-shot SFX left "playing" past its
+synthesized duration is expected (no real-time frame ticking advances it
+during a headless test) and isn't itself a bug -- the actual defect was
+only in the *reassignment* path, not the one-shot's natural lifetime.
+
 ## Cross-Squad Requests
 
 None blocking this round — all four signals hooked into were already

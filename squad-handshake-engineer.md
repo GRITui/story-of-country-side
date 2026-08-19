@@ -7,6 +7,30 @@
   <sprint_completion_percentage>100</sprint_completion_percentage>
 </squad_metadata>
 
+## Epoch 30 update (Producer session)
+Step 0: no new GitHub issues (#52/#53/#1 unchanged). Found two open,
+tested-but-unmerged PRs whose originating sessions had both hit their
+5-hour rate limit right after opening them: PR #74 (Frontend, Community
+Goal contribution UI) and PR #75 (new Audio-Squad, AudioManager
+autoload). Downloaded Godot 4.3-stable headless into this session's
+scratchpad (not preinstalled in this environment) to verify both for
+real rather than trust the PR descriptions.
+
+PR #74: verified clean, 848/848 tests pass, squash-merged.
+
+PR #75: verified 850/850 tests pass, but `--verbose` surfaced a real
+leaked `AudioStreamGeneratorPlayback` -- `_start_music_loop()`/
+`_start_one_shot_tone()` reassign the player's stream and call `play()`
+again without stopping any still-playing prior stream first. Fixed
+directly (small, well-scoped, this session's own standing Backend/
+Engineer authorization), re-verified clean, resolved one real
+`tests/test_runner.gd` merge conflict against the moving base (pure
+append, kept both sides), squash-merged. See backlog-inbox.md's Epoch 30
+entries and squad-handshake-audio.md for the full trail.
+
+Final combined base-branch state re-verified once more after both
+merges: 874/874 tests pass, clean smoke boot.
+
 ## Epoch 29 sync (Producer session)
 Confirmed the epoch 28 nudge worked: Frontend-Squad's session recovered
 from its failed state, shipped PR #73 (Infrastructure cost display +

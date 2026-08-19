@@ -1477,3 +1477,58 @@ either, so the remote branches remain as harmless merged-and-stale refs).
     managers' disclosures).
   </description>
 </task_item>
+
+<!-- Epoch 30 (Producer session). Step 0: still just #52/#53/#1 open,
+     nothing new. Both PR #74 (Frontend, Community Goal contribution UI)
+     and PR #75 (new Audio-Squad, AudioManager autoload) were sitting
+     open+tested but unmerged -- both originating sessions hit their
+     5-hour rate limit right after opening them (confirmed via
+     get_session, not assumed). Downloaded Godot 4.3-stable headless into
+     this session's scratchpad (not preinstalled here) to verify both
+     independently rather than trust the PR descriptions blind. -->
+
+<task_item>
+  <id>PM-EPOCH-30-MERGE-PR74</id>
+  <status>DONE</status>
+  <description>
+    Verified PR #74 (Frontend: Community Goal contribution UI) independently
+    against the real Godot 4.3 engine headless in a worktree: 848/848 tests
+    pass, clean smoke boot -- matches the PR's own claim exactly. Squash-
+    merged. Directly against tracked issue #52 scope, routine unblocking
+    work per this session's Producer lane.
+  </description>
+</task_item>
+
+<task_item>
+  <id>PM-EPOCH-30-MERGE-PR75-AUDIOMANAGER</id>
+  <status>DONE</status>
+  <description>
+    New scope from a new "Audio-Squad" session (spawned directly under
+    Studio Head, per its parent_session_id) -- not implied by #52/#53/#1,
+    but not this session's scope invention either: Audio-Squad already
+    escalated the real underlying question (does this project need a real
+    composer/licensed SFX library) to the Studio Head separately per its
+    own squad-handshake-audio.md, and its PR was already tested/complete,
+    just blocked on the same rate-limit as PR #74. Treated as unblocking,
+    not proposing.
+
+    Verified independently against the real Godot 4.3 engine headless:
+    850/850 tests passed but `--verbose` revealed a real leaked
+    `AudioStreamGeneratorPlayback` at exit (ObjectDB warning). Traced it to
+    `_start_music_loop()`/`_start_one_shot_tone()` reassigning the player's
+    stream and calling `play()` again without stopping any still-playing
+    prior stream first -- a genuine cumulative leak risk over a long
+    session of repeated track switches/rapid SFX re-triggers, not just
+    test noise. Fixed directly (stop the player before starting a new
+    stream, both paths) -- small, well-scoped Backend/Engineer fix, this
+    session's own standing authorization to do such work directly.
+    Re-verified after the fix: still 850/850 (then 874/874 once merged
+    with PR #74's tests), clean smoke boot. Resolved one real merge
+    conflict against the moving base branch (tests/test_runner.gd, both
+    sides appending new member vars -- kept both). Squash-merged.
+
+    Final combined state on claude/farming-game-pm-requirements-w9ugtk
+    re-verified once more after both merges: 874/874 tests pass, clean
+    smoke boot.
+  </description>
+</task_item>
