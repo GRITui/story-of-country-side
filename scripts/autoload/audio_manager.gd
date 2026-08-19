@@ -48,6 +48,11 @@ var _music_phase: float = 0.0
 var _music_frequency: float = 0.0
 var _music_playback: AudioStreamGeneratorPlayback
 
+## Bumped on every new one-shot tone; a pending stop-timer callback checks
+## it still matches before stopping, so a stale timer from a superseded
+## tone can never cut off a newer one that's already reusing the player.
+var _sfx_playback_token: int = 0
+
 var _sfx_player: AudioStreamPlayer
 var _music_player: AudioStreamPlayer
 
@@ -122,6 +127,16 @@ func play_sfx(sfx_id: String) -> bool:
 	sfx_played.emit(sfx_id)
 	return true
 
+## Stops any currently-playing one-shot SFX early and releases its
+## AudioStreamGeneratorPlayback immediately, rather than waiting on the
+## natural-duration timer _start_one_shot_tone() schedules. Symmetric
+## with stop_music() -- a no-op if nothing is playing. Mainly useful for
+## tests/shutdown paths that want a deterministic "nothing left playing"
+## point without waiting out a real-time timer.
+func stop_sfx() -> void:
+	if _sfx_player.playing:
+		_sfx_player.stop()
+
 ## Starts a registered looping "music" track. Re-calling with the track
 ## already playing is a no-op (fires no signal) -- same "only announce
 ## actual change" convention WeatherManager's weather_changed uses.
@@ -179,6 +194,20 @@ func _start_one_shot_tone(frequency: float, duration: float) -> void:
 		var sample := sin(phase * TAU) * AMPLITUDE
 		playback.push_frame(Vector2(sample, sample))
 		phase = fmod(phase + increment, 1.0)
+
+	## A generator stream has no inherent length, so AudioStreamPlayer's
+	## own `finished` signal never fires for it -- without this, a
+	## one-shot SFX stays "playing" (and its AudioStreamGeneratorPlayback
+	## stays alive/leaked) forever unless another call happens to
+	## supersede it. Explicitly release it once its synthesized duration
+	## has actually had time to play out.
+	_sfx_playback_token += 1
+	var token := _sfx_playback_token
+	get_tree().create_timer(duration).timeout.connect(
+		func() -> void:
+			if token == _sfx_playback_token and _sfx_player.playing:
+				_sfx_player.stop()
+	)
 
 func _start_music_loop(frequency: float) -> void:
 	if _music_player.playing:
