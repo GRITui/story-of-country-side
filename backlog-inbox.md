@@ -1662,3 +1662,48 @@ either, so the remote branches remain as harmless merged-and-stale refs).
     decided unilaterally.
   </description>
 </task_item>
+
+<!-- Writer/Dialogue Designer (Country Side Crew org chart, reports to
+     Lead Narrative Designer). First real output after two failed spawn
+     attempts (session-limit failures at startup, per Lead Narrative
+     Designer's standup notes above). Read SQUAD-SPLIT.md, this file, and
+     issue #53's full comment thread before claiming anything -- gift
+     preferences (six GiftPreferenceTable .tres files) and intro
+     narration were already written and shipped (PR #58) by the earlier
+     session that covered both balance and narrative content; no
+     duplication done here. -->
+
+<task_item>
+  <id>WRITER-INFRA-QUEST-TITLES</id>
+  <status>DONE</status>
+  <description>
+    Surveyed for genuine remaining narrative gaps first: no per-NPC
+    dialogue system exists beyond gift-reaction point deltas (no text
+    shown for a gift reaction or RelationshipManager.heart_event_triggered
+    -- the signal fires with no content table behind it), and
+    FestivalDefinition has no flavor-text field. Both are real gaps but
+    require new Resource fields/lookup wiring to express -- a logic
+    change outside the Content lane's value/string-only contract, so
+    flagged rather than built around (see claim comment on #53) instead
+    of stretching scope.
+
+    What was in-lane: InfrastructureManager._register_default_content()'s
+    ten QuestDefinition resources (the infra_* DELIVER_ITEM quests gating
+    house/coop/machine/automation unlocks) all left QuestDefinition.title
+    at its unset default empty string -- a real, existing, genuinely
+    blank field, not previously claimed (PR #61's festival-names/
+    tool-cost pass didn't touch it). Wrote all ten titles ("Room to
+    Grow", "The Big Renovation", "A Bigger Barn", "Room for the Herd",
+    "Something's Brewing", "Waste Not, Want Not", "Whisk and Whir", "Rain
+    or Shine", "Feeding Time, Automated", "The Collection Point").
+    Value/string content only -- _make_deliver_quest()'s signature
+    untouched, no signals/control-flow changed; each quest is built via
+    the existing helper, then .title is set on the returned resource
+    before registering. PR: gritui/story-of-country-side#78 (base:
+    claude/farming-game-pm-requirements-w9ugtk). 824/824 tests pass
+    against the real Godot 4.3 engine headless (unchanged count -- no
+    test asserted the old empty titles), clean smoke boot against the
+    real Main.tscn. Self-merged per standing authorization. Claimed via
+    comment on #53 before building, per issue #1's process.
+  </description>
+</task_item>
