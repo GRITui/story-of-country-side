@@ -58,6 +58,10 @@ text = "Relationships"
 layout_mode = 2
 text = "Infrastructure"
 
+[node name="CommunityGoalButton" type="Button" parent="Root/MenuPanel/Margin/VBox"]
+layout_mode = 2
+text = "Community Goal"
+
 [node name="SettingsButton" type="Button" parent="Root/MenuPanel/Margin/VBox"]
 layout_mode = 2
 text = "Settings (not yet implemented)"
