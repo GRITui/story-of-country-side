@@ -51,6 +51,12 @@ var _infrastructure_overlay_closed_count := 0 ## same reason
 var _map_overlay_closed_count := 0 ## same reason
 var _map_travel_requested_events: Array = [] ## Array[String] of location, same reason
 var _pause_menu_travel_requested_events: Array = [] ## Array[String] of location, same reason
+var _sfx_played_events: Array = [] ## Array[String] of sfx_id, same reason
+var _music_changed_events: Array = [] ## Array[String] of track_id, same reason
+var _music_stopped_count := 0 ## member, not a local -- GDScript lambdas capture locals by value
+var _community_goal_overlay_closed_count := 0 ## same reason
+var _festival_mini_game_overlay_closed_count := 0 ## same reason
+var _fishing_overlay_closed_count := 0 ## same reason
 
 func _ready() -> void:
 	_test_minute_and_hour_wrap()
@@ -199,6 +205,24 @@ func _ready() -> void:
 	_test_infrastructure_overlay_automation_build_flow()
 	_test_infrastructure_overlay_close_emits_closed_signal()
 	_test_pause_menu_infrastructure_button_shows_overlay_and_hides_menu_panel()
+	_test_community_goal_overlay_lists_all_bundles_on_ready()
+	_test_community_goal_overlay_contribute_button_gated_on_held_inventory()
+	_test_community_goal_overlay_contribute_click_sends_held_quantity_and_updates_reactively()
+	_test_community_goal_overlay_completing_bundle_updates_title_and_progress()
+	_test_community_goal_overlay_close_emits_closed_signal()
+	_test_pause_menu_community_goal_button_shows_overlay_and_hides_menu_panel()
+	_test_fishing_overlay_defaults_to_first_location_and_lists_fish()
+	_test_fishing_overlay_switching_location_refreshes_fish_list()
+	_test_fishing_overlay_great_effort_catches_fish()
+	_test_fishing_overlay_poor_effort_on_harder_fish_escapes()
+	_test_fishing_overlay_close_emits_closed_signal()
+	_test_pause_menu_fishing_button_shows_overlay_and_hides_menu_panel()
+	_test_festival_mini_game_overlay_shows_title_and_choices()
+	_test_festival_mini_game_overlay_great_choice_submits_success()
+	_test_festival_mini_game_overlay_poor_choice_submits_failure()
+	_test_festival_mini_game_overlay_continue_ends_festival_and_closes()
+	_test_main_controller_shows_festival_overlay_on_festival_started()
+	_test_main_controller_removes_festival_overlay_when_it_closes()
 	_test_map_overlay_lists_all_locations_on_ready()
 	_test_map_overlay_travel_click_emits_travel_requested_and_closed()
 	_test_map_overlay_close_button_emits_closed_only()
@@ -324,6 +348,18 @@ func _ready() -> void:
 	_test_weather_changed_only_fires_on_actual_change()
 	_test_weather_save_round_trip()
 	_test_npc_schedule_entry_weather_gating()
+
+	_test_audio_default_sfx_and_music_are_registered()
+	_test_play_sfx_unknown_id_returns_false_and_no_signal()
+	_test_play_sfx_known_id_fires_signal_with_correct_id()
+	_test_play_music_unknown_id_returns_false_and_no_signal()
+	_test_play_music_switches_track_and_fires_signal()
+	_test_play_music_same_track_twice_is_noop()
+	_test_stop_music_clears_current_and_fires_signal_once()
+	_test_payout_processed_triggers_coin_sfx()
+	_test_crop_harvested_triggers_harvest_sfx()
+	_test_heart_event_triggered_triggers_heart_sfx()
+	_test_married_triggers_wedding_sfx()
 
 	if _failures.is_empty():
 		print("ALL TESTS PASSED (%d checks)" % _pass_count)
@@ -2393,6 +2429,283 @@ func _test_pause_menu_infrastructure_button_shows_overlay_and_hides_menu_panel()
 	menu.close()
 	menu.queue_free()
 
+## --- Frontend: Community Goal overlay (#52 sub-scope, contribution UI
+## against CommunityGoalManager, unblocked by PR #72's
+## list_bundle_ids()/get_bundle_definition()) ---
+
+func _make_community_goal_overlay() -> CommunityGoalOverlay:
+	var scene: PackedScene = load("res://scenes/ui/CommunityGoalOverlay.tscn")
+	var overlay: CommunityGoalOverlay = scene.instantiate()
+	add_child(overlay)
+	return overlay
+
+func _test_community_goal_overlay_lists_all_bundles_on_ready() -> void:
+	_reset_community_goal_manager()
+	var overlay := _make_community_goal_overlay()
+	for bundle_id in CommunityGoalManager.list_bundle_ids():
+		_check(overlay.get_node("Root/Panel/Margin/VBox/ScrollContainer/BundleList/Bundle_%s" % bundle_id) != null,
+			"overlay should list a section for bundle %s" % bundle_id)
+	_check(overlay.get_node("Root/Panel/Margin/VBox/ProgressLabel").text == "Bundles completed: 0/%d" % CommunityGoalManager.bundles_total_count(),
+		"progress label should be primed from current completion counts")
+	var vault_row: HBoxContainer = overlay.get_node("Root/Panel/Margin/VBox/ScrollContainer/BundleList/Bundle_vault_bundle/Item_diamond")
+	_check(vault_row.get_child(1).text == "0/3", "vault_bundle's diamond row should show 0/3 contributed, got '%s'" % vault_row.get_child(1).text)
+	overlay.queue_free()
+
+func _test_community_goal_overlay_contribute_button_gated_on_held_inventory() -> void:
+	_reset_community_goal_manager()
+	_reset_inventory_manager()
+	var overlay := _make_community_goal_overlay()
+	var action_button: Button = overlay.get_node("Root/Panel/Margin/VBox/ScrollContainer/BundleList/Bundle_vault_bundle/Item_diamond").get_child(2)
+	_check(action_button.disabled, "Contribute should start disabled with no diamonds held")
+
+	InventoryManager.add_item("diamond", 2)
+	overlay._refresh_bundle("vault_bundle") # re-evaluate now that inventory changed, mirrors what a real signal-driven refresh would do
+	_check(not action_button.disabled, "Contribute should become enabled once the player holds some of the item")
+	overlay.queue_free()
+
+func _test_community_goal_overlay_contribute_click_sends_held_quantity_and_updates_reactively() -> void:
+	_reset_community_goal_manager()
+	_reset_inventory_manager()
+	InventoryManager.add_item("diamond", 2)
+	var overlay := _make_community_goal_overlay()
+	var row: HBoxContainer = overlay.get_node("Root/Panel/Margin/VBox/ScrollContainer/BundleList/Bundle_vault_bundle/Item_diamond")
+	var progress_label: Label = row.get_child(1)
+	var action_button: Button = row.get_child(2)
+
+	action_button.pressed.emit()
+	_check(CommunityGoalManager.contributed_count("vault_bundle", "diamond") == 2,
+		"clicking Contribute should send everything held (2) via CommunityGoalManager.contribute_item()")
+	_check(InventoryManager.get_count("diamond") == 0, "contributing should remove the diamonds from InventoryManager")
+	_check(progress_label.text == "2/3", "progress label should reactively update via bundle_contribution_added, got '%s'" % progress_label.text)
+	overlay.queue_free()
+
+func _test_community_goal_overlay_completing_bundle_updates_title_and_progress() -> void:
+	_reset_community_goal_manager()
+	_reset_inventory_manager()
+	InventoryManager.add_item("diamond", 3)
+	var overlay := _make_community_goal_overlay()
+	var row: HBoxContainer = overlay.get_node("Root/Panel/Margin/VBox/ScrollContainer/BundleList/Bundle_vault_bundle/Item_diamond")
+	var action_button: Button = row.get_child(2)
+	var title_label: Label = overlay.get_node("Root/Panel/Margin/VBox/ScrollContainer/BundleList/Bundle_vault_bundle").get_child(0)
+
+	action_button.pressed.emit() # 3 diamonds held, exactly completes the 3-diamond vault_bundle
+	_check(CommunityGoalManager.is_bundle_complete("vault_bundle"), "sanity: contributing all 3 diamonds should complete vault_bundle")
+	_check(title_label.text == "The Vault (Complete!)", "bundle title should reactively mark complete via bundle_completed, got '%s'" % title_label.text)
+	_check(action_button.disabled, "Contribute should disable once its bundle is complete")
+	_check(overlay.get_node("Root/Panel/Margin/VBox/ProgressLabel").text == "Bundles completed: 1/%d" % CommunityGoalManager.bundles_total_count(),
+		"overall progress label should reactively update via bundle_completed")
+	overlay.queue_free()
+
+func _on_community_goal_overlay_closed_for_test() -> void:
+	_community_goal_overlay_closed_count += 1
+
+func _test_community_goal_overlay_close_emits_closed_signal() -> void:
+	_reset_community_goal_manager()
+	_community_goal_overlay_closed_count = 0
+	var overlay := _make_community_goal_overlay()
+	overlay.closed.connect(_on_community_goal_overlay_closed_for_test)
+	overlay.get_node("Root/Panel/Margin/VBox/Header/CloseButton").pressed.emit()
+	_check(_community_goal_overlay_closed_count == 1, "pressing Close should emit the closed signal exactly once")
+	overlay.queue_free()
+
+func _test_pause_menu_community_goal_button_shows_overlay_and_hides_menu_panel() -> void:
+	TimeManager.unfreeze(PauseMenu.PAUSE_REASON)
+	var menu := _make_pause_menu()
+	menu.open()
+	menu.get_node("Root/MenuPanel/Margin/VBox/CommunityGoalButton").pressed.emit()
+	_check(not menu.get_node("Root/MenuPanel").visible,
+		"opening Community Goal should hide the main pause menu panel")
+	_check(menu.get_node("CommunityGoalOverlay") != null,
+		"opening Community Goal should instantiate the CommunityGoalOverlay as a child")
+	menu.close()
+	menu.queue_free()
+
+## --- Frontend: Fishing overlay (#52 sub-scope, placeholder input/skill-
+## check implementation against FishingManager's attempt_catch() contract) ---
+
+func _make_fishing_overlay() -> FishingOverlay:
+	var scene: PackedScene = load("res://scenes/ui/FishingOverlay.tscn")
+	var overlay: FishingOverlay = scene.instantiate()
+	add_child(overlay)
+	return overlay
+
+func _test_fishing_overlay_defaults_to_first_location_and_lists_fish() -> void:
+	TimeManager.season_index = 0 # Spring
+	TimeManager.hour = 10
+	var overlay := _make_fishing_overlay()
+	for location in FishingOverlay.LOCATIONS:
+		_check(overlay.get_node("Root/Panel/Margin/VBox/LocationList/Location_%s" % location) != null,
+			"overlay should list a button for location %s" % location)
+	_check(overlay.get_node("Root/Panel/Margin/VBox/ScrollContainer/FishList/Fish_carp") != null,
+		"pond (default location) in Spring should list carp, which is available all seasons/hours/pond+river+lake")
+	overlay.queue_free()
+
+func _test_fishing_overlay_switching_location_refreshes_fish_list() -> void:
+	TimeManager.season_index = 0 # Spring
+	TimeManager.hour = 10
+	var overlay := _make_fishing_overlay()
+	overlay.get_node("Root/Panel/Margin/VBox/LocationList/Location_ocean").pressed.emit()
+	_check(not overlay.get_node("Root/Panel/Margin/VBox/ScrollContainer/FishList").has_node("Fish_carp"),
+		"carp isn't registered for ocean, so switching to ocean should clear it from the list")
+	overlay.queue_free()
+
+func _test_fishing_overlay_great_effort_catches_fish() -> void:
+	TimeManager.season_index = 0 # Spring
+	TimeManager.hour = 10
+	_reset_inventory_manager()
+	SkillManager._xp = {}
+	var overlay := _make_fishing_overlay()
+	var carp_row: HBoxContainer = overlay.get_node("Root/Panel/Margin/VBox/ScrollContainer/FishList/Fish_carp")
+	(carp_row.get_child(3) as Button).pressed.emit() # "Great Effort", score 0.95 -- passes carp's 0.2 difficulty and clears the 0.9 gold-quality threshold
+
+	_check(InventoryManager.get_count("carp_gold") == 1, "a successful high-score catch should credit InventoryManager with the gold-quality fish")
+	_check(overlay.get_node("Root/Panel/Margin/VBox/ResultLabel").text == "Great Effort -- Caught! (gold quality)",
+		"result label should reflect the successful catch, got '%s'" % overlay.get_node("Root/Panel/Margin/VBox/ResultLabel").text)
+	overlay.queue_free()
+
+func _test_fishing_overlay_poor_effort_on_harder_fish_escapes() -> void:
+	TimeManager.season_index = 0 # Spring
+	TimeManager.hour = 10
+	_reset_inventory_manager()
+	SkillManager._xp = {}
+	var overlay := _make_fishing_overlay()
+	var bream_row: HBoxContainer = overlay.get_node("Root/Panel/Margin/VBox/ScrollContainer/FishList/Fish_bream")
+	(bream_row.get_child(1) as Button).pressed.emit() # "Poor Effort", score 0.2, bream's own difficulty is 0.3
+
+	_check(InventoryManager.get_count("bream") == 0, "a failed catch should not credit InventoryManager")
+	_check(overlay.get_node("Root/Panel/Margin/VBox/ResultLabel").text == "Poor Effort -- It got away!",
+		"result label should reflect the escape, got '%s'" % overlay.get_node("Root/Panel/Margin/VBox/ResultLabel").text)
+	overlay.queue_free()
+
+func _on_fishing_overlay_closed_for_test() -> void:
+	_fishing_overlay_closed_count += 1
+
+func _test_fishing_overlay_close_emits_closed_signal() -> void:
+	var overlay := _make_fishing_overlay()
+	_fishing_overlay_closed_count = 0
+	overlay.closed.connect(_on_fishing_overlay_closed_for_test)
+	overlay.get_node("Root/Panel/Margin/VBox/Header/CloseButton").pressed.emit()
+	_check(_fishing_overlay_closed_count == 1, "pressing Close should emit the closed signal exactly once")
+	overlay.queue_free()
+
+func _test_pause_menu_fishing_button_shows_overlay_and_hides_menu_panel() -> void:
+	TimeManager.unfreeze(PauseMenu.PAUSE_REASON)
+	var menu := _make_pause_menu()
+	menu.open()
+	menu.get_node("Root/MenuPanel/Margin/VBox/FishingButton").pressed.emit()
+	_check(not menu.get_node("Root/MenuPanel").visible,
+		"opening Fishing should hide the main pause menu panel")
+	_check(menu.get_node("FishingOverlay") != null,
+		"opening Fishing should instantiate the FishingOverlay as a child")
+	menu.close()
+	menu.queue_free()
+
+## --- Frontend: Festival mini-game overlay (#52 sub-scope, placeholder
+## input/skill-check implementation against FestivalManager's
+## submit_mini_game_result() contract) ---
+
+func _make_festival_mini_game_overlay() -> FestivalMiniGameOverlay:
+	var scene: PackedScene = load("res://scenes/ui/FestivalMiniGameOverlay.tscn")
+	var overlay: FestivalMiniGameOverlay = scene.instantiate()
+	add_child(overlay)
+	return overlay
+
+func _test_festival_mini_game_overlay_shows_title_and_choices() -> void:
+	_reset_festival_manager()
+	FestivalManager.start_festival("bloomtide_fair")
+	var overlay := _make_festival_mini_game_overlay()
+	_check(overlay.get_node("Root/Panel/Margin/VBox/TitleLabel").text == "Bloomtide Fair",
+		"title should be primed from FestivalManager.get_active_festival()'s display_name")
+	_check(overlay.get_node("Root/Panel/Margin/VBox/ChoiceList").get_child_count() == FestivalMiniGameOverlay.CHOICE_SCORES.size(),
+		"overlay should list one button per placeholder choice")
+	_check(not overlay.get_node("Root/Panel/Margin/VBox/ResultLabel").visible, "result label should start hidden")
+	_check(not overlay.get_node("Root/Panel/Margin/VBox/ContinueButton").visible, "Continue should start hidden")
+	overlay.queue_free()
+	FestivalManager.end_festival()
+
+func _test_festival_mini_game_overlay_great_choice_submits_success() -> void:
+	_reset_festival_manager()
+	FestivalManager.start_festival("bloomtide_fair")
+	_mini_game_result_events = []
+	FestivalManager.mini_game_result_submitted.connect(_on_mini_game_result_for_test)
+	var overlay := _make_festival_mini_game_overlay()
+	var choice_list: VBoxContainer = overlay.get_node("Root/Panel/Margin/VBox/ChoiceList")
+	(choice_list.get_child(2) as Button).pressed.emit() # "Great Effort", score 0.95
+
+	FestivalManager.mini_game_result_submitted.disconnect(_on_mini_game_result_for_test)
+	_check(_mini_game_result_events == [["bloomtide_fair", 0.95, true]],
+		"clicking Great Effort should call submit_mini_game_result() with score 0.95 and succeed, got %s" % [_mini_game_result_events])
+	_check(not choice_list.visible, "choice list should hide once a choice is made")
+	_check(overlay.get_node("Root/Panel/Margin/VBox/ResultLabel").visible, "result label should become visible")
+	_check(overlay.get_node("Root/Panel/Margin/VBox/ContinueButton").visible, "Continue should become visible")
+	overlay.queue_free()
+	FestivalManager.end_festival()
+
+func _test_festival_mini_game_overlay_poor_choice_submits_failure() -> void:
+	_reset_festival_manager()
+	FestivalManager.start_festival("bloomtide_fair")
+	_mini_game_result_events = []
+	FestivalManager.mini_game_result_submitted.connect(_on_mini_game_result_for_test)
+	var overlay := _make_festival_mini_game_overlay()
+	var choice_list: VBoxContainer = overlay.get_node("Root/Panel/Margin/VBox/ChoiceList")
+	(choice_list.get_child(0) as Button).pressed.emit() # "Poor Effort", score 0.2
+
+	FestivalManager.mini_game_result_submitted.disconnect(_on_mini_game_result_for_test)
+	_check(_mini_game_result_events == [["bloomtide_fair", 0.2, false]],
+		"clicking Poor Effort should call submit_mini_game_result() with score 0.2 and fail (below MINI_GAME_PASS_THRESHOLD), got %s" % [_mini_game_result_events])
+	overlay.queue_free()
+	FestivalManager.end_festival()
+
+func _on_festival_mini_game_overlay_closed_for_test() -> void:
+	_festival_mini_game_overlay_closed_count += 1
+
+func _test_festival_mini_game_overlay_continue_ends_festival_and_closes() -> void:
+	_reset_festival_manager()
+	FestivalManager.start_festival("bloomtide_fair")
+	_festival_ended_events = []
+	FestivalManager.festival_ended.connect(_on_festival_ended_for_test)
+	var overlay := _make_festival_mini_game_overlay()
+	(overlay.get_node("Root/Panel/Margin/VBox/ChoiceList").get_child(1) as Button).pressed.emit() # "Good Effort"
+
+	_festival_mini_game_overlay_closed_count = 0
+	overlay.closed.connect(_on_festival_mini_game_overlay_closed_for_test)
+	overlay.get_node("Root/Panel/Margin/VBox/ContinueButton").pressed.emit()
+
+	FestivalManager.festival_ended.disconnect(_on_festival_ended_for_test)
+	_check(not FestivalManager.is_festival_active(), "Continue should call FestivalManager.end_festival()")
+	_check(_festival_ended_events == ["bloomtide_fair"], "end_festival() should fire festival_ended, got %s" % [_festival_ended_events])
+	_check(_festival_mini_game_overlay_closed_count == 1, "Continue should emit the overlay's own closed signal exactly once")
+	overlay.queue_free()
+
+## --- Frontend: MainController festival wiring (#52 sub-scope) ---
+
+func _test_main_controller_shows_festival_overlay_on_festival_started() -> void:
+	_reset_festival_manager()
+	var controller := _make_main_controller_with_intro_seen()
+	FestivalManager.start_festival("sunfield_revel")
+	var found := false
+	for child in controller.get_children():
+		if child is FestivalMiniGameOverlay:
+			found = true
+	_check(found, "festival_started should instantiate FestivalMiniGameOverlay as a MainController child")
+	controller.queue_free()
+	FestivalManager.end_festival()
+
+func _test_main_controller_removes_festival_overlay_when_it_closes() -> void:
+	_reset_festival_manager()
+	var controller := _make_main_controller_with_intro_seen()
+	FestivalManager.start_festival("sunfield_revel")
+	var overlay: FestivalMiniGameOverlay = null
+	for child in controller.get_children():
+		if child is FestivalMiniGameOverlay:
+			overlay = child
+	overlay.closed.emit()
+	# queue_free() defers actual tree removal, so check the tracking field
+	# (not get_children()) for the immediate effect of the closed handler --
+	# same reasoning tests elsewhere poke a scene's own private state.
+	_check(controller._festival_overlay == null, "the overlay's closed signal should clear MainController's tracking reference immediately")
+	controller.queue_free()
+
 ## --- Frontend: Map overlay (#52 sub-scope, location switcher against
 ## main_controller.gd's world scenes) ---
 
@@ -4081,3 +4394,146 @@ func _test_npc_schedule_entry_weather_gating() -> void:
 	_check(rainy_only.matches("Spring", WeatherManager.RAINY), "a Rainy-only entry should match Rainy")
 	_check(not rainy_only.matches("Spring", WeatherManager.SUNNY),
 		"a Rainy-only entry should not match Sunny")
+
+## --- AudioManager ---
+## Headless has no real audio output device, so these verify the manager's
+## logic/signal-wiring (registration, play_sfx/play_music return values and
+## signals, real manager signals triggering the right sfx) -- not actual
+## sound, per this file's top-of-file docstring on scope.
+
+func _on_sfx_played_for_test(sfx_id: String) -> void:
+	_sfx_played_events.append(sfx_id)
+
+func _on_music_changed_for_test(track_id: String) -> void:
+	_music_changed_events.append(track_id)
+
+func _on_music_stopped_for_test() -> void:
+	_music_stopped_count += 1
+
+func _test_audio_default_sfx_and_music_are_registered() -> void:
+	_check(AudioManager.is_sfx_registered("coin"), "default 'coin' sfx should be registered on ready")
+	_check(AudioManager.is_sfx_registered("harvest"), "default 'harvest' sfx should be registered on ready")
+	_check(AudioManager.is_sfx_registered("heart"), "default 'heart' sfx should be registered on ready")
+	_check(AudioManager.is_sfx_registered("wedding"), "default 'wedding' sfx should be registered on ready")
+	_check(AudioManager.is_music_registered("ambient"), "default 'ambient' music track should be registered on ready")
+	_check(not AudioManager.is_sfx_registered("no_such_sfx"), "an unregistered sfx_id should report as not registered")
+
+func _test_play_sfx_unknown_id_returns_false_and_no_signal() -> void:
+	_sfx_played_events = []
+	AudioManager.sfx_played.connect(_on_sfx_played_for_test)
+
+	var result := AudioManager.play_sfx("no_such_sfx")
+
+	_check(result == false, "play_sfx with an unregistered id should return false")
+	_check(_sfx_played_events.is_empty(), "play_sfx with an unregistered id should not fire sfx_played")
+	AudioManager.sfx_played.disconnect(_on_sfx_played_for_test)
+
+func _test_play_sfx_known_id_fires_signal_with_correct_id() -> void:
+	_sfx_played_events = []
+	AudioManager.sfx_played.connect(_on_sfx_played_for_test)
+
+	var result := AudioManager.play_sfx("coin")
+
+	_check(result == true, "play_sfx with a registered id should return true")
+	_check(_sfx_played_events == ["coin"],
+		"play_sfx('coin') should fire sfx_played exactly once with 'coin', got %s" % [_sfx_played_events])
+	AudioManager.sfx_played.disconnect(_on_sfx_played_for_test)
+
+func _test_play_music_unknown_id_returns_false_and_no_signal() -> void:
+	AudioManager.stop_music()
+	_music_changed_events = []
+	AudioManager.music_changed.connect(_on_music_changed_for_test)
+
+	var result := AudioManager.play_music("no_such_track")
+
+	_check(result == false, "play_music with an unregistered id should return false")
+	_check(_music_changed_events.is_empty(), "play_music with an unregistered id should not fire music_changed")
+	_check(AudioManager.get_current_music() == "", "current music should stay empty after a failed play_music call")
+	AudioManager.music_changed.disconnect(_on_music_changed_for_test)
+
+func _test_play_music_switches_track_and_fires_signal() -> void:
+	AudioManager.stop_music()
+	AudioManager.register_music("test_track_b", 330.0)
+	_music_changed_events = []
+	AudioManager.music_changed.connect(_on_music_changed_for_test)
+
+	_check(AudioManager.play_music("ambient") == true, "play_music('ambient') should succeed")
+	_check(AudioManager.get_current_music() == "ambient", "current music should be 'ambient' after playing it")
+
+	_check(AudioManager.play_music("test_track_b") == true,
+		"play_music('test_track_b') should succeed while a different track is playing")
+	_check(AudioManager.get_current_music() == "test_track_b", "current music should switch to 'test_track_b'")
+	_check(_music_changed_events == ["ambient", "test_track_b"],
+		"switching tracks should fire music_changed once per actual change, got %s" % [_music_changed_events])
+
+	AudioManager.music_changed.disconnect(_on_music_changed_for_test)
+	AudioManager.stop_music()
+
+func _test_play_music_same_track_twice_is_noop() -> void:
+	AudioManager.stop_music()
+	_music_changed_events = []
+	AudioManager.music_changed.connect(_on_music_changed_for_test)
+
+	AudioManager.play_music("ambient")
+	AudioManager.play_music("ambient")
+
+	_check(_music_changed_events == ["ambient"],
+		"replaying the already-current track should not re-fire music_changed, got %s" % [_music_changed_events])
+
+	AudioManager.music_changed.disconnect(_on_music_changed_for_test)
+	AudioManager.stop_music()
+
+func _test_stop_music_clears_current_and_fires_signal_once() -> void:
+	AudioManager.play_music("ambient")
+	_music_stopped_count = 0
+	AudioManager.music_stopped.connect(_on_music_stopped_for_test)
+
+	AudioManager.stop_music()
+	_check(AudioManager.get_current_music() == "", "current music should be empty after stop_music()")
+	_check(_music_stopped_count == 1, "stop_music() should fire music_stopped exactly once")
+
+	AudioManager.stop_music() # already stopped -- should be a no-op, no second signal
+	_check(_music_stopped_count == 1,
+		"calling stop_music() again with nothing already playing should not re-fire music_stopped")
+
+	AudioManager.music_stopped.disconnect(_on_music_stopped_for_test)
+
+func _test_payout_processed_triggers_coin_sfx() -> void:
+	_sfx_played_events = []
+	AudioManager.sfx_played.connect(_on_sfx_played_for_test)
+
+	ShippingBinManager.payout_processed.emit(100, 2)
+
+	_check(_sfx_played_events == ["coin"],
+		"ShippingBinManager.payout_processed should trigger the 'coin' sfx, got %s" % [_sfx_played_events])
+	AudioManager.sfx_played.disconnect(_on_sfx_played_for_test)
+
+func _test_crop_harvested_triggers_harvest_sfx() -> void:
+	_sfx_played_events = []
+	AudioManager.sfx_played.connect(_on_sfx_played_for_test)
+
+	FarmPlotManager.crop_harvested.emit(Vector2i(0, 0), "parsnip", "normal", 1)
+
+	_check(_sfx_played_events == ["harvest"],
+		"FarmPlotManager.crop_harvested should trigger the 'harvest' sfx, got %s" % [_sfx_played_events])
+	AudioManager.sfx_played.disconnect(_on_sfx_played_for_test)
+
+func _test_heart_event_triggered_triggers_heart_sfx() -> void:
+	_sfx_played_events = []
+	AudioManager.sfx_played.connect(_on_sfx_played_for_test)
+
+	RelationshipManager.heart_event_triggered.emit("Elena", 2)
+
+	_check(_sfx_played_events == ["heart"],
+		"RelationshipManager.heart_event_triggered should trigger the 'heart' sfx, got %s" % [_sfx_played_events])
+	AudioManager.sfx_played.disconnect(_on_sfx_played_for_test)
+
+func _test_married_triggers_wedding_sfx() -> void:
+	_sfx_played_events = []
+	AudioManager.sfx_played.connect(_on_sfx_played_for_test)
+
+	MarriageManager.married.emit("Elena")
+
+	_check(_sfx_played_events == ["wedding"],
+		"MarriageManager.married should trigger the 'wedding' sfx, got %s" % [_sfx_played_events])
+	AudioManager.sfx_played.disconnect(_on_sfx_played_for_test)
