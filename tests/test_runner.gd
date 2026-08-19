@@ -51,6 +51,9 @@ var _infrastructure_overlay_closed_count := 0 ## same reason
 var _map_overlay_closed_count := 0 ## same reason
 var _map_travel_requested_events: Array = [] ## Array[String] of location, same reason
 var _pause_menu_travel_requested_events: Array = [] ## Array[String] of location, same reason
+var _sfx_played_events: Array = [] ## Array[String] of sfx_id, same reason
+var _music_changed_events: Array = [] ## Array[String] of track_id, same reason
+var _music_stopped_count := 0 ## member, not a local -- GDScript lambdas capture locals by value
 
 func _ready() -> void:
 	_test_minute_and_hour_wrap()
@@ -322,6 +325,18 @@ func _ready() -> void:
 	_test_weather_changed_only_fires_on_actual_change()
 	_test_weather_save_round_trip()
 	_test_npc_schedule_entry_weather_gating()
+
+	_test_audio_default_sfx_and_music_are_registered()
+	_test_play_sfx_unknown_id_returns_false_and_no_signal()
+	_test_play_sfx_known_id_fires_signal_with_correct_id()
+	_test_play_music_unknown_id_returns_false_and_no_signal()
+	_test_play_music_switches_track_and_fires_signal()
+	_test_play_music_same_track_twice_is_noop()
+	_test_stop_music_clears_current_and_fires_signal_once()
+	_test_payout_processed_triggers_coin_sfx()
+	_test_crop_harvested_triggers_harvest_sfx()
+	_test_heart_event_triggered_triggers_heart_sfx()
+	_test_married_triggers_wedding_sfx()
 
 	if _failures.is_empty():
 		print("ALL TESTS PASSED (%d checks)" % _pass_count)
@@ -4029,3 +4044,146 @@ func _test_npc_schedule_entry_weather_gating() -> void:
 	_check(rainy_only.matches("Spring", WeatherManager.RAINY), "a Rainy-only entry should match Rainy")
 	_check(not rainy_only.matches("Spring", WeatherManager.SUNNY),
 		"a Rainy-only entry should not match Sunny")
+
+## --- AudioManager ---
+## Headless has no real audio output device, so these verify the manager's
+## logic/signal-wiring (registration, play_sfx/play_music return values and
+## signals, real manager signals triggering the right sfx) -- not actual
+## sound, per this file's top-of-file docstring on scope.
+
+func _on_sfx_played_for_test(sfx_id: String) -> void:
+	_sfx_played_events.append(sfx_id)
+
+func _on_music_changed_for_test(track_id: String) -> void:
+	_music_changed_events.append(track_id)
+
+func _on_music_stopped_for_test() -> void:
+	_music_stopped_count += 1
+
+func _test_audio_default_sfx_and_music_are_registered() -> void:
+	_check(AudioManager.is_sfx_registered("coin"), "default 'coin' sfx should be registered on ready")
+	_check(AudioManager.is_sfx_registered("harvest"), "default 'harvest' sfx should be registered on ready")
+	_check(AudioManager.is_sfx_registered("heart"), "default 'heart' sfx should be registered on ready")
+	_check(AudioManager.is_sfx_registered("wedding"), "default 'wedding' sfx should be registered on ready")
+	_check(AudioManager.is_music_registered("ambient"), "default 'ambient' music track should be registered on ready")
+	_check(not AudioManager.is_sfx_registered("no_such_sfx"), "an unregistered sfx_id should report as not registered")
+
+func _test_play_sfx_unknown_id_returns_false_and_no_signal() -> void:
+	_sfx_played_events = []
+	AudioManager.sfx_played.connect(_on_sfx_played_for_test)
+
+	var result := AudioManager.play_sfx("no_such_sfx")
+
+	_check(result == false, "play_sfx with an unregistered id should return false")
+	_check(_sfx_played_events.is_empty(), "play_sfx with an unregistered id should not fire sfx_played")
+	AudioManager.sfx_played.disconnect(_on_sfx_played_for_test)
+
+func _test_play_sfx_known_id_fires_signal_with_correct_id() -> void:
+	_sfx_played_events = []
+	AudioManager.sfx_played.connect(_on_sfx_played_for_test)
+
+	var result := AudioManager.play_sfx("coin")
+
+	_check(result == true, "play_sfx with a registered id should return true")
+	_check(_sfx_played_events == ["coin"],
+		"play_sfx('coin') should fire sfx_played exactly once with 'coin', got %s" % [_sfx_played_events])
+	AudioManager.sfx_played.disconnect(_on_sfx_played_for_test)
+
+func _test_play_music_unknown_id_returns_false_and_no_signal() -> void:
+	AudioManager.stop_music()
+	_music_changed_events = []
+	AudioManager.music_changed.connect(_on_music_changed_for_test)
+
+	var result := AudioManager.play_music("no_such_track")
+
+	_check(result == false, "play_music with an unregistered id should return false")
+	_check(_music_changed_events.is_empty(), "play_music with an unregistered id should not fire music_changed")
+	_check(AudioManager.get_current_music() == "", "current music should stay empty after a failed play_music call")
+	AudioManager.music_changed.disconnect(_on_music_changed_for_test)
+
+func _test_play_music_switches_track_and_fires_signal() -> void:
+	AudioManager.stop_music()
+	AudioManager.register_music("test_track_b", 330.0)
+	_music_changed_events = []
+	AudioManager.music_changed.connect(_on_music_changed_for_test)
+
+	_check(AudioManager.play_music("ambient") == true, "play_music('ambient') should succeed")
+	_check(AudioManager.get_current_music() == "ambient", "current music should be 'ambient' after playing it")
+
+	_check(AudioManager.play_music("test_track_b") == true,
+		"play_music('test_track_b') should succeed while a different track is playing")
+	_check(AudioManager.get_current_music() == "test_track_b", "current music should switch to 'test_track_b'")
+	_check(_music_changed_events == ["ambient", "test_track_b"],
+		"switching tracks should fire music_changed once per actual change, got %s" % [_music_changed_events])
+
+	AudioManager.music_changed.disconnect(_on_music_changed_for_test)
+	AudioManager.stop_music()
+
+func _test_play_music_same_track_twice_is_noop() -> void:
+	AudioManager.stop_music()
+	_music_changed_events = []
+	AudioManager.music_changed.connect(_on_music_changed_for_test)
+
+	AudioManager.play_music("ambient")
+	AudioManager.play_music("ambient")
+
+	_check(_music_changed_events == ["ambient"],
+		"replaying the already-current track should not re-fire music_changed, got %s" % [_music_changed_events])
+
+	AudioManager.music_changed.disconnect(_on_music_changed_for_test)
+	AudioManager.stop_music()
+
+func _test_stop_music_clears_current_and_fires_signal_once() -> void:
+	AudioManager.play_music("ambient")
+	_music_stopped_count = 0
+	AudioManager.music_stopped.connect(_on_music_stopped_for_test)
+
+	AudioManager.stop_music()
+	_check(AudioManager.get_current_music() == "", "current music should be empty after stop_music()")
+	_check(_music_stopped_count == 1, "stop_music() should fire music_stopped exactly once")
+
+	AudioManager.stop_music() # already stopped -- should be a no-op, no second signal
+	_check(_music_stopped_count == 1,
+		"calling stop_music() again with nothing already playing should not re-fire music_stopped")
+
+	AudioManager.music_stopped.disconnect(_on_music_stopped_for_test)
+
+func _test_payout_processed_triggers_coin_sfx() -> void:
+	_sfx_played_events = []
+	AudioManager.sfx_played.connect(_on_sfx_played_for_test)
+
+	ShippingBinManager.payout_processed.emit(100, 2)
+
+	_check(_sfx_played_events == ["coin"],
+		"ShippingBinManager.payout_processed should trigger the 'coin' sfx, got %s" % [_sfx_played_events])
+	AudioManager.sfx_played.disconnect(_on_sfx_played_for_test)
+
+func _test_crop_harvested_triggers_harvest_sfx() -> void:
+	_sfx_played_events = []
+	AudioManager.sfx_played.connect(_on_sfx_played_for_test)
+
+	FarmPlotManager.crop_harvested.emit(Vector2i(0, 0), "parsnip", "normal", 1)
+
+	_check(_sfx_played_events == ["harvest"],
+		"FarmPlotManager.crop_harvested should trigger the 'harvest' sfx, got %s" % [_sfx_played_events])
+	AudioManager.sfx_played.disconnect(_on_sfx_played_for_test)
+
+func _test_heart_event_triggered_triggers_heart_sfx() -> void:
+	_sfx_played_events = []
+	AudioManager.sfx_played.connect(_on_sfx_played_for_test)
+
+	RelationshipManager.heart_event_triggered.emit("Elena", 2)
+
+	_check(_sfx_played_events == ["heart"],
+		"RelationshipManager.heart_event_triggered should trigger the 'heart' sfx, got %s" % [_sfx_played_events])
+	AudioManager.sfx_played.disconnect(_on_sfx_played_for_test)
+
+func _test_married_triggers_wedding_sfx() -> void:
+	_sfx_played_events = []
+	AudioManager.sfx_played.connect(_on_sfx_played_for_test)
+
+	MarriageManager.married.emit("Elena")
+
+	_check(_sfx_played_events == ["wedding"],
+		"MarriageManager.married should trigger the 'wedding' sfx, got %s" % [_sfx_played_events])
+	AudioManager.sfx_played.disconnect(_on_sfx_played_for_test)
