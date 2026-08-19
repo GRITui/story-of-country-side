@@ -9,111 +9,100 @@
 
 ## Current Focus
 No open PRs against `claude/farming-game-pm-requirements-w9ugtk` as of
-this epoch (epoch 2). Backlog of merged-but-unreviewed PRs from epoch 1
-is now clear except for one new arrival mid-epoch (see "Queued for next
-epoch" below).
+this epoch (epoch 3). First epoch under the "Country Side Crew" org
+chart — title is now "QA Tester" (functional-correctness pass across all
+five activities), reporting to an incoming QA Lead; a "QA Tester,
+Compatibility" peer covers platform/save-load/performance separately.
 
-## Recent Commits / PRs — Epoch 2
-Reviewed all 20 PRs merged since epoch 1's review, against current
-base-branch HEAD (`059773e`):
+## Recent Commits / PRs — Epoch 3
+Reviewed all 12 PRs merged since epoch 2's review (#67-#78), against
+current base-branch HEAD:
 
-* PR #45 (ENG-15, Fishing) — PASS. Commented.
-* PR #46 (Frontend: always-on HUD) — PASS. Commented.
-* PR #47 (ENG-16, Mining) — PASS. Commented.
-* PR #48 (ENG-21, Festivals) — PASS. Commented.
-* PR #49 (ENG-20, Marriage & Family) — PASS. Commented. Minor
-  observation (non-blocking): child-birth roll uses global `randf()`
-  instead of the seedable `RandomNumberGenerator` pattern every other
-  RNG-consuming manager uses; the PR's own test correctly works around
-  this by asserting invariants rather than a fixed outcome.
-* **PR #50 (ENG-24, Infrastructure Upgrades) — PASS on what it ships,
-  but flagged a real scope gap.** Decision C (#4)'s actual resolution
-  explicitly calls for automation devices — "sprinklers → auto-feeders →
-  collection hub, each behind its own unlock quest" — landing in this
-  issue. `InfrastructureManager` only ships House/Coop/Artisan-machine
-  tracks; no automation device exists anywhere in the repo (confirmed by
-  grep — only a docstring reference in `tool_manager.gd` and three
-  illustrative flag names in `QuestManager`'s own test suite, not real
-  content). PR #40 (Tool Upgrades) explicitly deferred all quest-gating
-  to this issue, so the gap isn't covered elsewhere either. Unlike every
-  other content gap in this repo, this one wasn't flagged in the PR's own
-  description. Commented on the PR with the full citation trail
-  (Decision C's resolution comment + PR #40's own deferral). **This is
-  the one finding this epoch that needs PM attention** — flagging here
-  since PM is this session; not filing a GitHub issue myself per QA's
-  scope (that's PM's call).
-* PR #51 (ENG-27, Ultimate-goal / Community Goal) — PASS. Commented.
-* PR #54 (Frontend: pause menu + Inventory overlay) — PASS. Commented.
-* PR #55 (Content: Marriage roster) — PASS, content-only. Commented.
-* PR #56 (Content: Agriculture/Ranching/Fishing/Foraging rosters) —
-  PASS, content-only. Commented.
-* PR #57 (Frontend: FarmScene) — PASS. Commented.
-* PR #58 (Content: gift preferences + intro narration) — PASS,
-  content-only. Commented.
-* PR #59 (Backend: NPC→GiftPreferenceTable lookup) — PASS. Commented.
-* PR #60 (Content: 5 new Community Goal bundles) — PASS, content-only.
+* PR #67 (Frontend: Skills overlay) — PASS. Commented.
+* PR #68 (Frontend: Marriage/Family proposal-and-wedding overlay) —
+  PASS. Commented.
+* PR #69 (Frontend: Infrastructure Upgrades overlay) — PASS. Commented.
+* PR #70 (Frontend: Map overlay + world-scene location switching) —
+  PASS. Commented. Read `main_controller.gd`'s `travel_to()` refactor
+  closely (core boot/scene-swap flow) — `free()`-before-instantiate
+  ordering is correct, idempotency guards are sound. Also fixes a real
+  pre-existing gap: Ranch/Forage/Mine scenes existed but nothing ever
+  showed them in actual play.
+* PR #71 (Backend: Infrastructure automation devices) — PASS, and
+  **confirmed this correctly closes the gap I flagged in epoch 2** (cites
+  my PR #50 comment directly). Traced a real ordering dependency in
+  `_on_day_started()`: the sprinkler/auto-feeder/collection-hub loops
+  fire on the same `TimeManager.day_started` signal `FarmPlotManager`/
+  `AnimalManager` use for their own watered/fed-state reset. Verified via
+  `project.godot`'s `[autoload]` order that `FarmPlotManager`/
+  `AnimalManager` connect before `InfrastructureManager`, so the
+  automation correctly primes state *for* the new day rather than
+  retroactively crediting the day that ended. Correct today, but it's an
+  autoload-registration-order dependency with no code-level enforcement —
+  noted on the PR as a fragility worth a comment, not a live bug.
+* PR #72 (Backend: cost/content-visibility getters) — PASS. Commented.
+* PR #73 (Frontend: Infrastructure cost display + automation UI) —
+  PASS. Commented.
+* PR #74 (Frontend: Community Goal contribution UI) — PASS. Commented.
+* **PR #75 (Add AudioManager autoload) — PASS with one real finding.**
+  Every test run against current HEAD now prints `WARNING: ObjectDB
+  instances leaked at exit` / `Leaked instance: AudioStreamGeneratorPlayback`
+  on shutdown — confirmed absent in epoch 2's runs, reproduced on every
+  invocation starting with this PR (not test-order-dependent). This is
+  separate from the re-trigger leak the Audio-Squad's own standup says
+  Producer already found/fixed pre-merge (stop-before-restart in
+  `_start_music_loop`/`_start_one_shot_tone` — that fix is genuinely in
+  the merged code and works). The residual leak is narrower: `play_sfx()`
+  → `_start_one_shot_tone()` only ever releases its
+  `AudioStreamGeneratorPlayback` as a side effect of a *later* SFX call
+  superseding it — there's no explicit stop once a one-shot tone finishes
+  on its own, unlike the music path (every `play_music` test correctly
+  ends with `stop_music()`). Commented on the PR with the full repro and
+  root-cause trace. Doesn't fail any test assertion and likely
+  self-resolves in real play once the buffer drains, but it's new noise
+  in every test run that could mask a future real leak — flagged as a
+  fix-forward item, not fixed myself.
+* PR #76 (Frontend: Festival mini-game overlay) — PASS. Commented.
+* PR #77 (Frontend: Fishing mini-game overlay) — PASS. Commented.
+* PR #78 (Content: Infrastructure quest titles) — PASS, content-only.
   Commented.
-* PR #61 (Content: festival names + tool cost rebalance) — PASS,
-  content-only. Commented.
-* PR #62 (Backend: WeatherManager) — PASS. Commented.
-* PR #63 (Frontend: HUD weather display) — PASS. Commented.
-* PR #64 (Frontend: RanchScene) — PASS. Commented.
-* PR #65 (Frontend: ForageScene) — PASS. Commented.
-* PR #66 (Frontend: MineScene) — PASS. Commented. Noted a claimed-vs-
-  actual test-count mismatch (PR claims 714/714, I independently measured
-  711/711 on the exact same commit) — confirmed via `git log`/`git show`
-  across every intervening PR that **no test function was ever deleted**,
-  so this is not a coverage regression, just an inaccurate count
-  somewhere in the PR chain's own local runs. Not blocking, logged for
-  visibility.
 
 **Verification performed, independently, this epoch:**
 - `godot --headless --editor --quit` (class-cache refresh), then
-  `godot --headless --path . tests/TestRunner.tscn` →
-  **711/711 checks pass** on current HEAD (cumulative across all 20 PRs
-  reviewed this epoch, on top of epoch 1's 262).
+  `godot --headless --path . tests/TestRunner.tscn` → **901-904/904
+  checks pass** on current HEAD (small run-to-run count variance traced
+  to MarriageManager's unseeded child-birth roll, already flagged
+  non-blocking in epoch 2 — not new).
 - `godot --headless --path . --quit-after 60` — clean smoke test, no
-  runtime errors/warnings.
-- Repo-wide contract-boundary grep sweep (re-run against every new
-  directory: `scripts/fishing`, `scripts/mining`, `scripts/events`,
-  `scripts/infrastructure`, `scripts/goals`, `scripts/world`,
-  `scripts/social/gift_preferences`) — two grep hits, both confirmed
-  false positives (comments mentioning a path/method name, not real
-  cross-boundary code). Zero real violations.
-- Every PR's scope diffed against its linked GitHub issue (#15/#16/#20/
-  #21/#24/#27/#52/#53) — one real gap found (PR #50, see above); every
-  other PR matches its issue.
-- Manual line-by-line read of the new backend managers' actual logic:
-  `fishing_manager.gd`, `mining_manager.gd` (weighted ore roll,
-  save round-trip), `festival_manager.gd` (freeze pairing, auto-trigger
-  idempotency), `marriage_manager.gd` (proposal never partially consumes
-  the item, wedding countdown fires exactly once), `infrastructure_manager.gd`
-  (material-before-gold ordering, job lifecycle), `community_goal_manager.gd`
-  (contribution clamping, one-shot completion/evaluation firing),
-  `weather_manager.gd` (dedup on unchanged roll), and the
-  `relationship_manager.gd` gift-lookup addition. Also read
-  `pause_menu.gd`/`inventory_overlay.gd` and spot-checked
-  `ranch_scene.gd`/`mine_scene.gd` for the frontend world-scene batch
-  (position↔id derivation, no private-field reach-around, correct signal
-  reactivity). **No logic bugs found** beyond the two non-blocking
-  observations above. `save_manager.gd` confirmed wired for every new
-  manager that needs persistence (and correctly NOT wired for the two
-  that don't — FishingManager/FestivalManager — matching their own
-  documented "fully re-derivable, nothing to round-trip" reasoning).
+  runtime errors on boot (the AudioManager leak warning is specific to
+  the test suite's SFX exercise, not the smoke-test boot path).
+- Repo-wide contract-boundary grep sweep, re-run against every current
+  directory — two hits, both confirmed false-positive comments (a
+  method-name reference in `ranch_scene.gd`, a file-path reference in
+  `festival_manager.gd`). Zero real violations.
+- Spot-checked new overlays for duplicated validation/gate logic instead
+  of calling the owning manager's own check — none found; the one direct
+  comparison in `community_goal_overlay.gd` is pure UI button-disable
+  affordance, not a second copy of `contribute_item()`'s real gating.
+- Line-by-line read of `main_controller.gd`, `infrastructure_manager.gd`
+  (automation additions), `audio_manager.gd` (found the leak above),
+  `relationships_overlay.gd`, `infrastructure_overlay.gd`. Verified the
+  new getters added in PR #72 are simple read-only accessors with no
+  mutation surface.
 
 ## Blockers & QA Failures
-None blocking test suite / contract integrity. One scope-completeness
-finding on PR #50 (Infrastructure automation gap) needs PM attention —
-see above.
+None blocking. One real, non-blocking finding this epoch (AudioManager
+SFX-player leak, PR #75) — flagged on the PR, doesn't need a PM ping
+since it's not a contract violation or scope gap, just a fix-forward
+code-quality item for whoever owns Audio-Squad next.
 
 ## Cross-Squad Requests
-To PM: PR #50 (Infrastructure Upgrades) doesn't implement the automation
-devices (sprinklers/auto-feeders/collection hub) that Decision C (#4)
-explicitly resolved should land there. Needs a call: fix-forward PR, or
-explicit documentation that it's intentionally deferred and issue #24
-isn't fully closed.
+None beyond what's already logged on PR #75.
 
 ## Queued for next epoch
 One more PR merged to the base branch while this epoch's review was in
 progress — not yet reviewed, first item next epoch:
-* PR #67 (Frontend: Skills full-screen overlay)
+* PR #79 (Art Squad: procedurally-generated isometric tileset + NPC
+  silhouette sprite) — touches `ranch_scene.gd` per the diff, worth
+  checking it didn't regress the position↔animal_id logic already
+  verified in epoch 2.
