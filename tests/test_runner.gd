@@ -360,6 +360,7 @@ func _ready() -> void:
 	_test_crop_harvested_triggers_harvest_sfx()
 	_test_heart_event_triggered_triggers_heart_sfx()
 	_test_married_triggers_wedding_sfx()
+	_test_stop_sfx_is_idempotent_and_leaves_player_reusable()
 
 	_test_procedural_tile_art_shape_matches_iso_grid_spec()
 	_test_procedural_tile_art_diamond_corners_are_transparent()
@@ -4446,6 +4447,7 @@ func _test_play_sfx_known_id_fires_signal_with_correct_id() -> void:
 	_check(_sfx_played_events == ["coin"],
 		"play_sfx('coin') should fire sfx_played exactly once with 'coin', got %s" % [_sfx_played_events])
 	AudioManager.sfx_played.disconnect(_on_sfx_played_for_test)
+	AudioManager.stop_sfx()
 
 func _test_play_music_unknown_id_returns_false_and_no_signal() -> void:
 	AudioManager.stop_music()
@@ -4515,6 +4517,7 @@ func _test_payout_processed_triggers_coin_sfx() -> void:
 	_check(_sfx_played_events == ["coin"],
 		"ShippingBinManager.payout_processed should trigger the 'coin' sfx, got %s" % [_sfx_played_events])
 	AudioManager.sfx_played.disconnect(_on_sfx_played_for_test)
+	AudioManager.stop_sfx()
 
 func _test_crop_harvested_triggers_harvest_sfx() -> void:
 	_sfx_played_events = []
@@ -4525,6 +4528,7 @@ func _test_crop_harvested_triggers_harvest_sfx() -> void:
 	_check(_sfx_played_events == ["harvest"],
 		"FarmPlotManager.crop_harvested should trigger the 'harvest' sfx, got %s" % [_sfx_played_events])
 	AudioManager.sfx_played.disconnect(_on_sfx_played_for_test)
+	AudioManager.stop_sfx()
 
 func _test_heart_event_triggered_triggers_heart_sfx() -> void:
 	_sfx_played_events = []
@@ -4535,6 +4539,7 @@ func _test_heart_event_triggered_triggers_heart_sfx() -> void:
 	_check(_sfx_played_events == ["heart"],
 		"RelationshipManager.heart_event_triggered should trigger the 'heart' sfx, got %s" % [_sfx_played_events])
 	AudioManager.sfx_played.disconnect(_on_sfx_played_for_test)
+	AudioManager.stop_sfx()
 
 func _test_married_triggers_wedding_sfx() -> void:
 	_sfx_played_events = []
@@ -4545,6 +4550,22 @@ func _test_married_triggers_wedding_sfx() -> void:
 	_check(_sfx_played_events == ["wedding"],
 		"MarriageManager.married should trigger the 'wedding' sfx, got %s" % [_sfx_played_events])
 	AudioManager.sfx_played.disconnect(_on_sfx_played_for_test)
+	AudioManager.stop_sfx()
+
+func _test_stop_sfx_is_idempotent_and_leaves_player_reusable() -> void:
+	AudioManager.stop_sfx() # nothing playing yet -- should not error
+	AudioManager.play_sfx("coin")
+	AudioManager.stop_sfx() # stop mid-playback -- should not error
+	AudioManager.stop_sfx() # already stopped -- still should not error
+
+	_sfx_played_events = []
+	AudioManager.sfx_played.connect(_on_sfx_played_for_test)
+	var result := AudioManager.play_sfx("coin")
+	_check(result == true, "play_sfx should still succeed after stop_sfx() left the player idle")
+	_check(_sfx_played_events == ["coin"],
+		"play_sfx after stop_sfx should still fire sfx_played normally, got %s" % [_sfx_played_events])
+	AudioManager.sfx_played.disconnect(_on_sfx_played_for_test)
+	AudioManager.stop_sfx()
 
 ## --- Art Squad: ProceduralTileArt (#52 adjacent sub-scope,
 ## scripts/world/procedural_tile_art.gd) ---
