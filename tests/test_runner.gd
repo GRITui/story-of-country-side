@@ -56,6 +56,7 @@ var _music_changed_events: Array = [] ## Array[String] of track_id, same reason
 var _music_stopped_count := 0 ## member, not a local -- GDScript lambdas capture locals by value
 var _community_goal_overlay_closed_count := 0 ## same reason
 var _festival_mini_game_overlay_closed_count := 0 ## same reason
+var _fishing_overlay_closed_count := 0 ## same reason
 
 func _ready() -> void:
 	_test_minute_and_hour_wrap()
@@ -210,6 +211,12 @@ func _ready() -> void:
 	_test_community_goal_overlay_completing_bundle_updates_title_and_progress()
 	_test_community_goal_overlay_close_emits_closed_signal()
 	_test_pause_menu_community_goal_button_shows_overlay_and_hides_menu_panel()
+	_test_fishing_overlay_defaults_to_first_location_and_lists_fish()
+	_test_fishing_overlay_switching_location_refreshes_fish_list()
+	_test_fishing_overlay_great_effort_catches_fish()
+	_test_fishing_overlay_poor_effort_on_harder_fish_escapes()
+	_test_fishing_overlay_close_emits_closed_signal()
+	_test_pause_menu_fishing_button_shows_overlay_and_hides_menu_panel()
 	_test_festival_mini_game_overlay_shows_title_and_choices()
 	_test_festival_mini_game_overlay_great_choice_submits_success()
 	_test_festival_mini_game_overlay_poor_choice_submits_failure()
@@ -2510,6 +2517,86 @@ func _test_pause_menu_community_goal_button_shows_overlay_and_hides_menu_panel()
 		"opening Community Goal should hide the main pause menu panel")
 	_check(menu.get_node("CommunityGoalOverlay") != null,
 		"opening Community Goal should instantiate the CommunityGoalOverlay as a child")
+	menu.close()
+	menu.queue_free()
+
+## --- Frontend: Fishing overlay (#52 sub-scope, placeholder input/skill-
+## check implementation against FishingManager's attempt_catch() contract) ---
+
+func _make_fishing_overlay() -> FishingOverlay:
+	var scene: PackedScene = load("res://scenes/ui/FishingOverlay.tscn")
+	var overlay: FishingOverlay = scene.instantiate()
+	add_child(overlay)
+	return overlay
+
+func _test_fishing_overlay_defaults_to_first_location_and_lists_fish() -> void:
+	TimeManager.season_index = 0 # Spring
+	TimeManager.hour = 10
+	var overlay := _make_fishing_overlay()
+	for location in FishingOverlay.LOCATIONS:
+		_check(overlay.get_node("Root/Panel/Margin/VBox/LocationList/Location_%s" % location) != null,
+			"overlay should list a button for location %s" % location)
+	_check(overlay.get_node("Root/Panel/Margin/VBox/ScrollContainer/FishList/Fish_carp") != null,
+		"pond (default location) in Spring should list carp, which is available all seasons/hours/pond+river+lake")
+	overlay.queue_free()
+
+func _test_fishing_overlay_switching_location_refreshes_fish_list() -> void:
+	TimeManager.season_index = 0 # Spring
+	TimeManager.hour = 10
+	var overlay := _make_fishing_overlay()
+	overlay.get_node("Root/Panel/Margin/VBox/LocationList/Location_ocean").pressed.emit()
+	_check(not overlay.get_node("Root/Panel/Margin/VBox/ScrollContainer/FishList").has_node("Fish_carp"),
+		"carp isn't registered for ocean, so switching to ocean should clear it from the list")
+	overlay.queue_free()
+
+func _test_fishing_overlay_great_effort_catches_fish() -> void:
+	TimeManager.season_index = 0 # Spring
+	TimeManager.hour = 10
+	_reset_inventory_manager()
+	SkillManager._xp = {}
+	var overlay := _make_fishing_overlay()
+	var carp_row: HBoxContainer = overlay.get_node("Root/Panel/Margin/VBox/ScrollContainer/FishList/Fish_carp")
+	(carp_row.get_child(3) as Button).pressed.emit() # "Great Effort", score 0.95 -- passes carp's 0.2 difficulty and clears the 0.9 gold-quality threshold
+
+	_check(InventoryManager.get_count("carp_gold") == 1, "a successful high-score catch should credit InventoryManager with the gold-quality fish")
+	_check(overlay.get_node("Root/Panel/Margin/VBox/ResultLabel").text == "Great Effort -- Caught! (gold quality)",
+		"result label should reflect the successful catch, got '%s'" % overlay.get_node("Root/Panel/Margin/VBox/ResultLabel").text)
+	overlay.queue_free()
+
+func _test_fishing_overlay_poor_effort_on_harder_fish_escapes() -> void:
+	TimeManager.season_index = 0 # Spring
+	TimeManager.hour = 10
+	_reset_inventory_manager()
+	SkillManager._xp = {}
+	var overlay := _make_fishing_overlay()
+	var bream_row: HBoxContainer = overlay.get_node("Root/Panel/Margin/VBox/ScrollContainer/FishList/Fish_bream")
+	(bream_row.get_child(1) as Button).pressed.emit() # "Poor Effort", score 0.2, bream's own difficulty is 0.3
+
+	_check(InventoryManager.get_count("bream") == 0, "a failed catch should not credit InventoryManager")
+	_check(overlay.get_node("Root/Panel/Margin/VBox/ResultLabel").text == "Poor Effort -- It got away!",
+		"result label should reflect the escape, got '%s'" % overlay.get_node("Root/Panel/Margin/VBox/ResultLabel").text)
+	overlay.queue_free()
+
+func _on_fishing_overlay_closed_for_test() -> void:
+	_fishing_overlay_closed_count += 1
+
+func _test_fishing_overlay_close_emits_closed_signal() -> void:
+	var overlay := _make_fishing_overlay()
+	_fishing_overlay_closed_count = 0
+	overlay.closed.connect(_on_fishing_overlay_closed_for_test)
+	overlay.get_node("Root/Panel/Margin/VBox/Header/CloseButton").pressed.emit()
+	_check(_fishing_overlay_closed_count == 1, "pressing Close should emit the closed signal exactly once")
+	overlay.queue_free()
+
+func _test_pause_menu_fishing_button_shows_overlay_and_hides_menu_panel() -> void:
+	TimeManager.unfreeze(PauseMenu.PAUSE_REASON)
+	var menu := _make_pause_menu()
+	menu.open()
+	menu.get_node("Root/MenuPanel/Margin/VBox/FishingButton").pressed.emit()
+	_check(not menu.get_node("Root/MenuPanel").visible,
+		"opening Fishing should hide the main pause menu panel")
+	_check(menu.get_node("FishingOverlay") != null,
+		"opening Fishing should instantiate the FishingOverlay as a child")
 	menu.close()
 	menu.queue_free()
 
