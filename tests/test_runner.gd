@@ -54,6 +54,7 @@ var _pause_menu_travel_requested_events: Array = [] ## Array[String] of location
 var _sfx_played_events: Array = [] ## Array[String] of sfx_id, same reason
 var _music_changed_events: Array = [] ## Array[String] of track_id, same reason
 var _music_stopped_count := 0 ## member, not a local -- GDScript lambdas capture locals by value
+var _community_goal_overlay_closed_count := 0 ## same reason
 
 func _ready() -> void:
 	_test_minute_and_hour_wrap()
@@ -202,6 +203,12 @@ func _ready() -> void:
 	_test_infrastructure_overlay_automation_build_flow()
 	_test_infrastructure_overlay_close_emits_closed_signal()
 	_test_pause_menu_infrastructure_button_shows_overlay_and_hides_menu_panel()
+	_test_community_goal_overlay_lists_all_bundles_on_ready()
+	_test_community_goal_overlay_contribute_button_gated_on_held_inventory()
+	_test_community_goal_overlay_contribute_click_sends_held_quantity_and_updates_reactively()
+	_test_community_goal_overlay_completing_bundle_updates_title_and_progress()
+	_test_community_goal_overlay_close_emits_closed_signal()
+	_test_pause_menu_community_goal_button_shows_overlay_and_hides_menu_panel()
 	_test_map_overlay_lists_all_locations_on_ready()
 	_test_map_overlay_travel_click_emits_travel_requested_and_closed()
 	_test_map_overlay_close_button_emits_closed_only()
@@ -2405,6 +2412,97 @@ func _test_pause_menu_infrastructure_button_shows_overlay_and_hides_menu_panel()
 		"opening Infrastructure should hide the main pause menu panel")
 	_check(menu.get_node("InfrastructureOverlay") != null,
 		"opening Infrastructure should instantiate the InfrastructureOverlay as a child")
+	menu.close()
+	menu.queue_free()
+
+## --- Frontend: Community Goal overlay (#52 sub-scope, contribution UI
+## against CommunityGoalManager, unblocked by PR #72's
+## list_bundle_ids()/get_bundle_definition()) ---
+
+func _make_community_goal_overlay() -> CommunityGoalOverlay:
+	var scene: PackedScene = load("res://scenes/ui/CommunityGoalOverlay.tscn")
+	var overlay: CommunityGoalOverlay = scene.instantiate()
+	add_child(overlay)
+	return overlay
+
+func _test_community_goal_overlay_lists_all_bundles_on_ready() -> void:
+	_reset_community_goal_manager()
+	var overlay := _make_community_goal_overlay()
+	for bundle_id in CommunityGoalManager.list_bundle_ids():
+		_check(overlay.get_node("Root/Panel/Margin/VBox/ScrollContainer/BundleList/Bundle_%s" % bundle_id) != null,
+			"overlay should list a section for bundle %s" % bundle_id)
+	_check(overlay.get_node("Root/Panel/Margin/VBox/ProgressLabel").text == "Bundles completed: 0/%d" % CommunityGoalManager.bundles_total_count(),
+		"progress label should be primed from current completion counts")
+	var vault_row: HBoxContainer = overlay.get_node("Root/Panel/Margin/VBox/ScrollContainer/BundleList/Bundle_vault_bundle/Item_diamond")
+	_check(vault_row.get_child(1).text == "0/3", "vault_bundle's diamond row should show 0/3 contributed, got '%s'" % vault_row.get_child(1).text)
+	overlay.queue_free()
+
+func _test_community_goal_overlay_contribute_button_gated_on_held_inventory() -> void:
+	_reset_community_goal_manager()
+	_reset_inventory_manager()
+	var overlay := _make_community_goal_overlay()
+	var action_button: Button = overlay.get_node("Root/Panel/Margin/VBox/ScrollContainer/BundleList/Bundle_vault_bundle/Item_diamond").get_child(2)
+	_check(action_button.disabled, "Contribute should start disabled with no diamonds held")
+
+	InventoryManager.add_item("diamond", 2)
+	overlay._refresh_bundle("vault_bundle") # re-evaluate now that inventory changed, mirrors what a real signal-driven refresh would do
+	_check(not action_button.disabled, "Contribute should become enabled once the player holds some of the item")
+	overlay.queue_free()
+
+func _test_community_goal_overlay_contribute_click_sends_held_quantity_and_updates_reactively() -> void:
+	_reset_community_goal_manager()
+	_reset_inventory_manager()
+	InventoryManager.add_item("diamond", 2)
+	var overlay := _make_community_goal_overlay()
+	var row: HBoxContainer = overlay.get_node("Root/Panel/Margin/VBox/ScrollContainer/BundleList/Bundle_vault_bundle/Item_diamond")
+	var progress_label: Label = row.get_child(1)
+	var action_button: Button = row.get_child(2)
+
+	action_button.pressed.emit()
+	_check(CommunityGoalManager.contributed_count("vault_bundle", "diamond") == 2,
+		"clicking Contribute should send everything held (2) via CommunityGoalManager.contribute_item()")
+	_check(InventoryManager.get_count("diamond") == 0, "contributing should remove the diamonds from InventoryManager")
+	_check(progress_label.text == "2/3", "progress label should reactively update via bundle_contribution_added, got '%s'" % progress_label.text)
+	overlay.queue_free()
+
+func _test_community_goal_overlay_completing_bundle_updates_title_and_progress() -> void:
+	_reset_community_goal_manager()
+	_reset_inventory_manager()
+	InventoryManager.add_item("diamond", 3)
+	var overlay := _make_community_goal_overlay()
+	var row: HBoxContainer = overlay.get_node("Root/Panel/Margin/VBox/ScrollContainer/BundleList/Bundle_vault_bundle/Item_diamond")
+	var action_button: Button = row.get_child(2)
+	var title_label: Label = overlay.get_node("Root/Panel/Margin/VBox/ScrollContainer/BundleList/Bundle_vault_bundle").get_child(0)
+
+	action_button.pressed.emit() # 3 diamonds held, exactly completes the 3-diamond vault_bundle
+	_check(CommunityGoalManager.is_bundle_complete("vault_bundle"), "sanity: contributing all 3 diamonds should complete vault_bundle")
+	_check(title_label.text == "The Vault (Complete!)", "bundle title should reactively mark complete via bundle_completed, got '%s'" % title_label.text)
+	_check(action_button.disabled, "Contribute should disable once its bundle is complete")
+	_check(overlay.get_node("Root/Panel/Margin/VBox/ProgressLabel").text == "Bundles completed: 1/%d" % CommunityGoalManager.bundles_total_count(),
+		"overall progress label should reactively update via bundle_completed")
+	overlay.queue_free()
+
+func _on_community_goal_overlay_closed_for_test() -> void:
+	_community_goal_overlay_closed_count += 1
+
+func _test_community_goal_overlay_close_emits_closed_signal() -> void:
+	_reset_community_goal_manager()
+	_community_goal_overlay_closed_count = 0
+	var overlay := _make_community_goal_overlay()
+	overlay.closed.connect(_on_community_goal_overlay_closed_for_test)
+	overlay.get_node("Root/Panel/Margin/VBox/Header/CloseButton").pressed.emit()
+	_check(_community_goal_overlay_closed_count == 1, "pressing Close should emit the closed signal exactly once")
+	overlay.queue_free()
+
+func _test_pause_menu_community_goal_button_shows_overlay_and_hides_menu_panel() -> void:
+	TimeManager.unfreeze(PauseMenu.PAUSE_REASON)
+	var menu := _make_pause_menu()
+	menu.open()
+	menu.get_node("Root/MenuPanel/Margin/VBox/CommunityGoalButton").pressed.emit()
+	_check(not menu.get_node("Root/MenuPanel").visible,
+		"opening Community Goal should hide the main pause menu panel")
+	_check(menu.get_node("CommunityGoalOverlay") != null,
+		"opening Community Goal should instantiate the CommunityGoalOverlay as a child")
 	menu.close()
 	menu.queue_free()
 

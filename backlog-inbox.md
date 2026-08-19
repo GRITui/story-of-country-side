@@ -1450,3 +1450,30 @@ either, so the remote branches remain as harmless merged-and-stale refs).
     PR #72, next up).
   </description>
 </task_item>
+
+<task_item>
+  <id>FRONTEND-COMMUNITY-GOAL-OVERLAY</id>
+  <status>DONE</status>
+  <description>
+    New scenes/ui/CommunityGoalOverlay.tscn + scripts/ui/community_goal_overlay.gd
+    against CommunityGoalManager, unblocked by PR #72's list_bundle_ids()/
+    get_bundle_definition() -- hardcoding all 10 bundles' content was
+    considered and rejected, since bundle composition is exactly what
+    Content-Squad actively retunes, unlike the small stable lists other
+    overlays hardcode. Lists every bundle with contributed/required
+    progress per item, a Contribute button that sends everything held
+    (contribute_item() clamps, never duplicated here), and an overall
+    "Bundles completed: X/Y" counter. Wrapped in a ScrollContainer.
+    Another pause-menu entry beyond menu-hud-flow-spec.md's fixed list.
+    PR: gritui/story-of-country-side#74 (base:
+    claude/farming-game-pm-requirements-w9ugtk, merged by another
+    session while this one was mid-response-crashed, confirmed on resume
+    via pull_request_read rather than assumed). 848/848 tests pass
+    against the real Godot 4.3 engine headless, clean smoke boot.
+
+    Remaining per #52: Settings full-screen overlay (blocked on a
+    backend system that doesn't exist), and scenes for Fishing/Festivals
+    (both mini-game contracts, genuinely design-open per their own
+    managers' disclosures).
+  </description>
+</task_item>
