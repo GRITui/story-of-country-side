@@ -7,6 +7,15 @@
   <sprint_completion_percentage>100</sprint_completion_percentage>
 </squad_metadata>
 
+## Epoch 28 update (Producer session)
+Step 0 found no new open GitHub issues (#52/#53/#1, unchanged). No open
+PRs. No genuine unblocked Backend/Engineer task this epoch -- both
+Cross-Squad Requests from epoch 26 are already closed via PR #72. Spent
+this epoch on pure Producer/sequencing duty: see backlog-inbox.md's
+Epoch 28 note and squad-handshake-frontend.md's Epoch 28 note for the
+Frontend-Squad nudge (its session had genuinely failed mid-response, not
+just idle between epochs).
+
 ## Epoch 26 update
 Shipped PR #72 (squash-merged): closed two Cross-Squad Requests
 Frontend-Squad flagged in its own epoch 24 notes -- InfrastructureManager

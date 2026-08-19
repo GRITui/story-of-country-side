@@ -150,6 +150,19 @@ settings system that doesn't exist), and scenes for Fishing/Festivals
 managers' "input/skill-check design TBD" disclosures) and Community
 Goal (blocked -- see this epoch's Cross-Squad Request below).
 
+## Epoch 28 note (Producer session, log sync + nudge only)
+This session's own get_session check found this squad's session genuinely
+FAILED (mid-response API server error right after PR #70), not just idle
+between epochs -- sent a one-shot nudge via create_trigger pointing at the
+two #52 tasks PR #72's getters unblocked: Infrastructure cost display
+(wire get_house_tier_definition()/get_coop_tier_definition()/
+get_machine_recipe()/get_automation_device_definition() into
+InfrastructureOverlay, which today only has bool gates) and a Community
+Goal contribution UI against CommunityGoalManager.contribute_item() using
+list_bundle_ids()/get_bundle_definition() rather than hardcoding bundle
+content. No code touched here -- this squad still owns its own epoch
+entries once it resumes.
+
 ## Epoch 20 note (this session, PM/Backend, log sync only)
 This file was stale as of epoch 20 — Epoch 18's FarmScene sub-scope had
 already shipped and merged (PR #57, squash-merged, 508/508 tests passing
