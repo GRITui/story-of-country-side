@@ -55,6 +55,7 @@ var _sfx_played_events: Array = [] ## Array[String] of sfx_id, same reason
 var _music_changed_events: Array = [] ## Array[String] of track_id, same reason
 var _music_stopped_count := 0 ## member, not a local -- GDScript lambdas capture locals by value
 var _community_goal_overlay_closed_count := 0 ## same reason
+var _festival_mini_game_overlay_closed_count := 0 ## same reason
 
 func _ready() -> void:
 	_test_minute_and_hour_wrap()
@@ -209,6 +210,12 @@ func _ready() -> void:
 	_test_community_goal_overlay_completing_bundle_updates_title_and_progress()
 	_test_community_goal_overlay_close_emits_closed_signal()
 	_test_pause_menu_community_goal_button_shows_overlay_and_hides_menu_panel()
+	_test_festival_mini_game_overlay_shows_title_and_choices()
+	_test_festival_mini_game_overlay_great_choice_submits_success()
+	_test_festival_mini_game_overlay_poor_choice_submits_failure()
+	_test_festival_mini_game_overlay_continue_ends_festival_and_closes()
+	_test_main_controller_shows_festival_overlay_on_festival_started()
+	_test_main_controller_removes_festival_overlay_when_it_closes()
 	_test_map_overlay_lists_all_locations_on_ready()
 	_test_map_overlay_travel_click_emits_travel_requested_and_closed()
 	_test_map_overlay_close_button_emits_closed_only()
@@ -2505,6 +2512,112 @@ func _test_pause_menu_community_goal_button_shows_overlay_and_hides_menu_panel()
 		"opening Community Goal should instantiate the CommunityGoalOverlay as a child")
 	menu.close()
 	menu.queue_free()
+
+## --- Frontend: Festival mini-game overlay (#52 sub-scope, placeholder
+## input/skill-check implementation against FestivalManager's
+## submit_mini_game_result() contract) ---
+
+func _make_festival_mini_game_overlay() -> FestivalMiniGameOverlay:
+	var scene: PackedScene = load("res://scenes/ui/FestivalMiniGameOverlay.tscn")
+	var overlay: FestivalMiniGameOverlay = scene.instantiate()
+	add_child(overlay)
+	return overlay
+
+func _test_festival_mini_game_overlay_shows_title_and_choices() -> void:
+	_reset_festival_manager()
+	FestivalManager.start_festival("bloomtide_fair")
+	var overlay := _make_festival_mini_game_overlay()
+	_check(overlay.get_node("Root/Panel/Margin/VBox/TitleLabel").text == "Bloomtide Fair",
+		"title should be primed from FestivalManager.get_active_festival()'s display_name")
+	_check(overlay.get_node("Root/Panel/Margin/VBox/ChoiceList").get_child_count() == FestivalMiniGameOverlay.CHOICE_SCORES.size(),
+		"overlay should list one button per placeholder choice")
+	_check(not overlay.get_node("Root/Panel/Margin/VBox/ResultLabel").visible, "result label should start hidden")
+	_check(not overlay.get_node("Root/Panel/Margin/VBox/ContinueButton").visible, "Continue should start hidden")
+	overlay.queue_free()
+	FestivalManager.end_festival()
+
+func _test_festival_mini_game_overlay_great_choice_submits_success() -> void:
+	_reset_festival_manager()
+	FestivalManager.start_festival("bloomtide_fair")
+	_mini_game_result_events = []
+	FestivalManager.mini_game_result_submitted.connect(_on_mini_game_result_for_test)
+	var overlay := _make_festival_mini_game_overlay()
+	var choice_list: VBoxContainer = overlay.get_node("Root/Panel/Margin/VBox/ChoiceList")
+	(choice_list.get_child(2) as Button).pressed.emit() # "Great Effort", score 0.95
+
+	FestivalManager.mini_game_result_submitted.disconnect(_on_mini_game_result_for_test)
+	_check(_mini_game_result_events == [["bloomtide_fair", 0.95, true]],
+		"clicking Great Effort should call submit_mini_game_result() with score 0.95 and succeed, got %s" % [_mini_game_result_events])
+	_check(not choice_list.visible, "choice list should hide once a choice is made")
+	_check(overlay.get_node("Root/Panel/Margin/VBox/ResultLabel").visible, "result label should become visible")
+	_check(overlay.get_node("Root/Panel/Margin/VBox/ContinueButton").visible, "Continue should become visible")
+	overlay.queue_free()
+	FestivalManager.end_festival()
+
+func _test_festival_mini_game_overlay_poor_choice_submits_failure() -> void:
+	_reset_festival_manager()
+	FestivalManager.start_festival("bloomtide_fair")
+	_mini_game_result_events = []
+	FestivalManager.mini_game_result_submitted.connect(_on_mini_game_result_for_test)
+	var overlay := _make_festival_mini_game_overlay()
+	var choice_list: VBoxContainer = overlay.get_node("Root/Panel/Margin/VBox/ChoiceList")
+	(choice_list.get_child(0) as Button).pressed.emit() # "Poor Effort", score 0.2
+
+	FestivalManager.mini_game_result_submitted.disconnect(_on_mini_game_result_for_test)
+	_check(_mini_game_result_events == [["bloomtide_fair", 0.2, false]],
+		"clicking Poor Effort should call submit_mini_game_result() with score 0.2 and fail (below MINI_GAME_PASS_THRESHOLD), got %s" % [_mini_game_result_events])
+	overlay.queue_free()
+	FestivalManager.end_festival()
+
+func _on_festival_mini_game_overlay_closed_for_test() -> void:
+	_festival_mini_game_overlay_closed_count += 1
+
+func _test_festival_mini_game_overlay_continue_ends_festival_and_closes() -> void:
+	_reset_festival_manager()
+	FestivalManager.start_festival("bloomtide_fair")
+	_festival_ended_events = []
+	FestivalManager.festival_ended.connect(_on_festival_ended_for_test)
+	var overlay := _make_festival_mini_game_overlay()
+	(overlay.get_node("Root/Panel/Margin/VBox/ChoiceList").get_child(1) as Button).pressed.emit() # "Good Effort"
+
+	_festival_mini_game_overlay_closed_count = 0
+	overlay.closed.connect(_on_festival_mini_game_overlay_closed_for_test)
+	overlay.get_node("Root/Panel/Margin/VBox/ContinueButton").pressed.emit()
+
+	FestivalManager.festival_ended.disconnect(_on_festival_ended_for_test)
+	_check(not FestivalManager.is_festival_active(), "Continue should call FestivalManager.end_festival()")
+	_check(_festival_ended_events == ["bloomtide_fair"], "end_festival() should fire festival_ended, got %s" % [_festival_ended_events])
+	_check(_festival_mini_game_overlay_closed_count == 1, "Continue should emit the overlay's own closed signal exactly once")
+	overlay.queue_free()
+
+## --- Frontend: MainController festival wiring (#52 sub-scope) ---
+
+func _test_main_controller_shows_festival_overlay_on_festival_started() -> void:
+	_reset_festival_manager()
+	var controller := _make_main_controller_with_intro_seen()
+	FestivalManager.start_festival("sunfield_revel")
+	var found := false
+	for child in controller.get_children():
+		if child is FestivalMiniGameOverlay:
+			found = true
+	_check(found, "festival_started should instantiate FestivalMiniGameOverlay as a MainController child")
+	controller.queue_free()
+	FestivalManager.end_festival()
+
+func _test_main_controller_removes_festival_overlay_when_it_closes() -> void:
+	_reset_festival_manager()
+	var controller := _make_main_controller_with_intro_seen()
+	FestivalManager.start_festival("sunfield_revel")
+	var overlay: FestivalMiniGameOverlay = null
+	for child in controller.get_children():
+		if child is FestivalMiniGameOverlay:
+			overlay = child
+	overlay.closed.emit()
+	# queue_free() defers actual tree removal, so check the tracking field
+	# (not get_children()) for the immediate effect of the closed handler --
+	# same reasoning tests elsewhere poke a scene's own private state.
+	_check(controller._festival_overlay == null, "the overlay's closed signal should clear MainController's tracking reference immediately")
+	controller.queue_free()
 
 ## --- Frontend: Map overlay (#52 sub-scope, location switcher against
 ## main_controller.gd's world scenes) ---
