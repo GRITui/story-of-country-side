@@ -1600,3 +1600,65 @@ either, so the remote branches remain as harmless merged-and-stale refs).
     unblocked sub-scope to claim right now.
   </description>
 </task_item>
+
+<!-- Art Squad's first epoch under the Country Side Crew org chart (Art
+     Director branch, reporting to Studio Head, peer to Producer). No
+     image-generation tool exists in this environment -- read as a hard
+     constraint, not a placeholder to route around: everything below is
+     code-generated Image/Color pixel math, not illustrated art. -->
+
+<task_item>
+  <id>ART-PROCEDURAL-TILESET</id>
+  <status>DONE</status>
+  <description>
+    Replaced the flat-color placeholder tileset every world scene
+    (FarmScene/RanchScene/ForageScene/MineScene) has shipped with since
+    Decision E (#6) was left unresolved. New shared generator
+    ProceduralTileArt.build_isometric_tileset() (scripts/world/
+    procedural_tile_art.gd) builds real alpha-masked isometric diamonds
+    (64x32px, 2:1 ratio per design/art/isometric-grid-spec.md) with
+    directional shading, a darkened edge outline, and deterministic
+    speckle-grain texture per tile state -- also fixes a real
+    correctness gap along the way: the old opaque rectangle tiles didn't
+    match what an isometric TileMap in TILE_LAYOUT_DIAMOND_DOWN actually
+    expects (adjacent rows overlap 50% vertically and need transparency
+    outside the diamond footprint), so tiles now render as proper
+    diamonds instead of overlapping squares.
+
+    Drop-in replacement: same atlas addressing (Vector2i(state, 0) at
+    ATLAS_SOURCE_ID = 0) and TileSet shape/layout/size every scene's own
+    _paint_tile()/_refresh_tile() already relied on, so no scene's
+    state-derivation, signal-binding, or click-interaction logic
+    changed -- verified by every pre-existing FarmScene/RanchScene/
+    ForageScene/MineScene test passing unmodified against the new
+    generator.
+
+    Also gave NPCController (#18) its first visual representation ever
+    -- a bare Node2D with no Sprite2D anywhere in its history, and no
+    scene currently instantiates one either. New
+    scripts/npc/procedural_character_art.gd draws a humanoid silhouette
+    (head + body + ground-contact shadow, same directional-shading
+    convention as the tileset) tinted deterministically per npc_name,
+    anchored bottom-center per the isometric grid spec's object-anchor
+    convention. Doesn't fix anything visible today (nothing places an
+    NPC in a world scene yet) -- closes the gap for whenever one does.
+
+    PR: gritui/story-of-country-side#79 (base:
+    claude/farming-game-pm-requirements-w9ugtk). 919/919 tests pass (18
+    new) against the real Godot 4.3 engine headless -- had to download
+    Godot 4.3 in-session (github.com release asset; the tuxfamily
+    mirror other squads' documented commands implicitly assume is
+    blocked by this environment's egress policy) since no engine binary
+    was pre-installed here, then refresh the class cache for the two new
+    class_name types before either test command would resolve them.
+    Clean smoke boot. Self-merged per standing authorization. Commented
+    on #52 to coordinate with Frontend-Squad (no collision -- same
+    generator-swap-only scope every touched scene file's diff shows).
+
+    Still open: actual illustrated art (human artist or an image-gen
+    pipeline) for Decision E is unaddressed -- this is a genuine
+    procedural upgrade over flat color, not a substitute for it. Flagged
+    to Studio Head separately per the escalation rule rather than
+    decided unilaterally.
+  </description>
+</task_item>
