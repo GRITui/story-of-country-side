@@ -1887,3 +1887,56 @@ either, so the remote branches remain as harmless merged-and-stale refs).
     keep this PR's scope and review surface tight.
   </description>
 </task_item>
+
+<!-- Writer/Dialogue Designer (Country Side Crew org chart, reports to
+     Lead Narrative Designer). Round 2 -- came back to the two gaps round 1
+     flagged (not built around) once the Producer's PR #82 shipped the
+     underlying plumbing (RelationshipManager.register_heart_event_
+     dialogue()/get_heart_event_dialogue(), FestivalDefinition.
+     flavor_text). Re-read backlog-inbox.md's tail and #53's thread fresh
+     before claiming, confirmed via comment on #53 before building. -->
+
+<task_item>
+  <id>WRITER-HEART-EVENT-AND-FESTIVAL-DIALOGUE</id>
+  <status>DONE</status>
+  <description>
+    Wrote 30 heart-event dialogue lines across the 6 marriageable NPCs
+    (Elena/Marcus/Priya/Tobias/Sana/Colton) at milestone heart levels
+    2/4/6/8/10, registered via RelationshipManager.
+    register_heart_event_dialogue(). Every heart level still fires
+    heart_event_triggered per existing logic -- a distinct line at 5
+    milestones per NPC reads as the right density for a first pass rather
+    than diluting across all 10 levels. Voice matched to each NPC's
+    established GiftPreferenceTable archetype (Colton = miner/blacksmith,
+    Elena = gardener, Marcus = angler, Priya = farmer, Sana = rancher,
+    Tobias = treasure hunter) -- same cast the Lead Narrative Designer's
+    earlier standup confirmed reads as distinct/non-contradictory.
+
+    Also wrote flavor text for all 4 registered festivals (Bloomtide
+    Fair/Sunfield Revel/Harvest Moon Festival/Hearthlight Festival),
+    passed through _make_festival()'s existing optional flavor_text param
+    (added by PR #82, no signature change needed here).
+
+    Value/string content only: RelationshipManager._register_default_
+    content() is a new function following the exact same
+    registration-in-_ready() pattern every other manager in this repo
+    already uses, body is pure register_heart_event_dialogue() calls --
+    no signature/signal/control-flow change beyond that one wiring call.
+    Updated one tests/test_runner.gd assertion that explicitly asserted
+    the old empty flavor_text placeholder for bloomtide_fair, per issue
+    #53's documented allowance for updating placeholder-value assertions
+    as part of a content pass.
+
+    PR: gritui/story-of-country-side#84 (base:
+    claude/farming-game-pm-requirements-w9ugtk, squash-merged). 930/930
+    tests pass against the real Godot 4.3 engine headless (class-cache
+    refreshed first), clean smoke boot against the real Main.tscn.
+    Self-merged per standing authorization. Claimed via comment on #53
+    before building.
+
+    Remaining in-lane: none found this round beyond what's already
+    tracked. Every NPC now has both gift-preference content and
+    heart-event dialogue; every festival has a name, date, and flavor
+    text.
+  </description>
+</task_item>
