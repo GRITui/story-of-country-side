@@ -1837,3 +1837,53 @@ either, so the remote branches remain as harmless merged-and-stale refs).
     lane, not this session's.
   </description>
 </task_item>
+
+<task_item>
+  <id>ART-KENNEY-DECORATIVE-PROPS</id>
+  <status>DONE</status>
+  <description>
+    Studio Head (trig_01YF7oCXPTdZentfLPHXzLBv) greenlit pursuing free,
+    properly-licensed isometric asset packs before continuing indefinitely
+    with procedural-only generation. kenney.nl/opengameart.org/itch.io are
+    all blocked by this environment's egress policy (403, confirmed via
+    the proxy status endpoint, not retried per README's policy-denial
+    rule) -- found Kenney's "Isometric Miniature Farm" pack mirrored on
+    GitHub (Tiddybub/2d-assets, a CC0-only asset catalog), cloned it, and
+    verified the license from the pack's own bundled License.txt rather
+    than trusting the mirror's SOURCE.md label (per Studio Head's explicit
+    instruction) -- genuine CC0-1.0, straight from Kenney.
+
+    Measured compatibility before committing to anything: the pack's own
+    ground tiles (dirt_S.png etc.) are true-isometric renders with a
+    measured ~1.73-1.84:1 footprint ratio (Pillow getbbox() on the opaque
+    pixels), not the locked 2:1 dimetric convention
+    design/art/isometric-grid-spec.md requires and every existing tile
+    already uses -- using them as TileMap floor tiles would distort the
+    art (if stretched) or misalign against every other tile (if not), so
+    ground tiles correctly stay on ProceduralTileArt. An honest
+    incompatibility finding, not a workaround -- documented with exact
+    measurements in assets/kenney/isometric-miniature-farm/ATTRIBUTION.md.
+
+    What does fit without the TileMap's diamond math: standalone
+    decorative props (Sprite2D nodes, not tiles -- same reasoning
+    ProceduralCharacterArt's NPC silhouette already relies on). Added four
+    real illustrated CC0 sprites -- hay bales, a sack/crate stack, a low
+    fence section, a corn stalk pair -- cropped to their opaque bounding
+    box and placed as bottom-anchored Sprite2D children around FarmScene's
+    grid border (_add_decorative_props()). Purely cosmetic set dressing:
+    zero interaction/signal/gameplay changes, no risk to the
+    click-to-plant/water/harvest logic Frontend-Squad owns.
+
+    PR: gritui/story-of-country-side#83 (base:
+    claude/farming-game-pm-requirements-w9ugtk, squash-merged). 935/935
+    tests pass (6 new) against the real Godot 4.3 engine headless, clean
+    smoke boot. Self-merged per standing authorization. Commented on #52.
+
+    Scope note: only FarmScene got decorative props this pass (the
+    clearest thematic fit for a farm-specific pack). RanchScene/
+    ForageScene/MineScene would need their own separately-sourced,
+    separately-verified packs (this pack has no ranch-animal, forest, or
+    mine-appropriate content) -- a natural next epoch, not done here to
+    keep this PR's scope and review surface tight.
+  </description>
+</task_item>
