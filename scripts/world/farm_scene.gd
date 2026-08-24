@@ -40,6 +40,19 @@ class_name FarmScene
 ## image-gen pipeline) should replace _build_tileset with real tile art
 ## without needing to touch the signal-binding logic below.
 ##
+## Decorative props (Studio Head-greenlit free-asset pass, see
+## assets/kenney/isometric-miniature-farm/ATTRIBUTION.md): a handful of
+## real illustrated CC0 sprites (Kenney's Isometric Miniature Farm pack --
+## verified CC0-1.0 from the pack's own bundled License.txt, not just a
+## mirror's label) placed as static, non-interactive set dressing around
+## the grid's border -- Sprite2D nodes, not TileMap tiles, so they don't
+## touch the click-to-interact/signal logic at all. Ground tiles still
+## stay on ProceduralTileArt: this pack's own ground pieces measure a
+## true-isometric ~1.73-1.84:1 footprint ratio, not the locked 2:1
+## dimetric convention every already-shipped tile uses, so they'd
+## misalign the TileMap if used as floor tiles -- a verified
+## incompatibility, not a workaround, per ATTRIBUTION.md's measurements.
+##
 ## Rendering model: fully reactive, no polling. _ready() does one pass over
 ## every (x, y) in the grid calling FarmPlotManager.get_plot(position) --
 ## that public getter is sufficient to enumerate this scene's own known grid
@@ -82,11 +95,22 @@ const PLACEHOLDER_PLANT_CROP_ID := "parsnip"
 
 const ATLAS_SOURCE_ID := 0
 
+## Real illustrated CC0 decorative props (see class docstring). grid_pos is
+## deliberately outside the 0..GRID_WIDTH/HEIGHT-1 playable range -- border
+## set dressing, never on top of an interactive plot.
+const DECORATIVE_PROPS := [
+	{"path": "res://assets/kenney/isometric-miniature-farm/hayBales_S.png", "grid_pos": Vector2i(-1, 3)},
+	{"path": "res://assets/kenney/isometric-miniature-farm/sacksCrate_S.png", "grid_pos": Vector2i(-1, 5)},
+	{"path": "res://assets/kenney/isometric-miniature-farm/fenceLow_S.png", "grid_pos": Vector2i(3, -1)},
+	{"path": "res://assets/kenney/isometric-miniature-farm/cornDouble_S.png", "grid_pos": Vector2i(8, 2)},
+]
+
 @onready var _tilemap: TileMap = $TileMap
 
 func _ready() -> void:
 	_build_tileset()
 	_render_all_plots()
+	_add_decorative_props()
 
 	FarmPlotManager.crop_planted.connect(_on_crop_planted)
 	FarmPlotManager.crop_watered.connect(_on_crop_watered)
@@ -105,6 +129,22 @@ func _render_all_plots() -> void:
 	for x in range(GRID_WIDTH):
 		for y in range(GRID_HEIGHT):
 			_refresh_tile(Vector2i(x, y))
+
+## Instantiates DECORATIVE_PROPS as bottom-anchored Sprite2D children (see
+## class docstring) -- map_to_local() already applies the isometric
+## transform, same as the interactive plot cells, so props line up with
+## the grid without duplicating the coordinate math.
+func _add_decorative_props() -> void:
+	for prop in DECORATIVE_PROPS:
+		var texture: Texture2D = load(prop["path"])
+		if texture == null:
+			continue
+		var sprite := Sprite2D.new()
+		sprite.texture = texture
+		sprite.centered = false
+		sprite.offset = Vector2(-texture.get_width() / 2.0, -texture.get_height())
+		sprite.position = _tilemap.map_to_local(prop["grid_pos"])
+		add_child(sprite)
 
 ## Re-derives a tile's visual state from FarmPlotManager.get_plot() -- the
 ## single source of truth -- rather than tracking any scene-local duplicate
