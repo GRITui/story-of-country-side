@@ -85,6 +85,8 @@ func _ready() -> void:
 	_test_points_clamp_between_zero_and_max()
 	_test_heart_event_fires_once_per_threshold_crossed()
 	_test_heart_event_handles_multi_threshold_jump()
+	_test_heart_event_dialogue_registers_and_looks_up_per_npc_and_level()
+	_test_heart_event_dialogue_unregistered_pair_returns_empty()
 	_test_relationship_save_round_trip()
 
 	_test_ship_item_does_not_pay_out_immediately()
@@ -320,6 +322,7 @@ func _ready() -> void:
 	_test_day_started_does_not_trigger_on_non_festival_day()
 	_test_submit_mini_game_result_unregistered_returns_empty()
 	_test_submit_mini_game_result_pass_and_fail()
+	_test_festival_definition_flavor_text_registers_and_looks_up()
 
 	_test_generate_floor_places_ladder_without_rock()
 	_test_generate_floor_all_other_tiles_start_as_unbroken_rock()
@@ -623,6 +626,7 @@ func _reset_relationship_manager() -> void:
 	rm._highest_triggered_heart = {}
 	rm._talked_today = {}
 	rm._gifted_today = {}
+	rm._heart_event_dialogue = {}
 
 func _make_gift_table() -> GiftPreferenceTable:
 	var t := GiftPreferenceTable.new()
@@ -743,6 +747,33 @@ func _test_heart_event_handles_multi_threshold_jump() -> void:
 		"multi-heart jump should fire hearts in order 1,2,3, got %s" % [_heart_events])
 
 	rm.heart_event_triggered.disconnect(_on_heart_event_for_test)
+
+func _test_heart_event_dialogue_registers_and_looks_up_per_npc_and_level() -> void:
+	_reset_relationship_manager()
+	var rm := RelationshipManager
+	rm.register_heart_event_dialogue("Elena", 1, "Oh, hey! Nice to see you.")
+	rm.register_heart_event_dialogue("Elena", 2, "I've been meaning to talk to you.")
+	rm.register_heart_event_dialogue("Marcus", 1, "Hm. You again.")
+
+	_check(rm.get_heart_event_dialogue("Elena", 1) == "Oh, hey! Nice to see you.",
+		"should return the registered line for (Elena, 1)")
+	_check(rm.get_heart_event_dialogue("Elena", 2) == "I've been meaning to talk to you.",
+		"a different heart_level for the same NPC should have its own line")
+	_check(rm.get_heart_event_dialogue("Marcus", 1) == "Hm. You again.",
+		"a different NPC should not share Elena's line")
+
+	rm.register_heart_event_dialogue("Elena", 1, "Updated line.")
+	_check(rm.get_heart_event_dialogue("Elena", 1) == "Updated line.",
+		"re-registering the same (npc_name, heart_level) pair should overwrite, last write wins")
+
+func _test_heart_event_dialogue_unregistered_pair_returns_empty() -> void:
+	_reset_relationship_manager()
+	_check(RelationshipManager.get_heart_event_dialogue("Elena", 1) == "",
+		"an unregistered NPC/level pair should return \"\" rather than crash")
+
+	RelationshipManager.register_heart_event_dialogue("Elena", 1, "Hi there.")
+	_check(RelationshipManager.get_heart_event_dialogue("Elena", 5) == "",
+		"a registered NPC with no line for this specific heart_level should still return \"\"")
 
 func _test_relationship_save_round_trip() -> void:
 	_reset_relationship_manager()
@@ -3832,6 +3863,24 @@ func _test_marriage_save_round_trip() -> void:
 		"children count should round-trip through save/load, got %d" % MarriageManager.children_count())
 	_check(not MarriageManager.is_engaged(), "engaged state should round-trip as cleared once already married")
 ## --- ENG-21: Festivals ---
+
+func _test_festival_definition_flavor_text_registers_and_looks_up() -> void:
+	_reset_festival_manager()
+	var def := FestivalManager.get_festival_definition("bloomtide_fair")
+	_check(def.flavor_text == "",
+		"the default-registered festivals ship with no flavor_text yet -- a documented Content/Writer gap, not a bug")
+
+	var custom := FestivalDefinition.new()
+	custom.festival_id = "test_custom_festival"
+	custom.display_name = "Test Custom Festival"
+	custom.season = "Spring"
+	custom.day_of_season = 1
+	custom.flavor_text = "A gathering to test the harvest."
+	FestivalManager.register_festival(custom)
+	_check(FestivalManager.get_festival_definition("test_custom_festival").flavor_text == "A gathering to test the harvest.",
+		"flavor_text should round-trip through register_festival/get_festival_definition")
+	FestivalManager._definitions.erase("test_custom_festival") # don't leak test content into later tests
+	_reset_festival_manager()
 
 func _reset_festival_manager() -> void:
 	var fm := FestivalManager
