@@ -31,6 +31,10 @@ class_name FarmScene
 ##   watered      -> darker wet green  (Color(0.16, 0.35, 0.32))
 ##   harvest_ready-> bright gold       (Color(0.86, 0.71, 0.18))
 ##   withered     -> ash gray          (Color(0.35, 0.32, 0.30))
+## harvest_ready also gets a center-weighted glow accent (ProceduralTileArt's
+## glow_states) so a ready-to-harvest tile visually calls attention to
+## itself, same idea a real art pass would eventually express with a
+## dedicated sprite/VFX instead.
 ## No crop-specific sprites, no growth-stage variants -- state alone drives
 ## color. A later pass with real illustrated art (human artist or an
 ## image-gen pipeline) should replace _build_tileset with real tile art
@@ -95,7 +99,7 @@ func _ready() -> void:
 ## design/art/isometric-grid-spec.md sections 1-2 exactly (enforced inside
 ## the shared generator).
 func _build_tileset() -> void:
-	_tilemap.tile_set = ProceduralTileArt.build_isometric_tileset(STATE_COLORS, TILE_WIDTH, TILE_HEIGHT, ATLAS_SOURCE_ID)
+	_tilemap.tile_set = ProceduralTileArt.build_isometric_tileset(STATE_COLORS, TILE_WIDTH, TILE_HEIGHT, ATLAS_SOURCE_ID, [STATE_READY])
 
 func _render_all_plots() -> void:
 	for x in range(GRID_WIDTH):

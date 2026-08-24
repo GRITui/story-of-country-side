@@ -36,6 +36,8 @@ class_name ForageScene
 ##   dormant (no season-valid item) -> bare forest floor (Color(0.30, 0.26, 0.18))
 ##   on cooldown (gathered recently) -> disturbed earth   (Color(0.40, 0.33, 0.22))
 ##   available to gather              -> lush undergrowth (Color(0.28, 0.50, 0.22))
+## available-to-gather also gets ProceduralTileArt's center-weighted glow
+## accent so a gatherable node visually calls attention to itself.
 ## No per-forageable sprite variety (wild_berries vs. mushroom, etc.) --
 ## out of scope for a tileset with no illustrated art asset behind it. A
 ## later pass with real art (human artist or an image-gen pipeline) should
@@ -84,7 +86,7 @@ func _ready() -> void:
 ## Same shared ProceduralTileArt approach as FarmScene/RanchScene -- see
 ## class docstring for why there's no art asset to load instead.
 func _build_tileset() -> void:
-	_tilemap.tile_set = ProceduralTileArt.build_isometric_tileset(STATE_COLORS, TILE_WIDTH, TILE_HEIGHT, ATLAS_SOURCE_ID)
+	_tilemap.tile_set = ProceduralTileArt.build_isometric_tileset(STATE_COLORS, TILE_WIDTH, TILE_HEIGHT, ATLAS_SOURCE_ID, [STATE_AVAILABLE])
 
 func _populate_and_render_all_nodes() -> void:
 	for x in range(GRID_WIDTH):

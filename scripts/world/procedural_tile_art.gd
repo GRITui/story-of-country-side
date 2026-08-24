@@ -42,13 +42,26 @@ const EDGE_DARKEN_STRENGTH := 0.55
 ## Per-pixel deterministic brightness jitter (+/-), giving the fill a
 ## grain/texture instead of a perfectly smooth gradient.
 const SPECKLE_STRENGTH := 0.10
+## How much extra brightness a glow_states tile gets at its exact center,
+## fading to none by the diamond's edge -- a soft "this tile wants your
+## attention" highlight for whichever states a calling scene marks as its
+## interactive/rewarding ones (see build_isometric_tileset's glow_states
+## param).
+const GLOW_STRENGTH := 0.4
 
 ## Builds one TileSet whose atlas is a single row of state_colors.size()
 ## isometric diamond tiles, ordered by ascending integer state key so
 ## atlas coordinate Vector2i(state, 0) always lands on the right tile --
 ## every calling scene's states are a contiguous 0..N-1 range, matching
 ## that assumption exactly.
-static func build_isometric_tileset(state_colors: Dictionary, tile_width: int, tile_height: int, atlas_source_id: int = 0) -> TileSet:
+##
+## glow_states (optional): state keys that should render with an added
+## center-weighted brightness bloom on top of the normal shading -- for
+## whichever state in a calling scene's own STATE_* set marks "available
+## to interact with right now" (a ready-to-harvest crop, an available
+## forage node, a mine's ladder, etc.). Purely a visual accent; doesn't
+## change which states exist or how a scene derives them.
+static func build_isometric_tileset(state_colors: Dictionary, tile_width: int, tile_height: int, atlas_source_id: int = 0, glow_states: Array = []) -> TileSet:
 	var states := state_colors.keys()
 	states.sort()
 	var state_count := states.size()
@@ -56,7 +69,7 @@ static func build_isometric_tileset(state_colors: Dictionary, tile_width: int, t
 	var image := Image.create(tile_width * state_count, tile_height, false, Image.FORMAT_RGBA8)
 	for i in range(state_count):
 		var base_color: Color = state_colors[states[i]]
-		_paint_tile_diamond(image, i * tile_width, tile_width, tile_height, base_color, states[i])
+		_paint_tile_diamond(image, i * tile_width, tile_width, tile_height, base_color, states[i], states[i] in glow_states)
 
 	var texture := ImageTexture.create_from_image(image)
 
@@ -76,11 +89,11 @@ static func build_isometric_tileset(state_colors: Dictionary, tile_width: int, t
 
 ## Draws one alpha-masked isometric diamond into image at x_offset (tile_width
 ## wide, tile_height tall): gradient shading + edge darken + deterministic
-## speckle grain, all derived from base_color alone so every calling scene's
-## existing STATE_COLORS dictionary works completely unmodified. Outside the
-## diamond is left fully transparent (alpha 0), matching what an isometric
-## TileMap in diamond-down layout expects.
-static func _paint_tile_diamond(image: Image, x_offset: int, tile_width: int, tile_height: int, base_color: Color, noise_seed: int) -> void:
+## speckle grain + an optional center glow, all derived from base_color alone
+## so every calling scene's existing STATE_COLORS dictionary works completely
+## unmodified. Outside the diamond is left fully transparent (alpha 0),
+## matching what an isometric TileMap in diamond-down layout expects.
+static func _paint_tile_diamond(image: Image, x_offset: int, tile_width: int, tile_height: int, base_color: Color, noise_seed: int, has_glow: bool = false) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = noise_seed * 9973 + 17 # deterministic per state, stable across runs/tests
 
@@ -98,6 +111,9 @@ static func _paint_tile_diamond(image: Image, x_offset: int, tile_width: int, ti
 			var edge_dist := 0.5 - diamond_dist
 			if edge_dist < EDGE_DARKEN_BAND:
 				light *= lerpf(1.0 - EDGE_DARKEN_STRENGTH, 1.0, edge_dist / EDGE_DARKEN_BAND)
+
+			if has_glow:
+				light += GLOW_STRENGTH * (1.0 - diamond_dist / 0.5)
 
 			var speckle := 1.0 + rng.randf_range(-SPECKLE_STRENGTH, SPECKLE_STRENGTH)
 			var factor := light * speckle
