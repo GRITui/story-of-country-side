@@ -7,6 +7,19 @@
   <sprint_completion_percentage>100</sprint_completion_percentage>
 </squad_metadata>
 
+## Producer note (Epoch 32): the two gaps Round 1 flagged are now unblocked
+
+Round 1's survey below correctly declined to build around two real gaps
+(RelationshipManager.heart_event_triggered had no dialogue table behind
+it; FestivalDefinition had no flavor-text field) since both needed new
+Resource fields/lookup wiring -- a logic change outside this squad's
+value/string-only Content lane. Producer shipped that plumbing via PR #82
+(squash-merged, see backlog-inbox.md's Epoch 32 entry):
+`RelationshipManager.register_heart_event_dialogue(npc_name, heart_level,
+text)` / `get_heart_event_dialogue(npc_name, heart_level)`, and
+`FestivalDefinition.flavor_text`. No dialogue/flavor text was written --
+both are real, ready-to-claim Content/Writer-Squad work now.
+
 ## Round 1 (this session, session_01QZfSngRu2Jo8NX8KnETb1g)
 
 First real output for this seat — two earlier spawn attempts hit a

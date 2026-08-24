@@ -7,6 +7,22 @@
   <sprint_completion_percentage>100</sprint_completion_percentage>
 </squad_metadata>
 
+## Epoch 32 update (Producer session)
+Step 0: no new GitHub issues (#52/#53/#1 unchanged), no open PRs.
+squad-handshake-content.md/-frontend.md/-qa.md all read fresh -- nothing
+new to react to there. Picked up a real gap Writer/Dialogue Designer's
+PR #78 (issue #53) had flagged but correctly declined to build around:
+RelationshipManager.heart_event_triggered fires with no dialogue table
+behind it, and FestivalDefinition has no flavor-text field -- both are
+Resource-schema/logic changes, not Content lane's value/string-only
+scope. Shipped just the plumbing (register_heart_event_dialogue()/
+get_heart_event_dialogue(), FestivalDefinition.flavor_text), no
+narrative content written. PR: gritui/story-of-country-side#82
+(squash-merged). 929/929 tests pass (8 new), verbose run confirms zero
+leak warnings, clean smoke boot. See backlog-inbox.md's Epoch 32 entry
+for the full trail. Content/Writer-Squad can now write real dialogue/
+flavor text against this whenever they pick it up next.
+
 ## Epoch 31 update (Producer session)
 Step 0: no new GitHub issues (#52/#53/#1 unchanged), no open PRs. Picked
 up QA-Tester's epoch 3 fix-forward finding: a residual AudioManager SFX
