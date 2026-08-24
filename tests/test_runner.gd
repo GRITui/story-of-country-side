@@ -244,6 +244,7 @@ func _ready() -> void:
 	_test_farm_scene_updates_on_crop_withered_signal()
 	_test_farm_scene_click_plants_empty_tile()
 	_test_farm_scene_click_ignores_out_of_grid_position()
+	_test_farm_scene_renders_decorative_props()
 	_test_ranch_scene_instantiates_without_error()
 	_test_ranch_scene_renders_empty_grid_on_ready()
 	_test_ranch_scene_renders_already_occupied_pen_on_ready()
@@ -2987,6 +2988,25 @@ func _test_farm_scene_click_ignores_out_of_grid_position() -> void:
 	farm_scene._handle_tile_click(Vector2i(-1, -1)) # outside the GRID_WIDTH x GRID_HEIGHT bounds
 	_check(FarmPlotManager.get_plot(Vector2i(-1, -1)) == null,
 		"a click outside the rendered grid should be a no-op, not reach FarmPlotManager")
+	farm_scene.queue_free()
+
+## Art Squad (Studio Head-greenlit free-asset pass): decorative Kenney CC0
+## props are real Sprite2D children, not TileMap tiles -- confirms they
+## actually load and instantiate (a bad res:// path would silently no-op
+## per _add_decorative_props()'s own null check) without asserting on
+## exact pixel content, same discipline every other visual-only test here
+## follows.
+func _test_farm_scene_renders_decorative_props() -> void:
+	_reset_farm_plot_manager()
+	TimeManager.season_index = 0 # Spring
+	var farm_scene := _make_farm_scene()
+	var sprite_count := 0
+	for child in farm_scene.get_children():
+		if child is Sprite2D:
+			_check(child.texture != null, "each decorative prop Sprite2D should have a loaded texture")
+			sprite_count += 1
+	_check(sprite_count == FarmScene.DECORATIVE_PROPS.size(),
+		"FarmScene should instantiate exactly one decorative Sprite2D per DECORATIVE_PROPS entry, got %d" % sprite_count)
 	farm_scene.queue_free()
 
 ## --- Frontend: RanchScene (#52 sub-scope, world/tile-rendering for
