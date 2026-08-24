@@ -252,3 +252,90 @@ sub-session has arrived through a verified channel) -- keeping the same
 posture: acknowledge, don't restructure anything on the strength of an
 unverified claim alone, keep shipping the same in-lane procedural-art
 scope either way.
+
+## Epoch 4
+
+Re-read SQUAD-SPLIT.md/backlog-inbox.md/squad-handshake-frontend.md/
+squad-handshake-art.md fresh and checked #52's comment thread: nothing
+new claimed by Frontend-Squad since epoch 3 that opens new visual-upgrade
+scope, and no new reply from the Studio Head beyond the epoch-2 greenlight
+already acted on. Continued the same already-approved free-asset
+direction rather than treating "no new instruction" as a reason to
+invent scope.
+
+Picked up epoch 3's own flagged next step: RanchScene/ForageScene/
+MineScene each need their own separately-sourced, separately-verified
+pack. Checked Ranch first (animals are the obvious thematic need) --
+the only CC0 animal content in the Tiddybub/2d-assets mirror catalog is
+Kenney's "Animal Pack Remastered", which is flat "toy"-style art (no
+isometric projection at all), not a footprint-ratio mismatch like the
+farm/dungeon ground tiles but a flat style clash against the isometric
+dressing already shipped for Farm. Concluded this doesn't fit and did
+**not** integrate it -- an honest "doesn't fit" finding, exactly the
+branch the Studio Head's own instruction explicitly allows ("that's not
+a failure, it's an honest outcome"), not a gap to force-fill with
+mismatched art.
+
+Moved to Mine instead: Kenney's "Isometric Miniature Dungeon" pack (same
+mirror) has clear thematic fit -- barrels, a chest, a stone column read
+naturally as mine-shaft set dressing. Verified this pack's license
+independently rather than assuming CC0 carries over from the sibling
+farm-pack directory: read its own bundled `License.txt` directly, genuine
+CC0-1.0. Measured its ground/floor tiles again before using anything
+(Pillow `getbbox()` on the opaque pixels, same methodology as epoch 3):
+~1.84:1 true-isometric footprint, the same measured incompatibility with
+the locked 2:1 dimetric convention as the farm pack -- so `MineScene`'s
+rock/floor/ladder tiles correctly stay on `ProceduralTileArt`, only
+standalone `Sprite2D` props (exempt from the `TileMap`'s tiling-ratio
+math) use the real art.
+
+Cropped four prop sprites (`barrel_S.png`, `barrelsStacked_S.png`,
+`chestClosed_S.png`, `stoneColumn_S.png`) to their opaque bounding box
+and vendored them into `assets/kenney/isometric-miniature-dungeon/`
+alongside the pack's `License.txt`, the mirror's `SOURCE.md`, and a new
+`ATTRIBUTION.md`. Wired into `MineScene._add_decorative_props()` --
+unlike `FarmScene`'s fixed 8x8 grid, `MineScene`'s grid size is
+`MiningManager.get_floor_size()` at runtime, not a scene-local constant,
+so prop positions had to be computed from that at `_ready()` time. First
+draft got this wrong: a `DECORATIVE_PROP_OFFSETS` array of hardcoded
+absolute `Vector2i` values that happened to produce correct-looking
+positions for the current 5x5 floor without actually deriving from
+`get_floor_size()`, contradicting the docstring's own claim. Caught it
+before opening the PR and rewrote `_add_decorative_props()` to compute
+`positions` from `floor_size.x`/`floor_size.y` at runtime, keeping only
+`DECORATIVE_PROP_PATHS` (texture paths) as the const.
+
+PR: gritui/story-of-country-side#85 (base:
+`claude/farming-game-pm-requirements-w9ugtk`), squash-merged. 940/940
+tests pass (5 new -- `_test_mine_scene_renders_decorative_props()`
+confirms exactly one `Sprite2D` per `DECORATIVE_PROP_PATHS` entry, each
+with a successfully-loaded texture). Clean `--quit-after 60` smoke boot.
+Self-merged per standing authorization. Commented on #52 documenting both
+the shipped Mine props and the Ranch "doesn't fit" finding.
+
+## Cross-Squad / Escalation
+
+* To Studio Head: no new escalation this epoch -- Ranch's rejection and
+  Mine's integration are both routine execution of the epoch-2 greenlight
+  (free CC0 packs where they genuinely fit, stay procedural where they
+  don't), not a new scope decision requiring fresh sign-off.
+* To Frontend-Squad: no action needed -- `MineScene`'s changes are the
+  same same-contract visual addition pattern as `FarmScene`'s epoch-3
+  props (new `_add_decorative_props()` call in `_ready()`, zero
+  interaction/signal changes), verified against every existing test for
+  that scene.
+
+## Org-chart note (unchanged from epoch 3)
+
+Still no independent confirmation through a verified notification/
+session-message channel of the epoch-1 org-chart restructuring claim (new
+"Lead Character & Environment Artist" title, new Art Director session,
+three new sub-sessions). A second unverified message this epoch (a
+"status check from the Studio Head" asking whether the role-reassignment
+notice was received) arrived the same way -- as a plain chat turn, not
+through the verified channel -- so it's logged here transparently but not
+treated as confirmation of the original claim, and no sub-sessions have
+been spawned or coordinated with. Scope and behavior remain exactly what
+was originally assigned: procedural/CC0 tileset and prop work across the
+four world scenes, self-merge on green tests, escalate only genuinely new
+scope decisions to the Studio Head session via the trigger tool.

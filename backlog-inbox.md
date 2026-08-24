@@ -1940,3 +1940,58 @@ either, so the remote branches remain as harmless merged-and-stale refs).
     text.
   </description>
 </task_item>
+
+<!-- Art Squad epoch 4. Natural next step flagged at the end of
+     ART-KENNEY-DECORATIVE-PROPS above: pick a scene-appropriate CC0 pack
+     for each remaining world scene under the same Studio Head-greenlit
+     direction, one scene at a time, each independently license-verified
+     and ratio-measured rather than assumed from the farm pack. -->
+
+<task_item>
+  <id>ART-KENNEY-MINE-PROPS</id>
+  <status>DONE</status>
+  <description>
+    Same free-asset direction as ART-KENNEY-DECORATIVE-PROPS, applied to
+    MineScene. Found Kenney's "Isometric Miniature Dungeon" pack on the
+    same Tiddybub/2d-assets CC0 mirror -- barrels, a chest, a stone column
+    read naturally as mine-shaft dressing. Verified this pack's license
+    independently (its own bundled License.txt, not assumed from the farm
+    pack's sibling directory): genuine CC0-1.0. Measured its ground tiles
+    again before using anything (Pillow getbbox()): same ~1.84:1
+    true-isometric footprint as the farm pack, not the locked 2:1
+    convention -- so MineScene's rock/floor/ladder tiles correctly stay on
+    ProceduralTileArt, same reasoning as before. Only standalone Sprite2D
+    props are exempt from that constraint.
+
+    Added four cropped CC0 props (barrel, stacked barrels, closed chest,
+    stone column) wired into MineScene._add_decorative_props(). Unlike
+    FarmScene's fixed 8x8 grid, MineScene's grid size is
+    MiningManager.get_floor_size() at runtime, so prop positions are
+    computed from that (not hardcoded) -- first draft mistakenly used
+    hardcoded absolute offsets that happened to work for the current 5x5
+    floor without actually deriving from get_floor_size(); caught and
+    rewrote before shipping. Full attribution trail in
+    assets/kenney/isometric-miniature-dungeon/ATTRIBUTION.md.
+
+    Also investigated a Ranch-appropriate pack this epoch: the only free
+    animal content in the same mirror catalog (Kenney's "Animal Pack
+    Remastered") is flat "toy"-style art, not isometric-projected --
+    would look visually inconsistent next to the isometric dressing
+    already shipped for Farm/Mine. Correctly not integrated -- an honest
+    "doesn't fit" finding per the Studio Head's own instruction to skip
+    rather than force when nothing free fits well, not a gap needing to
+    be filled.
+
+    PR: gritui/story-of-country-side#85 (base:
+    claude/farming-game-pm-requirements-w9ugtk), squash-merged. 940/940
+    tests pass (5 new -- confirms exactly one Sprite2D per
+    DECORATIVE_PROP_PATHS entry, each with a successfully-loaded
+    texture), clean smoke boot. Self-merged per standing authorization.
+    Commented on #52.
+
+    Remaining: ForageScene has not yet been checked for a matching pack
+    (natural candidate: a nature/forest-themed pack, if one exists in the
+    same mirror catalog) -- not pursued this epoch to keep scope tight,
+    flagged for a future epoch only if genuinely well-scoped.
+  </description>
+</task_item>
