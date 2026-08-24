@@ -35,6 +35,8 @@ class_name MineScene
 ##   rock (unbroken)  -> mine wall gray  (Color(0.38, 0.36, 0.34))
 ##   floor (broken)   -> cleared floor   (Color(0.20, 0.18, 0.16))
 ##   ladder           -> descent gold    (Color(0.70, 0.58, 0.22))
+## ladder also gets ProceduralTileArt's center-weighted glow accent so it
+## visually reads as the interactive exit tile.
 ## No visual distinction between plain stone and ore-bearing rock (can't
 ## be, see above), no per-ore-type sprite variety once broken (the tile
 ## just becomes floor). A later pass with real art (human artist or an
@@ -86,7 +88,7 @@ func _ready() -> void:
 ## Same shared ProceduralTileArt approach as every prior world scene --
 ## see class docstring for why there's no art asset to load instead.
 func _build_tileset() -> void:
-	_tilemap.tile_set = ProceduralTileArt.build_isometric_tileset(STATE_COLORS, TILE_WIDTH, TILE_HEIGHT, ATLAS_SOURCE_ID)
+	_tilemap.tile_set = ProceduralTileArt.build_isometric_tileset(STATE_COLORS, TILE_WIDTH, TILE_HEIGHT, ATLAS_SOURCE_ID, [STATE_LADDER])
 
 func _render_all_tiles() -> void:
 	var floor_size := MiningManager.get_floor_size()

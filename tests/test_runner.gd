@@ -367,6 +367,7 @@ func _ready() -> void:
 	_test_procedural_tile_art_atlas_tiles_use_distinct_base_colors()
 	_test_procedural_tile_art_is_deterministic_across_calls()
 	_test_procedural_tile_art_orders_atlas_by_ascending_state_key_regardless_of_dict_order()
+	_test_procedural_tile_art_glow_states_brightens_center_pixel()
 	_test_npc_controller_has_visible_sprite_after_ready()
 	_test_npc_controller_sprite_tint_is_deterministic_per_name()
 
@@ -4639,6 +4640,21 @@ func _test_procedural_tile_art_orders_atlas_by_ascending_state_key_regardless_of
 	var expected: Color = out_of_order_colors[0]
 	_check(absf(state0_center.r - expected.r) < 0.15 and absf(state0_center.g - expected.g) < 0.15 and absf(state0_center.b - expected.b) < 0.15,
 		"atlas index 0 (Vector2i(0, 0)) should always hold state key 0's color regardless of dictionary insertion order, since scenes address tiles by Vector2i(state, 0)")
+
+func _test_procedural_tile_art_glow_states_brightens_center_pixel() -> void:
+	var same_colors := {
+		0: Color(0.3, 0.3, 0.3),
+		1: Color(0.3, 0.3, 0.3),
+	}
+	var tile_set := ProceduralTileArt.build_isometric_tileset(same_colors, 64, 32, 0, [1])
+	var source: TileSetAtlasSource = tile_set.get_source(0)
+	var image := source.texture.get_image()
+	var non_glow_center := image.get_pixel(32, 16)
+	var glow_center := image.get_pixel(64 + 32, 16)
+	var non_glow_brightness := non_glow_center.r + non_glow_center.g + non_glow_center.b
+	var glow_brightness := glow_center.r + glow_center.g + glow_center.b
+	_check(glow_brightness > non_glow_brightness + 0.2,
+		"a state listed in glow_states should render its center noticeably brighter than an identical base_color state that isn't")
 
 ## --- Art Squad: NPCController placeholder sprite (#52 adjacent
 ## sub-scope, scripts/npc/procedural_character_art.gd) ---

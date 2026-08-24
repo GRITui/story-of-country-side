@@ -41,6 +41,8 @@ class_name RanchScene
 ##   occupied, not fed  -> neutral hay     (Color(0.62, 0.55, 0.32))
 ##   occupied, fed      -> content green   (Color(0.35, 0.58, 0.30))
 ##   product ready      -> bright gold     (Color(0.86, 0.71, 0.18))
+## product ready also gets ProceduralTileArt's center-weighted glow accent
+## so a ready pen visually calls attention to itself.
 ## Species and happiness-tier detail (silver/gold quality) have no visual
 ## representation yet -- out of scope for a tileset with no illustrated
 ## art asset behind it. A later pass with real art (human artist or an
@@ -99,7 +101,7 @@ func _ready() -> void:
 ## Same shared ProceduralTileArt approach as FarmScene._build_tileset --
 ## see class docstring for why there's no art asset to load instead.
 func _build_tileset() -> void:
-	_tilemap.tile_set = ProceduralTileArt.build_isometric_tileset(STATE_COLORS, TILE_WIDTH, TILE_HEIGHT, ATLAS_SOURCE_ID)
+	_tilemap.tile_set = ProceduralTileArt.build_isometric_tileset(STATE_COLORS, TILE_WIDTH, TILE_HEIGHT, ATLAS_SOURCE_ID, [STATE_READY])
 
 func _render_all_pens() -> void:
 	for x in range(GRID_WIDTH):
