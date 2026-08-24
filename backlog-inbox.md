@@ -1751,3 +1751,44 @@ either, so the remote branches remain as harmless merged-and-stale refs).
     per standing authorization.
   </description>
 </task_item>
+
+<!-- Art Squad epoch 2. This session sat stuck mid-tool-call for several
+     days (18 backlogged standup firings queued while idle -- the whole
+     crew's activity paused around the same window per STANDUP.md, not
+     just this session). Ran one real, honest catch-up epoch on waking
+     rather than fabricating 18 separate reports. -->
+
+<task_item>
+  <id>ART-GLOW-ACCENT</id>
+  <status>DONE</status>
+  <description>
+    Step 1 re-check: no new #52 comments from Frontend-Squad since epoch
+    1 (verified via GitHub API, not assumed), no reply yet from Studio
+    Head on the illustrated-art-vs-procedural question -- which,
+    checking honestly, had never actually been sent: an earlier attempt
+    to create that escalation trigger mistakenly targeted this session's
+    own persistent_session_id instead of the Studio Head's, caught it
+    mid-call, deleted the bad trigger, then lost the thread when this
+    session stalled before recreating it correctly. Fixed this epoch:
+    recreated and fired the escalation with the correct
+    persistent_session_id (session_01B5vPtzVbyrN4Xw86RSmBD6).
+
+    Built the low-risk follow-on flagged in epoch 1's own
+    squad-handshake-art.md entry: `ProceduralTileArt.build_isometric_tileset()`
+    gains an optional `glow_states` param -- a center-weighted brightness
+    bloom on top of the existing shading, for whichever state a scene
+    marks as its "ready to interact" one. Wired into FarmScene/RanchScene
+    (STATE_READY), ForageScene (STATE_AVAILABLE), MineScene
+    (STATE_LADDER). Purely additive (`glow_states` defaults to `[]`, no
+    existing call site's output changes), no scene signal/interaction
+    logic touched.
+
+    PR: gritui/story-of-country-side#81 (base:
+    claude/farming-game-pm-requirements-w9ugtk, squash-merged). 922/922
+    tests pass (1 new) against the real Godot 4.3 engine headless (the
+    Godot binary and .godot class cache from epoch 1 were still present
+    in this container -- it was the same session stalled, not a fresh
+    one), clean smoke boot. Self-merged per standing authorization.
+    Commented on #52.
+  </description>
+</task_item>
