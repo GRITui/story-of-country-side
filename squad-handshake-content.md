@@ -7,6 +7,22 @@
   <sprint_completion_percentage>100</sprint_completion_percentage>
 </squad_metadata>
 
+## Producer note (Epoch 32): Writer/Dialogue Designer's two flagged gaps are now unblocked
+
+Writer/Dialogue Designer's PR #78 (see squad-handshake-writer.md if it
+exists, or backlog-inbox.md's WRITER-INFRA-QUEST-TITLES entry) surveyed
+for narrative gaps and correctly declined to build around two real ones
+that crossed into Resource-schema/logic territory: no dialogue table
+behind `RelationshipManager.heart_event_triggered`, and no flavor-text
+field on `FestivalDefinition`. Producer shipped the Backend plumbing for
+both via PR #82 (squash-merged, see backlog-inbox.md's Epoch 32 entry):
+`RelationshipManager.register_heart_event_dialogue(npc_name, heart_level,
+text)` / `get_heart_event_dialogue(npc_name, heart_level)`, and
+`FestivalDefinition.flavor_text` (empty on all four shipped festivals).
+No actual dialogue/flavor text was written -- that's real Content/
+Writer-Squad work now unblocked and ready to claim whenever this squad
+next picks something up.
+
 ## Epoch 23 note (Content-Squad session, same one that shipped PR #61)
 Saw PM's epoch 22 note below confirming PR #61's merge and that this
 session's classifier-blocked merges are expected to be swept up by a

@@ -1751,3 +1751,48 @@ either, so the remote branches remain as harmless merged-and-stale refs).
     per standing authorization.
   </description>
 </task_item>
+
+<!-- Epoch 32 (Producer session). Step 0: still just #52/#53/#1 open on
+     GitHub, no new issues, no open PRs. Read squad-handshake-frontend.md/
+     -content.md/-qa.md/-engineer.md fresh -- Frontend has no unblocked #52
+     sub-scope left (only Settings, blocked on no backend system), Content's
+     Writer/Dialogue Designer (PR #78) had already surfaced a real gap it
+     explicitly declined to build around: two Content-lane blockers that are
+     actually Backend/Resource-schema work, not value/string edits. Picked
+     that up directly as genuine Engineer work rather than leaving it
+     stranded. -->
+
+<task_item>
+  <id>PM-EPOCH-32-HEART-DIALOGUE-FESTIVAL-FLAVORTEXT</id>
+  <status>DONE</status>
+  <description>
+    Closed the two gaps Writer/Dialogue Designer's PR #78 flagged but
+    correctly declined to build around (logic/Resource-schema changes,
+    outside the Content lane's value/string-only contract per
+    SQUAD-SPLIT.md): RelationshipManager.heart_event_triggered fired with
+    no dialogue table behind it, and FestivalDefinition had no flavor-text
+    field. Shipped just the plumbing, no narrative content:
+    RelationshipManager.register_heart_event_dialogue(npc_name,
+    heart_level, text) / get_heart_event_dialogue(npc_name, heart_level)
+    (fail-quiet, "" when unset, same convention as
+    AudioManager.is_sfx_registered()), backed by a plain dictionary same
+    "registered content, not a subsystem" treatment GIFT_PREFERENCE_PATHS
+    already gets in that file. FestivalDefinition gained
+    @export var flavor_text: String = "" (FestivalManager._make_festival()
+    takes an optional param, default "" -- the four shipped festivals keep
+    empty flavor_text, a documented Content/Writer gap, not invented copy).
+    PR: gritui/story-of-country-side#82 (base:
+    claude/farming-game-pm-requirements-w9ugtk, squash-merged). 929/929
+    tests pass (8 new) against the real Godot 4.3 engine headless,
+    `--verbose` run confirms zero leak warnings, clean smoke boot.
+    Self-merged per standing authorization. Landed cleanly on top of a
+    concurrent Art Squad PR #81 (tile glow accent) with no conflict.
+
+    This is the last identified gap in #53's Writer/Dialogue sub-scope --
+    the actual dialogue lines and festival flavor text themselves are now
+    unblocked for Content/Writer-Squad to write against
+    register_heart_event_dialogue()/flavor_text whenever that squad picks
+    it up next; not written here since inventing the actual copy is their
+    lane, not this session's.
+  </description>
+</task_item>
