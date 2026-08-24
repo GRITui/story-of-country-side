@@ -43,6 +43,19 @@ class_name MineScene
 ## image-gen pipeline) should replace _build_tileset with real tile/prop
 ## art without needing to touch the signal-binding logic below.
 ##
+## Decorative props (Studio Head-greenlit free-asset pass, see
+## assets/kenney/isometric-miniature-dungeon/ATTRIBUTION.md): real
+## illustrated CC0 sprites (Kenney's Isometric Miniature Dungeon pack --
+## same license verification and same measured ~1.84:1 ground-tile
+## incompatibility with the locked 2:1 convention as
+## assets/kenney/isometric-miniature-farm's ATTRIBUTION.md documents, so
+## floor/rock/ladder tiles stay on ProceduralTileArt) placed as static,
+## non-interactive Sprite2D set dressing around the floor's border --
+## barrels, stacked barrels, a chest, a stone column. Positions are
+## computed from get_floor_size() at _ready() time, not hardcoded, since
+## unlike FarmScene's fixed 8x8 grid this scene's grid size is
+## MiningManager's own content decision.
+##
 ## Rendering model: fully reactive, no polling. _ready() does one pass
 ## over every (x, y) in the current floor's grid calling
 ## MiningManager.has_rock()/get_ladder_position() -- both public. After
@@ -76,11 +89,23 @@ const STATE_COLORS := {
 
 const ATLAS_SOURCE_ID := 0
 
+## Real illustrated CC0 decorative prop textures (see class docstring).
+## Paired with grid positions computed from get_floor_size() in
+## _add_decorative_props() -- not hardcoded, since this scene's grid size
+## isn't a fixed constant the way FarmScene's is.
+const DECORATIVE_PROP_PATHS := [
+	"res://assets/kenney/isometric-miniature-dungeon/barrel_S.png",
+	"res://assets/kenney/isometric-miniature-dungeon/barrelsStacked_S.png",
+	"res://assets/kenney/isometric-miniature-dungeon/chestClosed_S.png",
+	"res://assets/kenney/isometric-miniature-dungeon/stoneColumn_S.png",
+]
+
 @onready var _tilemap: TileMap = $TileMap
 
 func _ready() -> void:
 	_build_tileset()
 	_render_all_tiles()
+	_add_decorative_props()
 
 	MiningManager.rock_broken.connect(_on_rock_broken)
 	MiningManager.floor_descended.connect(_on_floor_descended)
@@ -95,6 +120,32 @@ func _render_all_tiles() -> void:
 	for x in range(floor_size.x):
 		for y in range(floor_size.y):
 			_refresh_tile(Vector2i(x, y))
+
+## Instantiates DECORATIVE_PROP_PATHS as bottom-anchored Sprite2D children
+## (see class docstring) at fixed positions just outside the floor's
+## border, scaled from get_floor_size() rather than hardcoded so this
+## still reads correctly if MiningManager's own floor dimensions ever
+## change. Placed once in _ready() -- floor_descended regenerates tile
+## content, not the floor's overall size, so these don't need to move on
+## that signal.
+func _add_decorative_props() -> void:
+	var floor_size := MiningManager.get_floor_size()
+	var positions := [
+		Vector2i(-1, 1),
+		Vector2i(-1, floor_size.y - 2),
+		Vector2i(1, -1),
+		Vector2i(floor_size.x - 2, -1),
+	]
+	for i in range(DECORATIVE_PROP_PATHS.size()):
+		var texture: Texture2D = load(DECORATIVE_PROP_PATHS[i])
+		if texture == null:
+			continue
+		var sprite := Sprite2D.new()
+		sprite.texture = texture
+		sprite.centered = false
+		sprite.offset = Vector2(-texture.get_width() / 2.0, -texture.get_height())
+		sprite.position = _tilemap.map_to_local(positions[i])
+		add_child(sprite)
 
 func _refresh_tile(tile: Vector2i) -> void:
 	_paint_tile(tile, _tile_state(tile))
