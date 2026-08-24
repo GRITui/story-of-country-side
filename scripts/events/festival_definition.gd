@@ -16,3 +16,10 @@ extends Resource
 
 ## 1..TimeManager.DAYS_PER_SEASON.
 @export var day_of_season: int = 1
+
+## Short narrative blurb shown alongside the festival (e.g. in the mini-game
+## overlay). Empty by default -- this is the data slot, not the copy itself;
+## writing the actual text is Content/Writer-Squad's job (Content lane,
+## value/string only), same split as every other *Definition's placeholder
+## fields.
+@export var flavor_text: String = ""

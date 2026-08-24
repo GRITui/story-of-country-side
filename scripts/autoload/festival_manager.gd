@@ -75,12 +75,13 @@ func _register_default_content() -> void:
 	register_festival(_make_festival("harvest_moon_festival", "Harvest Moon Festival", "Fall", 16))
 	register_festival(_make_festival("hearthlight_festival", "Hearthlight Festival", "Winter", 21))
 
-func _make_festival(festival_id: String, display_name: String, season: String, day_of_season: int) -> FestivalDefinition:
+func _make_festival(festival_id: String, display_name: String, season: String, day_of_season: int, flavor_text: String = "") -> FestivalDefinition:
 	var def := FestivalDefinition.new()
 	def.festival_id = festival_id
 	def.display_name = display_name
 	def.season = season
 	def.day_of_season = day_of_season
+	def.flavor_text = flavor_text
 	return def
 
 ## Re-registering the same festival_id is a content overwrite (last write

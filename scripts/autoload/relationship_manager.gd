@@ -35,6 +35,14 @@ var _highest_triggered_heart: Dictionary = {} ## npc_name -> int
 var _talked_today: Dictionary = {} ## npc_name -> bool
 var _gifted_today: Dictionary = {} ## npc_name -> bool
 
+## npc_name -> {heart_level(int) -> dialogue text}. Registered content, same
+## "dictionary of data, not a subsystem" treatment GIFT_PREFERENCE_PATHS gets
+## above. Closes a real gap Writer/Dialogue-Squad flagged (#53): a heart
+## event fires via heart_event_triggered with no dialogue behind it -- this
+## is the lookup plumbing only, empty until Content/Writer-Squad registers
+## real text per NPC/level.
+var _heart_event_dialogue: Dictionary = {}
+
 func _ready() -> void:
 	if TimeManager:
 		TimeManager.day_started.connect(_on_day_started)
@@ -91,6 +99,24 @@ func _add_points(npc_name: String, delta: int) -> void:
 	var hearts := new_points / POINTS_PER_HEART
 	points_changed.emit(npc_name, new_points, hearts)
 	_check_heart_events(npc_name, hearts)
+
+## Registers the dialogue line shown for npc_name's heart_level heart event.
+## Re-registering the same (npc_name, heart_level) pair overwrites it, same
+## "last write wins" convention every other manager's register_* follows.
+func register_heart_event_dialogue(npc_name: String, heart_level: int, text: String) -> void:
+	if npc_name.is_empty():
+		return
+	if not _heart_event_dialogue.has(npc_name):
+		_heart_event_dialogue[npc_name] = {}
+	_heart_event_dialogue[npc_name][heart_level] = text
+
+## Returns the registered dialogue for npc_name's heart_level heart event, or
+## "" if nothing has been registered for that pair -- fail-quiet, same
+## convention as get_current_music()/is_sfx_registered() elsewhere, so a
+## caller can always safely display the result without a null check.
+func get_heart_event_dialogue(npc_name: String, heart_level: int) -> String:
+	var by_level: Dictionary = _heart_event_dialogue.get(npc_name, {})
+	return by_level.get(heart_level, "")
 
 func _check_heart_events(npc_name: String, hearts: int) -> void:
 	var highest: int = _highest_triggered_heart.get(npc_name, 0)
