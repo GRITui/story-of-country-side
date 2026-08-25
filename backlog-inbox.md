@@ -2230,3 +2230,23 @@ either, so the remote branches remain as harmless merged-and-stale refs).
     Sprint-001 open items unchanged (title screen P2 etc.).
   </description>
 </task_item>
+
+<task_item>
+  <id>SUPERUSER-ISSUES-FILED</id>
+  <status>DONE</status>
+  <description>
+    Sprint-001/002 super-user findings are now tracked as GitHub issues
+    (visible to every lane + humans, claimable via the usual
+    claim-comment-before-dispatch discipline). Also deployed the P0-P4
+    severity label set here to match the other GRITui repos.
+    - #90 P1 bug: festivals lost on quit+relaunch (day-edge boot gap)
+    - #91 P1 enhancement: seed economy (items + starting grant + shop)
+    - #92 P2 enhancement: title screen w/ New Game / Continue
+    - #93 P2 enhancement: sleep / day-skip interaction
+    - #94 P3 enhancement: UX polish batch (hotbar, last-location,
+      intro hint/skip)
+    Full evidence in superuser/reports/sprint-001.md and sprint-002.md;
+    repro harness in superuser/autoplay/. Findings remain advisory --
+    sequencing/triage stays with PM/Producer per SQUAD-SPLIT.md.
+  </description>
+</task_item>
