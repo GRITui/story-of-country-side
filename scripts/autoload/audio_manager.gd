@@ -8,7 +8,7 @@ extends Node
 ## for a looping "music" drone -- same "autoload owns its own Node
 ## children" pattern SaveManager/TimeManager use for their own bookkeeping.
 ##
-## SFX are now real audio: the four SFX registered in
+## SFX are now real audio: the seven SFX registered in
 ## _register_default_content() below are genuine CC0-licensed clips from
 ## Kenney's "Interface Sounds" pack (assets/kenney/interface-sounds/, see
 ## that directory's ATTRIBUTION.md for full provenance/license verification
@@ -107,6 +107,9 @@ func _register_default_content() -> void:
 	register_sfx_asset("harvest", "res://assets/kenney/interface-sounds/confirmation_001.wav") ## FarmPlotManager crop_harvested
 	register_sfx_asset("heart", "res://assets/kenney/interface-sounds/bong_001.wav") ## RelationshipManager heart_event_triggered
 	register_sfx_asset("wedding", "res://assets/kenney/interface-sounds/select_006.wav") ## MarriageManager married
+	register_sfx_asset("levelup", "res://assets/kenney/interface-sounds/confirmation_002.wav") ## SkillManager level_changed
+	register_sfx_asset("quest_complete", "res://assets/kenney/interface-sounds/glass_004.wav") ## QuestManager quest_completed
+	register_sfx_asset("upgrade", "res://assets/kenney/interface-sounds/maximize_001.wav") ## ToolManager tool_upgraded
 	register_music("ambient", 220.0) ## no fitting free music/loop found yet -- stays procedural, see file docstring
 
 ## --- Cross-manager signal wiring ---
@@ -123,6 +126,12 @@ func _connect_signals() -> void:
 		RelationshipManager.heart_event_triggered.connect(_on_heart_event_triggered)
 	if MarriageManager:
 		MarriageManager.married.connect(_on_married)
+	if SkillManager:
+		SkillManager.level_changed.connect(_on_level_changed)
+	if QuestManager:
+		QuestManager.quest_completed.connect(_on_quest_completed)
+	if ToolManager:
+		ToolManager.tool_upgraded.connect(_on_tool_upgraded)
 
 func _on_payout_processed(_total_earned: int, _item_count: int) -> void:
 	play_sfx("coin")
@@ -135,6 +144,15 @@ func _on_heart_event_triggered(_npc_name: String, _heart_level: int) -> void:
 
 func _on_married(_npc_name: String) -> void:
 	play_sfx("wedding")
+
+func _on_level_changed(_skill_name: String, _new_level: int, _old_level: int) -> void:
+	play_sfx("levelup")
+
+func _on_quest_completed(_quest_id: String, _unlock_flag: String) -> void:
+	play_sfx("quest_complete")
+
+func _on_tool_upgraded(_tool_name: String, _new_tier: int) -> void:
+	play_sfx("upgrade")
 
 ## --- Public API ---
 
