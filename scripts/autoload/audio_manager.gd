@@ -2,22 +2,24 @@ extends Node
 ## Autoload: AudioManager
 ##
 ## Honesty up front: this repo had zero audio anywhere before this file --
-## no music, no SFX, no AudioStreamPlayer usage. There is no music-
-## composition or audio-synthesis tool available in this environment, so
-## nothing here is a real composed track or a designed sound effect.
-## Every "sound" below is a procedurally generated sine tone (frequency +
-## duration), built at runtime via AudioStreamGenerator/
-## AudioStreamGeneratorPlayback -- crude, audibly a beep/chime, not
-## placeholder silence. This project genuinely needs a real composer/
-## sound designer (or a licensed SFX/music library) before shipping;
-## flagged to the Studio Head separately rather than pretending these
-## tones are final audio.
+## no music, no SFX, no AudioStreamPlayer usage. This is the integration
+## *layer*: a small public API every other manager's existing signals can
+## call into. Two AudioStreamPlayer children -- one for one-shot SFX, one
+## for a looping "music" drone -- same "autoload owns its own Node
+## children" pattern SaveManager/TimeManager use for their own bookkeeping.
 ##
-## This is the integration *layer*: a small public API every other
-## manager's existing signals can call into. Two AudioStreamPlayer
-## children -- one for one-shot SFX, one for a looping "music" drone --
-## same "autoload owns its own Node children" pattern SaveManager/
-## TimeManager use for their own bookkeeping.
+## SFX are now real audio: the four SFX registered in
+## _register_default_content() below are genuine CC0-licensed clips from
+## Kenney's "Interface Sounds" pack (assets/kenney/interface-sounds/, see
+## that directory's ATTRIBUTION.md for full provenance/license verification
+## and an honest note on how the specific sound-to-event mapping was picked
+## without any audio playback capability in this environment). Music is
+## still a procedurally generated sine drone (AudioStreamGenerator) -- no
+## fitting free CC0 music/ambient loop was found this round, so it stays an
+## honest placeholder rather than a forced bad fit (see
+## ATTRIBUTION.md's "What's still procedural" section). Nothing here is a
+## human composer's or sound designer's finished work; the Studio Head has
+## this project's real-audio gap on record separately.
 ##
 ## Headless test note: `godot --headless` still initializes an audio
 ## driver (Dummy on platforms with no real device), so play()/
@@ -38,9 +40,11 @@ const GENERATOR_BUFFER_LENGTH := 2.0
 ## unpleasant; this is a placeholder tone, not mixed/mastered audio.
 const AMPLITUDE := 0.2
 
-## sfx_id -> {frequency: float, duration: float}
+## sfx_id -> {kind: "procedural", frequency: float, duration: float}
+##        or {kind: "asset", stream: AudioStream}
 var _sfx_defs: Dictionary = {}
-## track_id -> {frequency: float}
+## track_id -> {frequency: float} -- music stays procedural-only for now,
+## see this file's top-of-file docstring.
 var _music_defs: Dictionary = {}
 
 var _current_music_id: String = ""
@@ -66,14 +70,29 @@ func _ready() -> void:
 	_connect_signals()
 
 ## --- Content registration ---
-## Placeholder MVP tone table -- same "content-gap honesty" convention
-## every other manager's _register_default_content() uses (see e.g.
-## infrastructure_manager.gd). Re-registering an id overwrites it.
+## Same "content-gap honesty" convention every other manager's
+## _register_default_content() uses (see e.g. infrastructure_manager.gd).
+## Re-registering an id overwrites it, real asset or procedural either way.
 
+## Procedural fallback -- register a sine-tone SFX (used where no fitting
+## free asset exists yet; none of the four defaults below use this path
+## anymore, but it stays available for future signal hookups).
 func register_sfx(sfx_id: String, frequency: float, duration: float) -> void:
 	if sfx_id.is_empty() or frequency <= 0.0 or duration <= 0.0:
 		return
-	_sfx_defs[sfx_id] = {"frequency": frequency, "duration": duration}
+	_sfx_defs[sfx_id] = {"kind": "procedural", "frequency": frequency, "duration": duration}
+
+## Real-asset SFX -- loads a genuine AudioStream (e.g. a CC0-licensed clip
+## under assets/kenney/, see that directory's ATTRIBUTION.md) instead of
+## synthesizing a tone. Silently no-ops on an empty id/path or a path that
+## fails to load, same "fail quiet" convention as register_sfx above.
+func register_sfx_asset(sfx_id: String, path: String) -> void:
+	if sfx_id.is_empty() or path.is_empty():
+		return
+	var stream := load(path) as AudioStream
+	if stream == null:
+		return
+	_sfx_defs[sfx_id] = {"kind": "asset", "stream": stream}
 
 func register_music(track_id: String, frequency: float) -> void:
 	if track_id.is_empty() or frequency <= 0.0:
@@ -81,11 +100,14 @@ func register_music(track_id: String, frequency: float) -> void:
 	_music_defs[track_id] = {"frequency": frequency}
 
 func _register_default_content() -> void:
-	register_sfx("coin", 880.0, 0.12) ## ShippingBinManager payout
-	register_sfx("harvest", 660.0, 0.15) ## FarmPlotManager crop_harvested
-	register_sfx("heart", 1046.5, 0.25) ## RelationshipManager heart_event_triggered
-	register_sfx("wedding", 523.25, 0.6) ## MarriageManager married
-	register_music("ambient", 220.0) ## simple sustained drone, not a composed loop
+	## Real CC0 clips (Kenney's Interface Sounds pack) -- see
+	## assets/kenney/interface-sounds/ATTRIBUTION.md for provenance, license
+	## verification, and how each sound-to-event mapping below was picked.
+	register_sfx_asset("coin", "res://assets/kenney/interface-sounds/pluck_001.wav") ## ShippingBinManager payout
+	register_sfx_asset("harvest", "res://assets/kenney/interface-sounds/confirmation_001.wav") ## FarmPlotManager crop_harvested
+	register_sfx_asset("heart", "res://assets/kenney/interface-sounds/bong_001.wav") ## RelationshipManager heart_event_triggered
+	register_sfx_asset("wedding", "res://assets/kenney/interface-sounds/select_006.wav") ## MarriageManager married
+	register_music("ambient", 220.0) ## no fitting free music/loop found yet -- stays procedural, see file docstring
 
 ## --- Cross-manager signal wiring ---
 ## Read-only via public signals, same Backend contract every other manager
@@ -123,7 +145,10 @@ func play_sfx(sfx_id: String) -> bool:
 	if not _sfx_defs.has(sfx_id):
 		return false
 	var def: Dictionary = _sfx_defs[sfx_id]
-	_start_one_shot_tone(def["frequency"], def["duration"])
+	if def["kind"] == "asset":
+		_play_sfx_asset(def["stream"])
+	else:
+		_start_one_shot_tone(def["frequency"], def["duration"])
 	sfx_played.emit(sfx_id)
 	return true
 
@@ -167,6 +192,18 @@ func is_sfx_registered(sfx_id: String) -> bool:
 
 func is_music_registered(track_id: String) -> bool:
 	return _music_defs.has(track_id)
+
+## --- Real-asset SFX playback ---
+
+## A real AudioStream (e.g. a loaded WAV) has a genuine finite length, so
+## unlike the procedural generator path below, AudioStreamPlayer.playing
+## naturally goes false when it finishes -- no token/timer release dance
+## needed here.
+func _play_sfx_asset(stream: AudioStream) -> void:
+	if _sfx_player.playing:
+		_sfx_player.stop()
+	_sfx_player.stream = stream
+	_sfx_player.play()
 
 ## --- Procedural tone generation ---
 
