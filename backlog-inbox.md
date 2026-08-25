@@ -2084,3 +2084,41 @@ either, so the remote branches remain as harmless merged-and-stale refs).
     description, and no other squad's work was blocked on it).
   </description>
 </task_item>
+
+<!-- Epoch 3 (Audio-Squad, same rate-limit-gap continuation as epoch 2).
+     Picked up a well-scoped item straight from epoch 2's own "Remaining"
+     list rather than staying idle at a routine standup firing: more
+     signal hookups reusing the already-integrated, already-license-
+     verified assets/kenney/interface-sounds/ pack -- no new asset search
+     needed. -->
+
+<task_item>
+  <id>AUDIO-MORE-SIGNAL-HOOKUPS</id>
+  <status>DONE</status>
+  <description>
+    Wired three more real signals to the CC0 Interface Sounds pack PR #86
+    already shipped: SkillManager.level_changed -> "levelup" sfx
+    (confirmation_002.wav), QuestManager.quest_completed ->
+    "quest_complete" sfx (glass_004.wav), ToolManager.tool_upgraded ->
+    "upgrade" sfx (maximize_001.wav). Same honest picking method as PR
+    #86 (no audio playback capability in this environment -- picked from
+    Kenney's own semantic filenames + measured duration/file-size via
+    Python's wave module, not by ear; documented in
+    assets/kenney/interface-sounds/ATTRIBUTION.md, now covering all seven
+    real-asset SFX). Read-only via public signals only, per
+    SQUAD-SPLIT.md's Backend contract. Ran the same Godot editor headless
+    import pass (--editor --quit-after 1) to generate real .import files
+    for the three new .wav assets. PR: gritui/story-of-country-side#88
+    (base: claude/farming-game-pm-requirements-w9ugtk). 956/956 tests
+    pass (9 new) against the real Godot 4.3 engine headless, clean smoke
+    boot. Self-merged per standing authorization (mergeable_state
+    "clean" confirmed via pull_request_read before merging). Full detail
+    in squad-handshake-audio.md's epoch 3 section.
+
+    Remaining: music still procedural (no fitting free CC0 loop found
+    yet); ~93 unused sounds still in the pack for future hookups
+    (FestivalManager start/end, CommunityGoalManager bundle_completed,
+    ToolManager.ore_added, etc.) -- deliberately kept this pass to three
+    signals, not wiring everything at once.
+  </description>
+</task_item>

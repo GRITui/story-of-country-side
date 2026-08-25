@@ -196,6 +196,42 @@ reasonable free options and wanting to make a real paid-pack case, which
 the Studio Head explicitly said still routes to the actual repo owner,
 not decided by this squad).
 
+## Epoch 3 (this session, same rate-limit-gap continuation)
+
+Picked up the epoch-2 "more signal hookups" item directly rather than
+staying idle at a routine standup firing — well-scoped, reuses the
+already-integrated, already-license-verified `assets/kenney/interface-
+sounds/` pack (100 sounds, only 4 used so far), no new asset-sourcing
+risk. Wired three more real signals:
+
+* `SkillManager.level_changed` -> `"levelup"` sfx -> `confirmation_002.wav`
+  (the pack's longer/more elaborate "confirmation" variant, distinct from
+  `confirmation_001.wav` already used for `"harvest"`)
+* `QuestManager.quest_completed` -> `"quest_complete"` sfx ->
+  `glass_004.wav` (the pack's longest "glass" variant, a chime/ding
+  distinct from the short `bong_001.wav` already used for `"heart"`)
+* `ToolManager.tool_upgraded` -> `"upgrade"` sfx -> `maximize_001.wav`
+  (a rising/ascending character fitting an upgrade cue)
+
+Same honest picking method as epoch 2 (no audio playback capability in
+this environment -- picked from Kenney's own semantic filenames +
+measured duration/file-size via Python's `wave` module, not by ear;
+documented in `assets/kenney/interface-sounds/ATTRIBUTION.md`, now
+covering all seven real-asset SFX). Read-only via public signals only,
+per `SQUAD-SPLIT.md`'s Backend contract -- no private-field access on
+any of `SkillManager`/`QuestManager`/`ToolManager`. Ran the same Godot
+editor headless import pass (`--editor --quit-after 1`) to generate real
+`.import` files for the three new `.wav` assets before testing.
+
+PR: gritui/story-of-country-side#88 (base:
+claude/farming-game-pm-requirements-w9ugtk). 956/956 tests pass (9 new)
+against the real Godot 4.3 engine headless, clean smoke boot. Merged
+cleanly after fetching/merging a base branch that had moved twice during
+this epoch (Art Squad standups + PR #87) -- no conflicts, both merges
+were pure appends. Self-merged per standing authorization (`mergeable_
+state: "clean"` confirmed via `pull_request_read` before merging, not
+assumed).
+
 ## Remaining / ideas for next epoch
 
 * Music is still procedural (see epoch 2) — Kenney's "Music Jingles" and
@@ -204,15 +240,13 @@ not decided by this squad).
   was (`Calinou`'s other repos, or another maintainer's mirror, are
   reasonable next things to check). Worth a real search pass before
   concluding "no music exists" is a final verdict.
-* More signal hookups exist that would be reasonable next candidates:
-  `SkillManager.level_changed` (a level-up chime), `QuestManager`
-  completion, `FestivalManager` start/end, `ToolManager` upgrade,
-  `CommunityGoalManager` bundle completion — and now that a real SFX
-  pack (`assets/kenney/interface-sounds/`, 100 sounds, only 4 used so
-  far) is already in the repo, several of these could plausibly reuse
-  it directly rather than needing a new asset search. Deliberately kept
-  this pass to the same four signals already wired, not wiring
-  everything at once.
+* More signal hookups still exist as reasonable next candidates:
+  `FestivalManager.festival_started`/`festival_ended`,
+  `CommunityGoalManager.bundle_completed`, `ToolManager.ore_added`,
+  `AnimalManager`'s product-collection signal — the `interface-sounds`
+  pack still has ~93 unused files, so these likely don't need a new
+  asset search either. Deliberately kept epoch 3 to three signals, not
+  wiring everything in one pass.
 * No settings/volume UI exists yet (no `scripts/ui/settings_overlay.gd` —
   `SQUAD-SPLIT.md`/Frontend's own notes flag Settings as blocked on a
   backend system that doesn't exist). `AudioManager` has no
