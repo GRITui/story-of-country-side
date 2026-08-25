@@ -2064,3 +2064,23 @@ either, so the remote branches remain as harmless merged-and-stale refs).
     needing a new asset search. Full detail in squad-handshake-audio.md.
   </description>
 </task_item>
+
+<task_item>
+  <id>PM-EPOCH-MERGE-PR87-MARKETING-CAPTURE</id>
+  <status>DONE</status>
+  <description>
+    UI/Tools Engineer session (session_016YfC2hK1ei19kUsGYTfeNb) delivered
+    on the Community &amp; Marketing Manager's gameplay-capture request
+    (queued since 2026-08-24T12:36Z): a real ~9.2s screen capture of
+    FarmScene's plant/water/harvest loop, recorded from the actual Godot
+    4.3 engine running non-headless under Xvfb (llvmpipe), driving the
+    real Main.tscn/MainController/FarmPlotManager public API -- not a
+    mockup or staged screenshots. PR #87, single new binary asset
+    (marketing/farmscene-plant-water-harvest.mp4), no code/scene changes.
+    Verified via `git merge-tree` against the current base tip before
+    merging: a clean pure addition, no conflicts. Squash-merged
+    (session's own standing self-merge authorization extended here since
+    the PR was open, tests already reported unaffected in its own
+    description, and no other squad's work was blocked on it).
+  </description>
+</task_item>
