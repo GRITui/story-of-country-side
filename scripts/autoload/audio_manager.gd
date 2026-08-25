@@ -8,7 +8,7 @@ extends Node
 ## for a looping "music" drone -- same "autoload owns its own Node
 ## children" pattern SaveManager/TimeManager use for their own bookkeeping.
 ##
-## SFX are now real audio: the seven SFX registered in
+## SFX are now real audio: the ten SFX registered in
 ## _register_default_content() below are genuine CC0-licensed clips from
 ## Kenney's "Interface Sounds" pack (assets/kenney/interface-sounds/, see
 ## that directory's ATTRIBUTION.md for full provenance/license verification
@@ -110,6 +110,9 @@ func _register_default_content() -> void:
 	register_sfx_asset("levelup", "res://assets/kenney/interface-sounds/confirmation_002.wav") ## SkillManager level_changed
 	register_sfx_asset("quest_complete", "res://assets/kenney/interface-sounds/glass_004.wav") ## QuestManager quest_completed
 	register_sfx_asset("upgrade", "res://assets/kenney/interface-sounds/maximize_001.wav") ## ToolManager tool_upgraded
+	register_sfx_asset("festival_start", "res://assets/kenney/interface-sounds/open_002.wav") ## FestivalManager festival_started
+	register_sfx_asset("festival_end", "res://assets/kenney/interface-sounds/close_002.wav") ## FestivalManager festival_ended
+	register_sfx_asset("bundle_complete", "res://assets/kenney/interface-sounds/confirmation_003.wav") ## CommunityGoalManager bundle_completed
 	register_music("ambient", 220.0) ## no fitting free music/loop found yet -- stays procedural, see file docstring
 
 ## --- Cross-manager signal wiring ---
@@ -132,6 +135,11 @@ func _connect_signals() -> void:
 		QuestManager.quest_completed.connect(_on_quest_completed)
 	if ToolManager:
 		ToolManager.tool_upgraded.connect(_on_tool_upgraded)
+	if FestivalManager:
+		FestivalManager.festival_started.connect(_on_festival_started)
+		FestivalManager.festival_ended.connect(_on_festival_ended)
+	if CommunityGoalManager:
+		CommunityGoalManager.bundle_completed.connect(_on_bundle_completed)
 
 func _on_payout_processed(_total_earned: int, _item_count: int) -> void:
 	play_sfx("coin")
@@ -153,6 +161,15 @@ func _on_quest_completed(_quest_id: String, _unlock_flag: String) -> void:
 
 func _on_tool_upgraded(_tool_name: String, _new_tier: int) -> void:
 	play_sfx("upgrade")
+
+func _on_festival_started(_festival_id: String) -> void:
+	play_sfx("festival_start")
+
+func _on_festival_ended(_festival_id: String) -> void:
+	play_sfx("festival_end")
+
+func _on_bundle_completed(_bundle_id: String) -> void:
+	play_sfx("bundle_complete")
 
 ## --- Public API ---
 
