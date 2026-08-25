@@ -7,6 +7,74 @@
   <sprint_completion_percentage>100</sprint_completion_percentage>
 </squad_metadata>
 
+## Epoch 2 (this session, after a multi-day account-wide rate-limit gap)
+
+The Studio Head validated the epoch-1 escalation
+(`trig_01SmE36gWWmYhv4WUrmQHW2D`): real, durable gap worth addressing, not
+one to dismiss. Direction (not a blank check): pursue free, properly-
+licensed CC0 SFX/music packs, verify the license text myself rather than
+trust a filename/category label, integrate real content only where it
+genuinely fits (leave procedural where nothing fits rather than force a
+bad fit), and that a paid pack or a human composer stays out of scope
+unless a concrete case comes back for the actual repo owner to decide --
+same shape of greenlight the Art Squad got for its own CC0 asset search
+(squad-handshake-art.md epoch 3), independently arrived at for audio.
+
+Confirmed via `curl` that `kenney.nl` is blocked by this environment's
+egress policy (same finding Art Squad already made and documented).
+Found the same workaround: GitHub itself is reachable (git-clone protocol
++ `raw.githubusercontent.com`, not the web/API), and
+[`Calinou/kenney-interface-sounds`](https://github.com/Calinou/kenney-interface-sounds)
+is a Godot-oriented repackaging of Kenney's "Interface Sounds" pack (100
+CC0 sounds) maintained by Hugo Locurcio (Calinou), a Godot engine core
+contributor -- not a redistribution loophole, Kenney's CC0-1.0 license
+explicitly permits this. (Checked the general-purpose `Tiddybub/2d-assets`
+mirror the Art Squad used first -- confirmed via `find` it's 2D
+sprites/tiles/UI only, zero audio files, so it wasn't the right source
+here.) Cloned read-only via `add_repo` + `git clone`. Verified the license
+the same way the Art Squad's precedent set: read the pack's own bundled
+`License.txt` directly (copied into `assets/kenney/interface-sounds/`),
+genuine CC0-1.0, Kenney's own text, no ambiguity -- not just trusted from
+the mirror repo's README label.
+
+Replaced all four of `AudioManager`'s default SFX (`coin`/`harvest`/
+`heart`/`wedding`) with real WAV clips from that pack, via a new
+`register_sfx_asset(sfx_id, path)` method (`play_sfx()` now branches on
+whether an id was registered as a real asset or a procedural tone --
+public API unchanged for callers). Real assets don't need the procedural
+path's token/timer release dance from the epoch-31 leak fix below -- a
+loaded `AudioStream` has a genuine finite length, so
+`AudioStreamPlayer.playing` naturally goes false when it finishes, no
+leak risk there. Honest limitation, documented in
+`assets/kenney/interface-sounds/ATTRIBUTION.md`: this environment has no
+audio playback capability, so the sound-to-event mapping (`pluck` ->
+coin, `confirmation` -> harvest, `bong` -> heart, the one long outlier
+`select_006` -> wedding) was picked from Kenney's own semantic filenames
+plus measured duration/size via Python's `wave` module, not verified by
+ear -- flagged for whoever next has real playback (or a human) to correct
+if actual listening reveals a mismatch. Music (`"ambient"`) stays
+procedural -- this pack is SFX only, no fitting free music/ambient loop
+found this round; an honest "nothing fits yet", not a final verdict (per
+the Studio Head's own "leave procedural where nothing fits" instruction).
+
+PR: gritui/story-of-country-side#86 (branch
+`feature/audio-cc0-interface-sounds`, base
+`claude/farming-game-pm-requirements-w9ugtk`). 947/947 tests pass (6
+new, covering `register_sfx_asset`'s fail-quiet behavior on an invalid
+path and empty args, plus successful real-asset registration+playback)
+against the real Godot 4.3 engine headless. `--verbose` run showed no
+leak/`ObjectDB` warnings. Clean smoke boot. Ran a fresh
+`godot --headless --editor --quit-after 1` pass to generate `.import`
+files for the new `.wav` assets (same convention the Art Squad's PNG
+asset PRs use), committed alongside the `.wav` files. Self-merged per
+standing authorization (`mergeable_state: "clean"`, no CI configured on
+this repo).
+
+Also caught up this squad's standup log after the rate-limit gap
+(21 queued standup-trigger firings drained via `ReadNotifications`, one
+consolidated entry posted rather than fabricating 21 individual ones --
+see `STANDUP.md`).
+
 ## Epoch 31 note (Producer session, fix-forward on QA's finding)
 QA-Tester's epoch 3 review found a residual `AudioStreamGeneratorPlayback`
 leak reproducing on every test run since PR #75 -- narrower than the
@@ -120,26 +188,38 @@ Sent to the Studio Head (`session_01B5vPtzVbyrN4Xw86RSmBD6`) via
 `create_trigger`/`persistent_session_id` (`trig_01SmE36gWWmYhv4WUrmQHW2D`,
 fired 2026-08-19T07:21Z): whether this project should invest in a real
 composer/sound designer or a licensed SFX/music library rather than
-continuing on procedural placeholder tones. This is a genuine
-scope/budget question, not something this squad can settle by building
-more procedural content — flagging once and moving on rather than
-re-raising it every epoch unless something changes.
+continuing on procedural placeholder tones. **Resolved in epoch 2**: the
+Studio Head validated the gap and greenlit the free-CC0-asset path (see
+epoch 2 section above) — this specific escalation is closed, not
+reopening it unless something new changes the picture (e.g. exhausting
+reasonable free options and wanting to make a real paid-pack case, which
+the Studio Head explicitly said still routes to the actual repo owner,
+not decided by this squad).
 
 ## Remaining / ideas for next epoch
 
+* Music is still procedural (see epoch 2) — Kenney's "Music Jingles" and
+  "RPG Audio" packs exist and are CC0 per web search, just not yet
+  located through a reachable GitHub mirror the way Interface Sounds
+  was (`Calinou`'s other repos, or another maintainer's mirror, are
+  reasonable next things to check). Worth a real search pass before
+  concluding "no music exists" is a final verdict.
 * More signal hookups exist that would be reasonable next candidates:
   `SkillManager.level_changed` (a level-up chime), `QuestManager`
   completion, `FestivalManager` start/end, `ToolManager` upgrade,
-  `CommunityGoalManager` bundle completion. Deliberately kept this first
-  pass to four signals rather than wiring everything at once.
+  `CommunityGoalManager` bundle completion — and now that a real SFX
+  pack (`assets/kenney/interface-sounds/`, 100 sounds, only 4 used so
+  far) is already in the repo, several of these could plausibly reuse
+  it directly rather than needing a new asset search. Deliberately kept
+  this pass to the same four signals already wired, not wiring
+  everything at once.
 * No settings/volume UI exists yet (no `scripts/ui/settings_overlay.gd` —
   `SQUAD-SPLIT.md`/Frontend's own notes flag Settings as blocked on a
   backend system that doesn't exist). `AudioManager` has no
   volume/mute API yet since nothing would consume it — add one once a
   Settings overlay is actually being built, not before.
-* If real composed music/SFX ever becomes available (human sound
-  designer or a licensed pack), `AudioManager`'s `register_sfx`/
+* If a real human composer/sound designer or a licensed pack ever
+  becomes available, `AudioManager`'s `register_sfx`/`register_sfx_asset`/
   `register_music` calls in `_register_default_content()` are the single
-  place to swap procedural definitions for real `AudioStream` resource
-  paths — the public API (`play_sfx`/`play_music`) would not need to
-  change for callers.
+  place to swap definitions — the public API (`play_sfx`/`play_music`)
+  would not need to change for callers.

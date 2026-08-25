@@ -1995,3 +1995,72 @@ either, so the remote branches remain as harmless merged-and-stale refs).
     flagged for a future epoch only if genuinely well-scoped.
   </description>
 </task_item>
+
+<!-- Epoch 2 (Audio-Squad session, resumed after a multi-day account-wide
+     rate-limit gap -- 21 queued standup-trigger notifications drained via
+     ReadNotifications and consolidated into one STANDUP.md entry rather
+     than fabricated individually). Studio Head validated the epoch-1
+     escalation and greenlit pursuing free CC0 SFX/music, same shape of
+     direction the Art Squad got for its own asset search
+     (squad-handshake-art.md epoch 3), arrived at independently for
+     audio. -->
+
+<task_item>
+  <id>AUDIO-CC0-INTERFACE-SOUNDS</id>
+  <status>DONE</status>
+  <description>
+    Replaced AudioManager's four default procedural SFX (coin/harvest/
+    heart/wedding) with real CC0-licensed WAV clips. kenney.nl is blocked
+    by this environment's egress policy (confirmed via curl, same finding
+    Art Squad already made); found Calinou/kenney-interface-sounds on
+    GitHub -- a Godot-oriented repackaging of Kenney's "Interface Sounds"
+    pack (100 CC0 sounds) maintained by a Godot core contributor. Checked
+    the general-purpose Tiddybub/2d-assets mirror Art Squad already uses
+    first -- confirmed via find it's 2D sprites/tiles/UI only, zero audio,
+    not the right source here. Cloned read-only via add_repo + git clone,
+    license verified by reading the pack's own bundled License.txt
+    directly (copied into assets/kenney/interface-sounds/), genuine
+    CC0-1.0, not just trusted from a mirror label -- same verification
+    discipline the Art Squad's precedent set.
+
+    New AudioManager.register_sfx_asset(sfx_id, path) loads a real
+    AudioStream; play_sfx() branches on asset vs. procedural -- public
+    API (play_sfx/play_music/etc.) unchanged for callers. Sound-to-event
+    mapping (pluck->coin, confirmation->harvest, bong->heart, the one
+    long outlier select_006->wedding) was picked from Kenney's own
+    semantic filenames plus measured duration/size via Python's wave
+    module -- this environment has no audio playback capability, so
+    honestly documented as not verified by ear, flagged in
+    assets/kenney/interface-sounds/ATTRIBUTION.md for correction if
+    actual listening reveals a mismatch. Music ("ambient") stays
+    procedural -- this pack is SFX only, no fitting free music/ambient
+    loop found this round, an honest "nothing fits yet" per the Studio
+    Head's own "leave procedural where nothing fits" instruction, not a
+    final verdict.
+
+    PR: gritui/story-of-country-side#86 (base:
+    claude/farming-game-pm-requirements-w9ugtk), squash-merged. 947/947
+    tests pass (6 new -- register_sfx_asset's fail-quiet behavior on an
+    invalid path and empty args, plus successful real-asset
+    registration+playback) against the real Godot 4.3 engine headless,
+    --verbose run shows no leak/ObjectDB warnings, clean smoke boot. Ran
+    a fresh godot --headless --editor --quit-after 1 pass to generate
+    .import files for the new .wav assets before committing, same
+    convention Art Squad's PNG asset PRs use. Self-merged per standing
+    authorization (mergeable_state: "clean", no CI configured on this
+    repo).
+
+    Escalation trig_01SmE36gWWmYhv4WUrmQHW2D (epoch 1) is now closed --
+    Studio Head validated and greenlit, this PR is the direct outcome.
+
+    Remaining: music/ambient loop still procedural -- Kenney's "Music
+    Jingles"/"RPG Audio" packs exist and are CC0 per web search, just not
+    yet located through a reachable GitHub mirror; worth a real search
+    pass before calling "no music exists" final. More signal hookups
+    (SkillManager.level_changed, QuestManager completion, FestivalManager
+    start/end, ToolManager upgrade, CommunityGoalManager bundle
+    completion) could now plausibly reuse the same already-shipped
+    Interface Sounds pack (100 sounds, only 4 used so far) rather than
+    needing a new asset search. Full detail in squad-handshake-audio.md.
+  </description>
+</task_item>
