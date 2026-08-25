@@ -270,6 +270,7 @@ func _ready() -> void:
 	_test_mine_scene_click_breaks_rock_tile()
 	_test_mine_scene_click_ladder_descends()
 	_test_mine_scene_click_ignores_out_of_grid_position()
+	_test_mine_scene_renders_decorative_props()
 
 	_test_available_fish_filters_by_location_season_hour()
 	_test_available_fish_sorted_and_ignores_unregistered()
@@ -3319,6 +3320,21 @@ func _test_mine_scene_click_ignores_out_of_grid_position() -> void:
 		"a click outside the rendered grid should be a no-op, not reach MiningManager")
 	mine_scene.queue_free()
 
+## Art Squad (Studio Head-greenlit free-asset pass): same discipline as
+## FarmScene's decorative-prop test -- confirms real Sprite2D children
+## with loaded textures, nothing about pixel content.
+func _test_mine_scene_renders_decorative_props() -> void:
+	MiningManager.generate_floor(1, 42)
+	var mine_scene := _make_mine_scene()
+	var sprite_count := 0
+	for child in mine_scene.get_children():
+		if child is Sprite2D:
+			_check(child.texture != null, "each decorative prop Sprite2D should have a loaded texture")
+			sprite_count += 1
+	_check(sprite_count == MineScene.DECORATIVE_PROP_PATHS.size(),
+		"MineScene should instantiate exactly one decorative Sprite2D per DECORATIVE_PROP_PATHS entry, got %d" % sprite_count)
+	mine_scene.queue_free()
+
 ## --- ENG-15: Fishing (FishingManager) ---
 
 func _test_available_fish_filters_by_location_season_hour() -> void:
@@ -3890,8 +3906,8 @@ func _test_marriage_save_round_trip() -> void:
 func _test_festival_definition_flavor_text_registers_and_looks_up() -> void:
 	_reset_festival_manager()
 	var def := FestivalManager.get_festival_definition("bloomtide_fair")
-	_check(def.flavor_text == "",
-		"the default-registered festivals ship with no flavor_text yet -- a documented Content/Writer gap, not a bug")
+	_check(def.flavor_text == "The whole town turns out for the first real warmth of the year -- stalls of seedlings, ribbon-tied bouquets, and more mud on everyone's boots than usual.",
+		"the default-registered festivals now ship real flavor_text (Content/Writer-Squad pass), not the old empty placeholder")
 
 	var custom := FestivalDefinition.new()
 	custom.festival_id = "test_custom_festival"

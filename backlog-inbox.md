@@ -1887,3 +1887,111 @@ either, so the remote branches remain as harmless merged-and-stale refs).
     keep this PR's scope and review surface tight.
   </description>
 </task_item>
+
+<!-- Writer/Dialogue Designer (Country Side Crew org chart, reports to
+     Lead Narrative Designer). Round 2 -- came back to the two gaps round 1
+     flagged (not built around) once the Producer's PR #82 shipped the
+     underlying plumbing (RelationshipManager.register_heart_event_
+     dialogue()/get_heart_event_dialogue(), FestivalDefinition.
+     flavor_text). Re-read backlog-inbox.md's tail and #53's thread fresh
+     before claiming, confirmed via comment on #53 before building. -->
+
+<task_item>
+  <id>WRITER-HEART-EVENT-AND-FESTIVAL-DIALOGUE</id>
+  <status>DONE</status>
+  <description>
+    Wrote 30 heart-event dialogue lines across the 6 marriageable NPCs
+    (Elena/Marcus/Priya/Tobias/Sana/Colton) at milestone heart levels
+    2/4/6/8/10, registered via RelationshipManager.
+    register_heart_event_dialogue(). Every heart level still fires
+    heart_event_triggered per existing logic -- a distinct line at 5
+    milestones per NPC reads as the right density for a first pass rather
+    than diluting across all 10 levels. Voice matched to each NPC's
+    established GiftPreferenceTable archetype (Colton = miner/blacksmith,
+    Elena = gardener, Marcus = angler, Priya = farmer, Sana = rancher,
+    Tobias = treasure hunter) -- same cast the Lead Narrative Designer's
+    earlier standup confirmed reads as distinct/non-contradictory.
+
+    Also wrote flavor text for all 4 registered festivals (Bloomtide
+    Fair/Sunfield Revel/Harvest Moon Festival/Hearthlight Festival),
+    passed through _make_festival()'s existing optional flavor_text param
+    (added by PR #82, no signature change needed here).
+
+    Value/string content only: RelationshipManager._register_default_
+    content() is a new function following the exact same
+    registration-in-_ready() pattern every other manager in this repo
+    already uses, body is pure register_heart_event_dialogue() calls --
+    no signature/signal/control-flow change beyond that one wiring call.
+    Updated one tests/test_runner.gd assertion that explicitly asserted
+    the old empty flavor_text placeholder for bloomtide_fair, per issue
+    #53's documented allowance for updating placeholder-value assertions
+    as part of a content pass.
+
+    PR: gritui/story-of-country-side#84 (base:
+    claude/farming-game-pm-requirements-w9ugtk, squash-merged). 930/930
+    tests pass against the real Godot 4.3 engine headless (class-cache
+    refreshed first), clean smoke boot against the real Main.tscn.
+    Self-merged per standing authorization. Claimed via comment on #53
+    before building.
+
+    Remaining in-lane: none found this round beyond what's already
+    tracked. Every NPC now has both gift-preference content and
+    heart-event dialogue; every festival has a name, date, and flavor
+    text.
+  </description>
+</task_item>
+
+<!-- Art Squad epoch 4. Natural next step flagged at the end of
+     ART-KENNEY-DECORATIVE-PROPS above: pick a scene-appropriate CC0 pack
+     for each remaining world scene under the same Studio Head-greenlit
+     direction, one scene at a time, each independently license-verified
+     and ratio-measured rather than assumed from the farm pack. -->
+
+<task_item>
+  <id>ART-KENNEY-MINE-PROPS</id>
+  <status>DONE</status>
+  <description>
+    Same free-asset direction as ART-KENNEY-DECORATIVE-PROPS, applied to
+    MineScene. Found Kenney's "Isometric Miniature Dungeon" pack on the
+    same Tiddybub/2d-assets CC0 mirror -- barrels, a chest, a stone column
+    read naturally as mine-shaft dressing. Verified this pack's license
+    independently (its own bundled License.txt, not assumed from the farm
+    pack's sibling directory): genuine CC0-1.0. Measured its ground tiles
+    again before using anything (Pillow getbbox()): same ~1.84:1
+    true-isometric footprint as the farm pack, not the locked 2:1
+    convention -- so MineScene's rock/floor/ladder tiles correctly stay on
+    ProceduralTileArt, same reasoning as before. Only standalone Sprite2D
+    props are exempt from that constraint.
+
+    Added four cropped CC0 props (barrel, stacked barrels, closed chest,
+    stone column) wired into MineScene._add_decorative_props(). Unlike
+    FarmScene's fixed 8x8 grid, MineScene's grid size is
+    MiningManager.get_floor_size() at runtime, so prop positions are
+    computed from that (not hardcoded) -- first draft mistakenly used
+    hardcoded absolute offsets that happened to work for the current 5x5
+    floor without actually deriving from get_floor_size(); caught and
+    rewrote before shipping. Full attribution trail in
+    assets/kenney/isometric-miniature-dungeon/ATTRIBUTION.md.
+
+    Also investigated a Ranch-appropriate pack this epoch: the only free
+    animal content in the same mirror catalog (Kenney's "Animal Pack
+    Remastered") is flat "toy"-style art, not isometric-projected --
+    would look visually inconsistent next to the isometric dressing
+    already shipped for Farm/Mine. Correctly not integrated -- an honest
+    "doesn't fit" finding per the Studio Head's own instruction to skip
+    rather than force when nothing free fits well, not a gap needing to
+    be filled.
+
+    PR: gritui/story-of-country-side#85 (base:
+    claude/farming-game-pm-requirements-w9ugtk), squash-merged. 940/940
+    tests pass (5 new -- confirms exactly one Sprite2D per
+    DECORATIVE_PROP_PATHS entry, each with a successfully-loaded
+    texture), clean smoke boot. Self-merged per standing authorization.
+    Commented on #52.
+
+    Remaining: ForageScene has not yet been checked for a matching pack
+    (natural candidate: a nature/forest-themed pack, if one exists in the
+    same mirror catalog) -- not pursued this epoch to keep scope tight,
+    flagged for a future epoch only if genuinely well-scoped.
+  </description>
+</task_item>
