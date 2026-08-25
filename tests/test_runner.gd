@@ -365,6 +365,9 @@ func _ready() -> void:
 	_test_heart_event_triggered_triggers_heart_sfx()
 	_test_married_triggers_wedding_sfx()
 	_test_stop_sfx_is_idempotent_and_leaves_player_reusable()
+	_test_register_sfx_asset_invalid_path_is_noop()
+	_test_register_sfx_asset_empty_args_are_noop()
+	_test_register_sfx_asset_valid_path_is_playable()
 
 	_test_procedural_tile_art_shape_matches_iso_grid_spec()
 	_test_procedural_tile_art_diamond_corners_are_transparent()
@@ -4634,6 +4637,46 @@ func _test_stop_sfx_is_idempotent_and_leaves_player_reusable() -> void:
 	_check(result == true, "play_sfx should still succeed after stop_sfx() left the player idle")
 	_check(_sfx_played_events == ["coin"],
 		"play_sfx after stop_sfx should still fire sfx_played normally, got %s" % [_sfx_played_events])
+	AudioManager.sfx_played.disconnect(_on_sfx_played_for_test)
+	AudioManager.stop_sfx()
+
+## register_sfx_asset() edge cases -- the four real-asset default SFX
+## (coin/harvest/heart/wedding, assets/kenney/interface-sounds/, see that
+## directory's ATTRIBUTION.md) are already covered implicitly:
+## _test_audio_default_sfx_and_music_are_registered() above would fail if
+## any of their .wav files had failed to load, since a failed load leaves
+## the sfx_id unregistered per register_sfx_asset's own fail-quiet
+## contract -- exercised directly here instead of just relied upon.
+
+func _test_register_sfx_asset_invalid_path_is_noop() -> void:
+	_check(not AudioManager.is_sfx_registered("_test_bad_asset_sfx"),
+		"sanity: this test's sfx_id should not already be registered")
+
+	AudioManager.register_sfx_asset("_test_bad_asset_sfx", "res://assets/kenney/interface-sounds/does_not_exist.wav")
+
+	_check(not AudioManager.is_sfx_registered("_test_bad_asset_sfx"),
+		"register_sfx_asset with a path that fails to load should not register the sfx_id")
+
+func _test_register_sfx_asset_empty_args_are_noop() -> void:
+	AudioManager.register_sfx_asset("", "res://assets/kenney/interface-sounds/pluck_001.wav")
+	_check(not AudioManager.is_sfx_registered(""),
+		"register_sfx_asset with an empty sfx_id should not register anything")
+
+	AudioManager.register_sfx_asset("_test_empty_path_sfx", "")
+	_check(not AudioManager.is_sfx_registered("_test_empty_path_sfx"),
+		"register_sfx_asset with an empty path should not register anything")
+
+func _test_register_sfx_asset_valid_path_is_playable() -> void:
+	AudioManager.register_sfx_asset("_test_real_asset_sfx", "res://assets/kenney/interface-sounds/pluck_001.wav")
+	_check(AudioManager.is_sfx_registered("_test_real_asset_sfx"),
+		"register_sfx_asset with a real .wav path should register the sfx_id")
+
+	_sfx_played_events = []
+	AudioManager.sfx_played.connect(_on_sfx_played_for_test)
+	var result := AudioManager.play_sfx("_test_real_asset_sfx")
+	_check(result == true, "play_sfx on a freshly registered real-asset sfx should succeed")
+	_check(_sfx_played_events == ["_test_real_asset_sfx"],
+		"play_sfx on a real-asset sfx should still fire sfx_played normally, got %s" % [_sfx_played_events])
 	AudioManager.sfx_played.disconnect(_on_sfx_played_for_test)
 	AudioManager.stop_sfx()
 
