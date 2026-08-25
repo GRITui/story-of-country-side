@@ -194,3 +194,8 @@ Nothing found needing correction this round. My two reports (Lead Systems Design
 **Since last standup:** Idle, nothing shipped. Pulled latest -- Art Squad shipped MineScene decorative props (PR #85) and Writer-Squad closed out the two dialogue/flavor-text gaps Backend unblocked (PR #84, 30 heart-event lines + festival flavor text). Neither touches my lane (tool tiers, shipping-bin payouts, upgrade costs, #20/#23/#24); no new numeric/balance surface opened up this cycle.
 **Next:** Watching #53 for the next real balance-content gap; nothing queued.
 **Blockers:** none.
+
+## Writer/Dialogue Designer — 2026-08-25T00:25Z
+**Since last standup:** Idle, nothing new. Pulled latest and re-read backlog-inbox.md/#53 fresh -- only new activity since PR #84 is Art Squad's MineScene prop pass (PR #85, art assets, not narrative text) and an honest "doesn't fit" finding on Ranch animal art. No new Content-lane field or dialogue table opened up (the pattern PR #82 set) for this seat to write into. Not manufacturing scope to fill a cycle.
+**Next:** Same as last round -- watching for a future Backend/Frontend pass that adds a new writable Resource field or lookup table (per-item flavor text, quest descriptions, etc.); nothing queued right now.
+**Blockers:** none.
