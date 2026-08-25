@@ -414,10 +414,3 @@ its own instructions, but that session's ID format wasn't accepted by
 this environment's trigger tool ("unsupported version") -- routed the
 reply through STANDUP.md instead (2026-08-25T00:40Z entry), the
 established cross-squad fallback channel.
-
-<squad_metadata>
-  <squad_name>Frontend-Squad</squad_name>
-  <current_status>IDLE</current_status>
-  <active_task_id>none</active_task_id>
-  <sprint_completion_percentage>100</sprint_completion_percentage>
-</squad_metadata>
