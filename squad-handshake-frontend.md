@@ -387,3 +387,37 @@ None. Nothing structural blocks a first HUD/menu scene implementation.
   get_automation_device_definition() and CommunityGoalManager's
   list_bundle_ids()/get_bundle_definition(). Infrastructure cost display
   consumed in PR #73; Community Goal contribution UI next.
+
+## Epoch 30 update (side task, not #52)
+
+Picked up the Community & Marketing Manager's gameplay-capture request
+(queued via scheduled trigger since 2026-08-24T12:36Z; #52 itself had
+nothing new to claim -- Settings still blocked). Verified Xvfb, ffmpeg,
+and the environment's Godot 4.3 binary were all still functional, then
+produced a real ~9.2s capture of FarmScene's plant -> water -> (4
+in-game days pass) -> harvest loop: a temporary, uncommitted driver
+scene booted the real scenes/Main.tscn (same autoloads/HUD/FarmScene
+wiring a player gets), skipped the intro via IntroSequence's own public
+advance() method, then called FarmPlotManager.plant()/water()/
+harvest() once per real day -- the same public calls FarmScene's own
+click handler makes. Engine.time_scale was raised only to compress the
+crop's real multi-day growth wait into a few seconds of wall-clock
+recording; FarmPlotManager's day-based growth logic ran unmodified.
+ffmpeg captured the live Xvfb display throughout -- no synthesized
+frames, no mockups.
+
+Shipped as PR #87 (marketing/farmscene-plant-water-harvest.mp4, single
+binary asset, no code/scene changes, 935/935 tests unaffected),
+squash-merged. Attempted to reply to the Community & Marketing
+Manager's session directly via create_trigger/persistent_session_id per
+its own instructions, but that session's ID format wasn't accepted by
+this environment's trigger tool ("unsupported version") -- routed the
+reply through STANDUP.md instead (2026-08-25T00:40Z entry), the
+established cross-squad fallback channel.
+
+<squad_metadata>
+  <squad_name>Frontend-Squad</squad_name>
+  <current_status>IDLE</current_status>
+  <active_task_id>none</active_task_id>
+  <sprint_completion_percentage>100</sprint_completion_percentage>
+</squad_metadata>
