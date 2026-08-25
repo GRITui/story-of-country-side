@@ -44,6 +44,7 @@ var _bundle_completed_events: Array = [] ## Array[String] of bundle_id, same rea
 var _year_three_evaluation_events: Array = [] ## Array[Array] of [challenge_mode, completed, total, passed], same reason
 var _game_over_events: Array = [] ## Array[String] of reason, same reason
 var _weather_changed_events: Array = [] ## Array[String] of weather, same reason
+var _last_location_changed_events: Array = [] ## Array[String] of location, same reason
 var _inventory_overlay_closed_count := 0 ## member, not a local -- GDScript lambdas capture locals by value
 var _skills_overlay_closed_count := 0 ## same reason
 var _relationships_overlay_closed_count := 0 ## same reason
@@ -155,6 +156,12 @@ func _ready() -> void:
 	_test_new_game_grants_starting_gold_and_copper_tools()
 	_test_save_and_load_round_trip_persists_intro_seen()
 	_test_load_game_returns_false_without_save_file()
+	_test_last_location_defaults_to_farm()
+	_test_set_last_location_updates_and_emits_on_change()
+	_test_set_last_location_rejects_empty_string()
+	_test_last_location_round_trips_through_save_data()
+	_test_old_save_without_last_location_keeps_farm_default()
+	_test_new_game_resets_last_location_to_default()
 	_test_intro_sequence_advances_through_lines_then_finishes()
 	_test_intro_sequence_freezes_and_unfreezes_time_manager()
 
@@ -1768,6 +1775,70 @@ func _test_load_game_returns_false_without_save_file() -> void:
 	SaveManager.delete_save_file()
 	var loaded := SaveManager.load_game()
 	_check(not loaded, "load_game should return false when no save file exists on disk")
+
+## --- Last-location persistence ---
+
+func _on_last_location_changed_for_test(location: String) -> void:
+	_last_location_changed_events.append(location)
+
+func _test_last_location_defaults_to_farm() -> void:
+	# Runs before anything in this cluster has touched the field, so this is
+	# genuinely the autoload's constructor default.
+	_check(SaveManager.get_last_location() == SaveManager.DEFAULT_LOCATION,
+		"a fresh boot with no saved location should default to '%s', got '%s'" % [SaveManager.DEFAULT_LOCATION, SaveManager.get_last_location()])
+	_check(SaveManager.build_save_data()["last_location"] == SaveManager.DEFAULT_LOCATION,
+		"build_save_data should include last_location even when it was never explicitly set")
+
+func _test_set_last_location_updates_and_emits_on_change() -> void:
+	SaveManager.set_last_location(SaveManager.DEFAULT_LOCATION)
+	_last_location_changed_events = []
+	SaveManager.last_location_changed.connect(_on_last_location_changed_for_test)
+	SaveManager.set_last_location("mine")
+	SaveManager.set_last_location("mine") # same value again -> idempotent, no second emission
+	SaveManager.last_location_changed.disconnect(_on_last_location_changed_for_test)
+	_check(SaveManager.get_last_location() == "mine",
+		"set_last_location should update the tracked location, got '%s'" % SaveManager.get_last_location())
+	_check(_last_location_changed_events == ["mine"],
+		"last_location_changed should fire exactly once per actual change, got %s" % [_last_location_changed_events])
+
+func _test_set_last_location_rejects_empty_string() -> void:
+	SaveManager.set_last_location("beach")
+	_last_location_changed_events = []
+	SaveManager.last_location_changed.connect(_on_last_location_changed_for_test)
+	SaveManager.set_last_location("")
+	SaveManager.last_location_changed.disconnect(_on_last_location_changed_for_test)
+	_check(SaveManager.get_last_location() == "beach",
+		"an empty location string should be rejected as a no-op, got '%s'" % SaveManager.get_last_location())
+	_check(_last_location_changed_events.is_empty(),
+		"rejecting an empty location should not fire last_location_changed, fired %d time(s)" % _last_location_changed_events.size())
+
+func _test_last_location_round_trips_through_save_data() -> void:
+	SaveManager.set_last_location("mine")
+	var saved := SaveManager.build_save_data()
+	_check(saved.has("last_location") and saved["last_location"] == "mine",
+		"build_save_data should persist last_location in the payload, got %s" % [saved.get("last_location", "<missing>")])
+	SaveManager.set_last_location(SaveManager.DEFAULT_LOCATION)
+	SaveManager.apply_save_data(saved)
+	_check(SaveManager.get_last_location() == "mine",
+		"apply_save_data should restore last_location, got '%s'" % SaveManager.get_last_location())
+
+func _test_old_save_without_last_location_keeps_farm_default() -> void:
+	# Simulates loading a pre-location save over a fresh boot: the autoload
+	# starts at its safe default, then the payload with the key absent loads
+	# -- apply_save_data's missing-key no-op convention must leave that
+	# default standing, never an empty/garbage value.
+	SaveManager.set_last_location(SaveManager.DEFAULT_LOCATION)
+	var old_save: Dictionary = SaveManager.build_save_data()
+	old_save.erase("last_location")
+	SaveManager.apply_save_data(old_save)
+	_check(SaveManager.get_last_location() == SaveManager.DEFAULT_LOCATION,
+		"an old save lacking last_location should leave the '%s' default intact, got '%s'" % [SaveManager.DEFAULT_LOCATION, SaveManager.get_last_location()])
+
+func _test_new_game_resets_last_location_to_default() -> void:
+	SaveManager.set_last_location("mine")
+	SaveManager.new_game()
+	_check(SaveManager.get_last_location() == SaveManager.DEFAULT_LOCATION,
+		"new_game should reset last_location back to '%s', got '%s'" % [SaveManager.DEFAULT_LOCATION, SaveManager.get_last_location()])
 
 func _on_intro_finished_for_test() -> void:
 	_intro_finished_count += 1

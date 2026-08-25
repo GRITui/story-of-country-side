@@ -22,6 +22,16 @@ const SAVE_PATH := "user://savegame.json"
 ## same as SaveManager owning the file path itself.
 var intro_seen: bool = false
 
+signal last_location_changed(location: String)
+
+## The last world location the player was seen in ("farm", "mine", "beach",
+## ... -- free-form ids, no zone registry exists yet). Meta save state on the
+## same tier as intro_seen above: not owned by any gameplay system, so
+## SaveManager carries it in the payload itself. Restores on boot via
+## load_game(); old saves predating this field just keep DEFAULT_LOCATION.
+const DEFAULT_LOCATION := "farm"
+var _last_location: String = DEFAULT_LOCATION
+
 func build_save_data() -> Dictionary:
 	return {
 		"time": TimeManager.to_save_dict(),
@@ -41,6 +51,7 @@ func build_save_data() -> Dictionary:
 		"community_goals": CommunityGoalManager.to_save_dict(),
 		"weather": WeatherManager.to_save_dict(),
 		"intro_seen": intro_seen,
+		"last_location": get_last_location(),
 	}
 
 func apply_save_data(data: Dictionary) -> void:
@@ -78,6 +89,17 @@ func apply_save_data(data: Dictionary) -> void:
 		WeatherManager.from_save_dict(data["weather"])
 	if data.has("intro_seen"):
 		intro_seen = data["intro_seen"]
+	if data.has("last_location"):
+		# Direct assignment, not set_last_location(): restoring a save
+		# shouldn't fire last_location_changed mid-boot (same convention as
+		# WeatherManager.from_save_dict's silent restore) -- callers read
+		# get_last_location() after load_game() instead. The non-empty guard
+		# keeps the "never empty" invariant even against a corrupt payload;
+		# old saves lacking the key land here as a no-op, leaving the
+		# DEFAULT_LOCATION the autoload booted with.
+		var restored := str(data["last_location"])
+		if not restored.is_empty():
+			_last_location = restored
 
 ## Resets every system to its fresh-boot defaults and starts a brand new
 ## save -- calling from_save_dict({}) directly (not via apply_save_data,
@@ -106,6 +128,7 @@ func new_game() -> void:
 	CommunityGoalManager.from_save_dict({})
 	WeatherManager.from_save_dict({})
 	intro_seen = false
+	_last_location = DEFAULT_LOCATION
 	save_game()
 
 func has_seen_intro() -> bool:
@@ -117,6 +140,28 @@ func has_seen_intro() -> bool:
 func mark_intro_seen() -> void:
 	intro_seen = true
 	save_game()
+
+## Read-only public getter for where the player last was -- the frontend
+## consumes this (plus last_location_changed below), never _last_location
+## directly, per SQUAD-SPLIT.md's contract rule.
+func get_last_location() -> String:
+	return _last_location
+
+## Public write path for whoever owns world travel presentation: call this
+## when the player arrives somewhere. Emits last_location_changed only on an
+## actual change (same emit-on-change discipline as WeatherManager's roll);
+## an empty string is rejected as a no-op (there is no "nowhere" to be).
+## Memory-only by design -- the value lands in user://savegame.json on the
+## next save_game() (new_game/mark_intro_seen/any future autosave), matching
+## how every other manager's runtime state persists; call save_game()
+## yourself if a given arrival must survive an immediate quit.
+func set_last_location(location: String) -> void:
+	if location.is_empty():
+		return
+	if location == _last_location:
+		return
+	_last_location = location
+	last_location_changed.emit(_last_location)
 
 func save_game() -> void:
 	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
