@@ -2204,3 +2204,29 @@ either, so the remote branches remain as harmless merged-and-stale refs).
       music lands.
   </description>
 </task_item>
+
+<task_item>
+  <id>SUPERUSER-SPRINT-002</id>
+  <status>DONE</status>
+  <description>
+    Hands-on autoplay pass @ 34e246f via new permanent harness
+    superuser/autoplay/ (public-APIs-only, three phases, re-runnable by
+    any squad). Full new-player loop verified E2E with zero failures:
+    intro -> daily-watered farm -> quality-tiered harvest -> fish ->
+    shipping bin -> correct overnight payout (+19g on silver carp) ->
+    travel/mine/ranch/forage all functional. Positive: unwatered crops
+    pause instead of withering -- keep that forgiveness.
+    Findings for PM triage (full detail in superuser/reports/sprint-002.md):
+    - P1: NO seed economy exists -- plant() never checks inventory, no
+      seed items anywhere, no shop; farming is free infinite money and
+      every downstream cost/balance sits on a costless foundation.
+    - P1 CONFIRMED from sprint-001 with precise mechanism: festival is
+      lost on quit+relaunch (NOT on in-session load) because activation
+      derives only from the day_started edge, which never fires when
+      booting mid-day. Two-process repro included; suggest auditing other
+      day-edge-derived systems for the same boot-time gap.
+    - P2: no sleep/day-skip of any kind -- 171 real seconds per in-game
+      day, ~14.3 real idle minutes to first harvest for a new player.
+    Sprint-001 open items unchanged (title screen P2 etc.).
+  </description>
+</task_item>
