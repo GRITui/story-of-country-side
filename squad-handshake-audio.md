@@ -232,6 +232,38 @@ were pure appends. Self-merged per standing authorization (`mergeable_
 state: "clean"` confirmed via `pull_request_read` before merging, not
 assumed).
 
+## Epoch 4 (this session, same rate-limit-gap continuation)
+
+Picked up the next item straight from epoch 3's own "Remaining" list at
+this routine standup firing rather than staying idle -- same low-risk
+shape (reuse the already-integrated, already-license-verified pack, no
+new asset search). Wired three more real signals:
+
+* `FestivalManager.festival_started` -> `"festival_start"` sfx ->
+  `open_002.wav`
+* `FestivalManager.festival_ended` -> `"festival_end"` sfx ->
+  `close_002.wav` (deliberately paired with `open_002.wav` above for a
+  symmetric start/end feel)
+* `CommunityGoalManager.bundle_completed` -> `"bundle_complete"` sfx ->
+  `confirmation_003.wav` (a third distinct "confirmation" variant, not
+  yet used by `"harvest"`/`"levelup"`)
+
+Same honest picking method as epochs 2-3 (no audio playback capability in
+this environment; documented in
+`assets/kenney/interface-sounds/ATTRIBUTION.md`, now covering all ten
+real-asset SFX). Read-only via public signals only, per
+`SQUAD-SPLIT.md`'s Backend contract -- no private-field access on
+`FestivalManager`/`CommunityGoalManager`. Ran the same Godot editor
+headless import pass for the three new `.wav` assets before testing.
+
+PR: gritui/story-of-country-side#89 (base:
+claude/farming-game-pm-requirements-w9ugtk). 959/959 tests pass (9 new)
+against the real Godot 4.3 engine headless, clean smoke boot. Base
+branch had moved once (a Producer standup commit) since branching --
+merged cleanly, pure append, re-verified tests/smoke boot post-merge
+before pushing. Self-merged per standing authorization (`mergeable_
+state: "clean"` confirmed via `pull_request_read` before merging).
+
 ## Remaining / ideas for next epoch
 
 * Music is still procedural (see epoch 2) — Kenney's "Music Jingles" and
@@ -241,12 +273,16 @@ assumed).
   reasonable next things to check). Worth a real search pass before
   concluding "no music exists" is a final verdict.
 * More signal hookups still exist as reasonable next candidates:
-  `FestivalManager.festival_started`/`festival_ended`,
-  `CommunityGoalManager.bundle_completed`, `ToolManager.ore_added`,
-  `AnimalManager`'s product-collection signal — the `interface-sounds`
-  pack still has ~93 unused files, so these likely don't need a new
-  asset search either. Deliberately kept epoch 3 to three signals, not
-  wiring everything in one pass.
+  `ToolManager.ore_added`, `AnimalManager`'s product-collection signal,
+  `CommunityGoalManager.year_three_evaluation`/`game_over` — the
+  `interface-sounds` pack still has ~90 unused files, so these likely
+  don't need a new asset search either. Deliberately kept epoch 4 to
+  three signals, same pacing as epoch 3, not wiring everything in one
+  pass. Worth pausing to consider: at 10 real SFX now covering most of
+  the game's positive-feedback moments, the marginal value of wiring
+  more starts to compete with actually finding music -- next epoch
+  might be better spent on the music search instead of another SFX
+  batch.
 * No settings/volume UI exists yet (no `scripts/ui/settings_overlay.gd` —
   `SQUAD-SPLIT.md`/Frontend's own notes flag Settings as blocked on a
   backend system that doesn't exist). `AudioManager` has no

@@ -2122,3 +2122,39 @@ either, so the remote branches remain as harmless merged-and-stale refs).
     signals, not wiring everything at once.
   </description>
 </task_item>
+
+<!-- Epoch 4 (Audio-Squad, same rate-limit-gap continuation). Picked up
+     the next item from epoch 3's own "Remaining" list at this routine
+     standup firing -- same low-risk reuse of the already-integrated pack,
+     no new asset search. -->
+
+<task_item>
+  <id>AUDIO-FESTIVAL-GOAL-SIGNAL-HOOKUPS</id>
+  <status>DONE</status>
+  <description>
+    Wired three more real signals to the CC0 Interface Sounds pack:
+    FestivalManager.festival_started -> "festival_start" sfx
+    (open_002.wav), FestivalManager.festival_ended -> "festival_end" sfx
+    (close_002.wav, deliberately paired with open_002.wav for a
+    symmetric start/end feel), CommunityGoalManager.bundle_completed ->
+    "bundle_complete" sfx (confirmation_003.wav). Same honest picking
+    method as PR #86/#88 (documented in
+    assets/kenney/interface-sounds/ATTRIBUTION.md, now covering all ten
+    real-asset SFX). Read-only via public signals only, per
+    SQUAD-SPLIT.md's Backend contract. Ran the same Godot editor headless
+    import pass for the three new .wav assets. PR:
+    gritui/story-of-country-side#89 (base:
+    claude/farming-game-pm-requirements-w9ugtk). 959/959 tests pass (9
+    new) against the real Godot 4.3 engine headless, clean smoke boot.
+    Self-merged per standing authorization (mergeable_state "clean"
+    confirmed via pull_request_read before merging). Full detail in
+    squad-handshake-audio.md's epoch 4 section.
+
+    Remaining: music still procedural; ~90 unused sounds still in the
+    pack (ToolManager.ore_added, AnimalManager product-collection,
+    CommunityGoalManager year_three_evaluation/game_over). Flagged an
+    honest judgment call in squad-handshake-audio.md epoch 4: at 10 real
+    SFX now covering most positive-feedback moments, next epoch may be
+    better spent on the still-open music search than another SFX batch.
+  </description>
+</task_item>
