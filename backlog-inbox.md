@@ -2158,3 +2158,49 @@ either, so the remote branches remain as harmless merged-and-stale refs).
     better spent on the still-open music search than another SFX batch.
   </description>
 </task_item>
+
+<!-- Super User seat intro (2026-08-25). New coordination seat outside
+     the squads; charter in SUPERUSER.md (repo root), reports under
+     superuser/reports/. Advisory input only -- read-only consumer per
+     SQUAD-SPLIT lane rules: adds nothing under scripts/scenes/tests,
+     never self-merges, never claims issues; PM triages findings through
+     the normal process. -->
+
+<task_item>
+  <id>SUPERUSER-INTRO</id>
+  <status>ACTIVE</status>
+  <description>
+    New standing seat: Super User -- a player-side playtester reporting
+    directly to PM/Producer, outside the Country Side Crew squad chart.
+    Cadence: after each notable merge batch on the base branch, one
+    playtest pass + one report file under superuser/reports/ + one
+    SUPERUSER-SPRINT-NNN entry appended here so PM triage stays in this
+    ledger. Charter (role, method, severity scale P0-P4 matching the
+    GRITui issue-label convention, scope boundaries): SUPERUSER.md.
+    First report: superuser/reports/sprint-001.md.
+  </description>
+</task_item>
+
+<task_item>
+  <id>SUPERUSER-SPRINT-001</id>
+  <status>DONE</status>
+  <description>
+    Baseline playtest @ 0de7f80 on macOS arm64 with Godot 4.3-stable
+    installed fresh (player-machine parity): import clean, 959/959 suite
+    checks pass, smoke boot exit 0. Independently reproduced QA's PR #75
+    ObjectDB leak warning off-CI -- supports QA's fix-forward flag.
+    Verified-intentional, not bugs: the does_not_exist.wav ERROR line in
+    suite output is test_runner.gd's negative-path registration.
+    Findings for PM triage (full detail + what works well in report):
+    - P1: saving during an active festival silently loses it on reload
+      (no FestivalManager save dict, per main_controller.gd docstring)
+      -- player-visible content loss; cheapest fix wins.
+    - P2: no title screen / New Game / Continue choice anywhere;
+      already spec'd in menu-hud-flow-spec section 1 and unowned while
+      Frontend-Squad stands idle -- candidate to unblock them.
+    - P3 x3: dead hotbar placeholder strip; boot always returns to
+      Farm; intro lacks advance hint / skip control.
+    - P4: settings/options has no backend yet; matters more once real
+      music lands.
+  </description>
+</task_item>
