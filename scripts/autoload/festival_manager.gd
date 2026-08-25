@@ -98,6 +98,18 @@ func register_festival(def: FestivalDefinition) -> void:
 func get_festival_definition(festival_id: String) -> FestivalDefinition:
 	return _definitions.get(festival_id)
 
+## Public flavor-text lookup for whatever overlay/HUD shows festival copy:
+## returns the registered festival's flavor_text, or "" when festival_id
+## isn't registered (or its definition simply has no text yet --
+## flavor_text defaults to empty). Callers can treat "" as "nothing to
+## show" without a null dance, same graceful-empty-string contract as
+## RelationshipManager.get_heart_event_dialogue's unregistered pair lookup.
+func get_flavor_text(festival_id: String) -> String:
+	var def := get_festival_definition(festival_id)
+	if def == null:
+		return ""
+	return def.flavor_text
+
 ## Returns the registered festival whose season/day_of_season matches
 ## TimeManager's current date, or null if today isn't a festival day.
 ## Sorted by festival_id for a deterministic pick in the (should-never-

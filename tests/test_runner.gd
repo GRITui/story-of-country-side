@@ -332,6 +332,8 @@ func _ready() -> void:
 	_test_submit_mini_game_result_unregistered_returns_empty()
 	_test_submit_mini_game_result_pass_and_fail()
 	_test_festival_definition_flavor_text_registers_and_looks_up()
+	_test_get_flavor_text_returns_registered_text()
+	_test_get_flavor_text_unknown_id_returns_empty()
 
 	_test_generate_floor_places_ladder_without_rock()
 	_test_generate_floor_all_other_tiles_start_as_unbroken_rock()
@@ -4002,6 +4004,25 @@ func _reset_festival_manager() -> void:
 	var fm := FestivalManager
 	fm._active_festival_id = ""
 	TimeManager.unfreeze(FestivalManager.FREEZE_REASON)
+
+func _test_get_flavor_text_returns_registered_text() -> void:
+	_reset_festival_manager()
+	_check(FestivalManager.get_flavor_text("bloomtide_fair") == "The whole town turns out for the first real warmth of the year -- stalls of seedlings, ribbon-tied bouquets, and more mud on everyone's boots than usual.",
+		"get_flavor_text should return the registered definition's flavor_text verbatim")
+
+	# A registered-but-not-yet-written festival still resolves safely to "".
+	var custom := FestivalDefinition.new()
+	custom.festival_id = "test_mute_festival"
+	FestivalManager.register_festival(custom)
+	_check(FestivalManager.get_flavor_text("test_mute_festival") == "",
+		"a registered festival with no flavor_text yet should return empty string")
+	FestivalManager._definitions.erase("test_mute_festival") # don't leak test content into later tests
+	_reset_festival_manager()
+
+func _test_get_flavor_text_unknown_id_returns_empty() -> void:
+	_reset_festival_manager()
+	_check(FestivalManager.get_flavor_text("no_such_festival") == "",
+		"an unregistered festival_id should return empty string safely, got '%s'" % FestivalManager.get_flavor_text("no_such_festival"))
 
 func _on_festival_started_for_test(festival_id: String) -> void:
 	_festival_started_events.append(festival_id)
