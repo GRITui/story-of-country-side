@@ -365,6 +365,9 @@ func _ready() -> void:
 	_test_crop_harvested_triggers_harvest_sfx()
 	_test_heart_event_triggered_triggers_heart_sfx()
 	_test_married_triggers_wedding_sfx()
+	_test_level_changed_triggers_levelup_sfx()
+	_test_quest_completed_triggers_quest_complete_sfx()
+	_test_tool_upgraded_triggers_upgrade_sfx()
 	_test_stop_sfx_is_idempotent_and_leaves_player_reusable()
 	_test_register_sfx_asset_invalid_path_is_noop()
 	_test_register_sfx_asset_empty_args_are_noop()
@@ -4513,6 +4516,9 @@ func _test_audio_default_sfx_and_music_are_registered() -> void:
 	_check(AudioManager.is_sfx_registered("harvest"), "default 'harvest' sfx should be registered on ready")
 	_check(AudioManager.is_sfx_registered("heart"), "default 'heart' sfx should be registered on ready")
 	_check(AudioManager.is_sfx_registered("wedding"), "default 'wedding' sfx should be registered on ready")
+	_check(AudioManager.is_sfx_registered("levelup"), "default 'levelup' sfx should be registered on ready")
+	_check(AudioManager.is_sfx_registered("quest_complete"), "default 'quest_complete' sfx should be registered on ready")
+	_check(AudioManager.is_sfx_registered("upgrade"), "default 'upgrade' sfx should be registered on ready")
 	_check(AudioManager.is_music_registered("ambient"), "default 'ambient' music track should be registered on ready")
 	_check(not AudioManager.is_sfx_registered("no_such_sfx"), "an unregistered sfx_id should report as not registered")
 
@@ -4638,6 +4644,39 @@ func _test_married_triggers_wedding_sfx() -> void:
 
 	_check(_sfx_played_events == ["wedding"],
 		"MarriageManager.married should trigger the 'wedding' sfx, got %s" % [_sfx_played_events])
+	AudioManager.sfx_played.disconnect(_on_sfx_played_for_test)
+	AudioManager.stop_sfx()
+
+func _test_level_changed_triggers_levelup_sfx() -> void:
+	_sfx_played_events = []
+	AudioManager.sfx_played.connect(_on_sfx_played_for_test)
+
+	SkillManager.level_changed.emit("farming", 2, 1)
+
+	_check(_sfx_played_events == ["levelup"],
+		"SkillManager.level_changed should trigger the 'levelup' sfx, got %s" % [_sfx_played_events])
+	AudioManager.sfx_played.disconnect(_on_sfx_played_for_test)
+	AudioManager.stop_sfx()
+
+func _test_quest_completed_triggers_quest_complete_sfx() -> void:
+	_sfx_played_events = []
+	AudioManager.sfx_played.connect(_on_sfx_played_for_test)
+
+	QuestManager.quest_completed.emit("deliver_wood", "house_tier_1_unlocked")
+
+	_check(_sfx_played_events == ["quest_complete"],
+		"QuestManager.quest_completed should trigger the 'quest_complete' sfx, got %s" % [_sfx_played_events])
+	AudioManager.sfx_played.disconnect(_on_sfx_played_for_test)
+	AudioManager.stop_sfx()
+
+func _test_tool_upgraded_triggers_upgrade_sfx() -> void:
+	_sfx_played_events = []
+	AudioManager.sfx_played.connect(_on_sfx_played_for_test)
+
+	ToolManager.tool_upgraded.emit("hoe", 2)
+
+	_check(_sfx_played_events == ["upgrade"],
+		"ToolManager.tool_upgraded should trigger the 'upgrade' sfx, got %s" % [_sfx_played_events])
 	AudioManager.sfx_played.disconnect(_on_sfx_played_for_test)
 	AudioManager.stop_sfx()
 
