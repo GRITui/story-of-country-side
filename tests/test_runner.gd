@@ -128,6 +128,9 @@ func _ready() -> void:
 	_test_inventory_has_item()
 	_test_inventory_sell_item_ships_and_removes()
 	_test_inventory_sell_item_fails_without_removing_on_short_stock()
+	_test_inventory_sell_item_rejects_zero_unit_price()
+	_test_inventory_sell_item_rejects_negative_unit_price()
+	_test_inventory_sell_item_pays_out_correctly_on_success()
 	_test_inventory_save_round_trip()
 
 	_test_cannot_plant_wrong_season()
@@ -1363,6 +1366,39 @@ func _test_inventory_sell_item_fails_without_removing_on_short_stock() -> void:
 	_check(not ok, "selling more than on hand should fail")
 	_check(im.get_count("turnip") == 1, "a failed sale should not touch inventory, got %d" % im.get_count("turnip"))
 	_check(ShippingBinManager.pending_item_count() == 0, "a failed sale should not reach the shipping bin")
+
+## --- Issue #97: non-positive unit_price must never destroy stock ---
+
+func _test_inventory_sell_item_rejects_zero_unit_price() -> void:
+	_reset_inventory_manager()
+	_reset_shipping_bin()
+	var im := InventoryManager
+	im.add_item("turnip", 3)
+	var ok := im.sell_item("turnip", 2, 0)
+	_check(not ok, "selling at unit_price 0 should fail instead of destroying stock (#97)")
+	_check(im.get_count("turnip") == 3, "a zero-price sale must leave inventory untouched, got %d" % im.get_count("turnip"))
+	_check(ShippingBinManager.pending_item_count() == 0, "a zero-price sale must not reach the shipping bin")
+
+func _test_inventory_sell_item_rejects_negative_unit_price() -> void:
+	_reset_inventory_manager()
+	_reset_shipping_bin()
+	var im := InventoryManager
+	im.add_item("turnip", 3)
+	var ok := im.sell_item("turnip", 2, -5)
+	_check(not ok, "selling at a negative unit_price should fail instead of destroying stock (#97)")
+	_check(im.get_count("turnip") == 3, "a negative-price sale must leave inventory untouched, got %d" % im.get_count("turnip"))
+	_check(ShippingBinManager.pending_item_count() == 0, "a negative-price sale must not reach the shipping bin")
+
+func _test_inventory_sell_item_pays_out_correctly_on_success() -> void:
+	_reset_inventory_manager()
+	_reset_shipping_bin()
+	var im := InventoryManager
+	var sb := ShippingBinManager
+	sb.gold = 0
+	im.add_item("turnip", 5)
+	_check(im.sell_item("turnip", 3, 10), "a valid priced sale should still succeed")
+	sb._on_day_started(1, "Spring", "Mon")
+	_check(sb.gold == 30, "successful sale should pay out quantity * unit_price overnight, got %d" % sb.gold)
 
 func _test_inventory_save_round_trip() -> void:
 	_reset_inventory_manager()
