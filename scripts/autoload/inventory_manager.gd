@@ -19,6 +19,10 @@ extends Node
 
 signal item_changed(item_id: String, delta: int, total: int)
 
+const STARTER_SEEDS: Dictionary = {
+	"parsnip_seed": 15,
+}
+
 var _counts: Dictionary = {} # item_id -> int
 
 func add_item(item_id: String, quantity: int) -> void:
@@ -78,3 +82,9 @@ func to_save_dict() -> Dictionary:
 
 func from_save_dict(data: Dictionary) -> void:
 	_counts = (data.get("counts", {}) as Dictionary).duplicate()
+	if _counts.is_empty():
+		for seed_id: String in STARTER_SEEDS:
+			add_item(seed_id, STARTER_SEEDS[seed_id])
+	if _counts.is_empty():
+		for seed_id: String in STARTER_SEEDS:
+			add_item(seed_id, STARTER_SEEDS[seed_id])

@@ -121,14 +121,26 @@ func can_plant(position: Vector2i, crop_id: String) -> bool:
 func plant(position: Vector2i, crop_id: String) -> bool:
 	if not can_plant(position, crop_id):
 		return false
+	var seed_id := get_seed_id(crop_id)
+	if not InventoryManager.has_item(seed_id):
+		return false
+	if not InventoryManager.remove_item(seed_id, 1):
+		return false
 	var plot := FarmPlot.new()
 	plot.crop_id = crop_id
 	_plots[position] = plot
 	crop_planted.emit(position, crop_id)
 	return true
 
-## Once per day per plot -- a plot already watered_today, empty, or
-## already harvest_ready (nothing left to grow toward) rejects the call.
+func get_all_crop_ids() -> Array[String]:
+	var ids: Array[String] = []
+	for crop_id: String in _definitions.keys():
+		ids.append(crop_id)
+	ids.sort()
+	return ids
+
+func get_seed_id(crop_id: String) -> String:
+	return "%s_seed" % crop_id
 func water(position: Vector2i) -> bool:
 	var plot: FarmPlot = _plots.get(position)
 	if plot == null or plot.is_empty():

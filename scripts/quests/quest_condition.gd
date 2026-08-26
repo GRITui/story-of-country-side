@@ -3,7 +3,7 @@ extends Resource
 ## One quest's completion condition. Sized only to what #31 needs to gate
 ## automation tiers — not a general quest-scripting system.
 
-enum ConditionType { DELIVER_ITEM, FRIENDSHIP_LEVEL, SKILL_LEVEL }
+enum ConditionType { DELIVER_ITEM, FRIENDSHIP_LEVEL, SKILL_LEVEL, EARN_GOLD }
 
 @export var type: ConditionType = ConditionType.DELIVER_ITEM
 
@@ -23,3 +23,6 @@ enum ConditionType { DELIVER_ITEM, FRIENDSHIP_LEVEL, SKILL_LEVEL }
 ## their own today.
 @export var skill_name: String = ""
 @export var target_level: int = 0
+
+## EARN_GOLD: cumulative gold earned via payouts reaches target_gold.
+@export var target_gold: int = 0

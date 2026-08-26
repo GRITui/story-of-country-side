@@ -11,6 +11,7 @@ config/features=PackedStringArray("4.3", "GL Compatibility")
 run/main_scene="res://scenes/ui/TitleScreen.tscn"
 
 [autoload]
+ShopManager="*res://scripts/autoload/shop_manager.gd"
 
 TimeManager="*res://scripts/autoload/time_manager.gd"
 StaminaManager="*res://scripts/autoload/stamina_manager.gd"

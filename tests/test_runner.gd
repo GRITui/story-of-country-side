@@ -31,6 +31,7 @@ var _crop_harvested_events: Array = [] ## Array[Array] of [position, item_id, qu
 var _crop_withered_events: Array = [] ## Array[Array] of [position, crop_id], same reason
 var _forage_gathered_events: Array = [] ## Array[Array] of [position, item_id, quantity], same reason
 var _forage_rerolled_events: Array = [] ## Array[Array] of [position, item_id], same reason
+var _seed_purchased_events: Array = []
 var _intro_finished_count := 0 ## member, not a local — GDScript lambdas capture locals by value
 var _proposal_rejected_events: Array = [] ## Array[Array] of [npc_name, reason], same reason
 var _wedding_scheduled_events: Array = [] ## Array[Array] of [npc_name, days_until], same reason
@@ -145,6 +146,16 @@ func _ready() -> void:
 	_test_sell_price_applies_quality_multiplier()
 	_test_crop_withers_when_season_ends_unharvested()
 	_test_farm_plot_save_round_trip()
+
+	_test_shop_catalog_covers_every_registered_crop()
+	_test_list_seeds_is_sorted_and_complete()
+	_test_buy_seed_reduces_gold_and_adds_seed()
+	_test_buy_seed_fails_clean_when_unregistered_or_poor()
+	_test_plant_requires_and_consumes_matching_seed()
+	_test_inventory_from_nothing_defaults_to_starter_grant()
+	_test_starter_grant_applies_once_on_new_game()
+	_test_earn_gold_quest_completes_on_payout()
+	_test_earn_gold_quest_save_round_trip()
 
 	_test_forage_register_node_seeds_season_valid_item()
 	_test_forage_gather_credits_inventory_and_xp_and_sets_cooldown()
@@ -1420,6 +1431,9 @@ func _test_inventory_save_round_trip() -> void:
 
 func _reset_farm_plot_manager() -> void:
 	FarmPlotManager._plots = {}
+	FarmPlotManager.from_save_dict({})
+	for seed_id: String in ShopManager.get_all_seed_ids():
+		InventoryManager.add_item(seed_id, 50)
 
 func _on_crop_planted_for_test(position: Vector2i, crop_id: String) -> void:
 	_crop_planted_events.append([position, crop_id])
@@ -1522,8 +1536,8 @@ func _test_harvest_credits_inventory_and_xp_and_clears_plot() -> void:
 		"crop_harvested should fire once with (position, item_id, quality, quantity), got %s" % [_crop_harvested_events])
 
 func _test_regrowable_crop_resets_instead_of_clearing() -> void:
-	_reset_farm_plot_manager()
 	_reset_inventory_manager()
+	_reset_farm_plot_manager()
 	TimeManager.season_index = 1 # Summer, Tomato
 	var fpm := FarmPlotManager
 	fpm.plant(Vector2i(6, 6), "tomato")
@@ -1543,8 +1557,8 @@ func _test_regrowable_crop_resets_instead_of_clearing() -> void:
 	_check(fpm.is_planted(Vector2i(6, 6)), "regrowable plot should remain planted after a second harvest too")
 
 func _test_forced_quality_skips_random_roll() -> void:
-	_reset_farm_plot_manager()
 	_reset_inventory_manager()
+	_reset_farm_plot_manager()
 	TimeManager.season_index = 0
 	var fpm := FarmPlotManager
 	fpm.plant(Vector2i(7, 7), "parsnip")
@@ -1588,8 +1602,8 @@ func _test_crop_withers_when_season_ends_unharvested() -> void:
 		"crop_withered should fire once with (position, crop_id), got %s" % [_crop_withered_events])
 
 func _test_farm_plot_save_round_trip() -> void:
-	_reset_farm_plot_manager()
 	_reset_inventory_manager()
+	_reset_farm_plot_manager()
 	TimeManager.season_index = 0 # Spring
 	var fpm := FarmPlotManager
 	fpm.plant(Vector2i(9, 9), "parsnip")
@@ -1610,6 +1624,167 @@ func _test_farm_plot_save_round_trip() -> void:
 
 func _reset_forage_manager() -> void:
 	ForagingManager._nodes = {}
+
+## --- ENG-91: Seed economy ---
+
+func _on_seed_purchased_for_test(seed_id: String, price: int) -> void:
+	_seed_purchased_events.append([seed_id, price])
+
+func _test_shop_catalog_covers_every_registered_crop() -> void:
+	var crop_ids := FarmPlotManager.get_all_crop_ids()
+	_check(crop_ids.size() > 0, "sanity: crops should be registered at boot")
+	for crop_id in crop_ids:
+		var seed_id := FarmPlotManager.get_seed_id(crop_id)
+		var def := ShopManager.get_seed_definition(seed_id)
+		_check(def != null, "every registered crop should have a seed in the shop catalog, missing '%s'" % seed_id)
+		if def != null:
+			_check(def.crop_id == crop_id and def.price > 0,
+				"seed '%s' should map back to its crop with a positive placeholder price, got crop='%s' price=%d" % [seed_id, def.crop_id, def.price])
+
+func _test_list_seeds_is_sorted_and_complete() -> void:
+	var listing := ShopManager.list_seeds()
+	var ids := ShopManager.get_all_seed_ids()
+	_check(listing.size() == ids.size(),
+		"list_seeds should project exactly one entry per registered seed, got %d vs %d" % [listing.size(), ids.size()])
+	var listing_ids := []
+	for entry in listing:
+		listing_ids.append(entry["seed_id"])
+	_check(listing_ids == ids,
+		"list_seeds should be deterministically sorted by seed_id, got %s" % [listing_ids])
+	_check(listing.is_empty() or (listing[0].has("display_name") and listing[0].has("crop_id") and listing[0].has("price")),
+		"each list_seeds entry should carry the display/crop/price fields a shop UI needs")
+
+func _test_buy_seed_reduces_gold_and_adds_seed() -> void:
+	_reset_shipping_bin()
+	_reset_inventory_manager()
+	ShippingBinManager.gold = 100
+	var price: int = ShopManager.get_seed_price("parsnip_seed")
+	_seed_purchased_events = []
+	ShopManager.seed_purchased.connect(_on_seed_purchased_for_test)
+	var ok := ShopManager.buy_seed("parsnip_seed")
+	ShopManager.seed_purchased.disconnect(_on_seed_purchased_for_test)
+
+	_check(ok, "buying an affordable registered seed should succeed")
+	_check(ShippingBinManager.gold == 100 - price,
+		"buy_seed should deduct the seed's price via the gold owner's spend(), got gold=%d" % ShippingBinManager.gold)
+	_check(InventoryManager.get_count("parsnip_seed") == 1,
+		"buy_seed should credit exactly one seed item, got %d" % InventoryManager.get_count("parsnip_seed"))
+	_check(_seed_purchased_events == [["parsnip_seed", price]],
+		"seed_purchased should fire once with (seed_id, price), got %s" % [_seed_purchased_events])
+
+func _test_buy_seed_fails_clean_when_unregistered_or_poor() -> void:
+	_reset_shipping_bin()
+	_reset_inventory_manager()
+	ShippingBinManager.gold = 10
+
+	_check(not ShopManager.buy_seed("nonexistent_seed"), "an unknown seed_id should fail the purchase")
+	_check(not ShopManager.buy_seed("melon_seed"), "insufficient gold should fail the purchase")
+	_check(ShippingBinManager.gold == 10, "a rejected purchase must not deduct any gold, got %d" % ShippingBinManager.gold)
+	_check(InventoryManager.get_count("melon_seed") == 0 and InventoryManager.get_count("nonexistent_seed") == 0,
+		"a rejected purchase must not grant any seed items")
+
+func _test_plant_requires_and_consumes_matching_seed() -> void:
+	_reset_farm_plot_manager()
+	_reset_inventory_manager()
+	TimeManager.season_index = 0
+	var fpm := FarmPlotManager
+
+	_check(not fpm.plant(Vector2i(0, 0), "parsnip"),
+		"planting without the matching seed should fail even in-season on an empty tile")
+	_check(not fpm.is_planted(Vector2i(0, 0)), "a seed-rejected plant should leave the plot empty")
+
+	InventoryManager.add_item("cauliflower_seed", 5)
+	_check(not fpm.plant(Vector2i(0, 0), "parsnip"),
+		"the wrong crop's seed should not satisfy the gate")
+	_check(InventoryManager.get_count("cauliflower_seed") == 5,
+		"a seed-rejected plant must not consume anything")
+
+	InventoryManager.remove_item("cauliflower_seed", 5)
+	InventoryManager.add_item("parsnip_seed", 1)
+	var ok := fpm.plant(Vector2i(0, 0), "parsnip")
+	_check(ok, "planting with the matching seed in stock should succeed")
+	_check(fpm.is_planted(Vector2i(0, 0)) and fpm.get_plot(Vector2i(0, 0)).crop_id == "parsnip",
+		"a seeded plant should place the crop on the plot")
+	_check(InventoryManager.get_count("parsnip_seed") == 0,
+		"planting should consume exactly one matching seed, got %d remaining" % InventoryManager.get_count("parsnip_seed"))
+	_check(not fpm.plant(Vector2i(1, 0), "parsnip"),
+		"a second plant with no seeds left should fail")
+
+func _test_inventory_from_nothing_defaults_to_starter_grant() -> void:
+	InventoryManager._counts = {}
+	InventoryManager.from_save_dict({})
+	_check(InventoryManager.get_count("parsnip_seed") == InventoryManager.STARTER_SEEDS["parsnip_seed"],
+		"from_save_dict({}) is the from-nothing default and should yield the starter grant")
+
+func _test_starter_grant_applies_once_on_new_game() -> void:
+	SaveManager.delete_save_file()
+	InventoryManager._counts = {}
+	InventoryManager.add_item("junk_item", 7)
+
+	SaveManager.new_game()
+
+	_check(InventoryManager.get_count("parsnip_seed") == InventoryManager.STARTER_SEEDS["parsnip_seed"],
+		"new_game should grant the starter parsnip seeds exactly once, got %d" % InventoryManager.get_count("parsnip_seed"))
+	_check(InventoryManager.get_count("junk_item") == 0,
+		"new_game replaces the ledger with the grant rather than adding on top of old state")
+
+	InventoryManager.remove_item("parsnip_seed", 14)
+	var saved := SaveManager.build_save_data()
+	InventoryManager.from_save_dict({})
+	SaveManager.apply_save_data(saved)
+	_check(InventoryManager.get_count("parsnip_seed") == 1,
+		"loading an existing save restores its exact ledger instead of re-granting starters, got %d" % InventoryManager.get_count("parsnip_seed"))
+	SaveManager.delete_save_file()
+
+func _test_earn_gold_quest_completes_on_payout() -> void:
+	_reset_quest_manager()
+	_reset_shipping_bin()
+	var qm := QuestManager
+	var cond := QuestCondition.new()
+	cond.type = QuestCondition.ConditionType.EARN_GOLD
+	cond.target_gold = 100
+	var quest := QuestDefinition.new()
+	quest.quest_id = "earn_100_gold"
+	quest.condition = cond
+	quest.unlock_flag = "gold_earner"
+	qm.register_quest(quest)
+	_check(not qm.is_completed("earn_100_gold"), "quest should not complete before earning enough gold")
+
+	qm._on_payout_processed(60, 3)
+	_check(not qm.is_completed("earn_100_gold"), "quest should not complete after first partial payout (60 < 100)")
+
+	qm._on_payout_processed(50, 2)
+	_check(qm.is_completed("earn_100_gold"), "quest should complete once lifetime earnings reach the target")
+	_check(qm.is_unlocked("gold_earner"), "unlock flag should flip on completion")
+	_check(qm.get_lifetime_earned_gold() == 110, "lifetime earned gold should track cumulative payouts, got %d" % qm.get_lifetime_earned_gold())
+
+func _test_earn_gold_quest_save_round_trip() -> void:
+	_reset_quest_manager()
+	_reset_shipping_bin()
+	QuestManager._lifetime_earned_gold = 0
+	var qm := QuestManager
+	var cond := QuestCondition.new()
+	cond.type = QuestCondition.ConditionType.EARN_GOLD
+	cond.target_gold = 50
+	var quest := QuestDefinition.new()
+	quest.quest_id = "earn_50_gold"
+	quest.condition = cond
+	quest.unlock_flag = "gold_saver"
+	qm.register_quest(quest)
+	qm._on_payout_processed(75, 5)
+	_check(qm.is_completed("earn_50_gold"), "sanity check before save")
+
+	var saved := SaveManager.build_save_data()
+
+	_reset_quest_manager()
+	_check(not qm.is_completed("earn_50_gold"), "sanity check: reset should clear completion")
+
+	SaveManager.apply_save_data(saved)
+
+	_check(qm.is_completed("earn_50_gold"), "completion should round-trip through save/load")
+	_check(qm.is_unlocked("gold_saver"), "unlock flag should round-trip through save/load")
+	_check(qm.get_lifetime_earned_gold() == 75,
+		"lifetime_earned_gold should round-trip through save/load, got %d" % qm.get_lifetime_earned_gold())
 
 func _on_forage_gathered_for_test(position: Vector2i, item_id: String, quantity: int) -> void:
 	_forage_gathered_events.append([position, item_id, quantity])
