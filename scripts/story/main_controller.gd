@@ -142,3 +142,21 @@ func _on_festival_overlay_closed() -> void:
 	if _festival_overlay != null and is_instance_valid(_festival_overlay):
 		_festival_overlay.queue_free()
 	_festival_overlay = null
+
+## Returns a normalized Vector2 from WASD / arrow key input, suitable for
+## driving player movement in the active world scene. Returns Vector2.ZERO
+## when no movement keys are held. Normalized so diagonal movement isn't
+## faster than cardinal.
+func get_movement_vector() -> Vector2:
+	var dir := Vector2.ZERO
+	if Input.is_action_pressed("move_up"):
+		dir.y -= 1.0
+	if Input.is_action_pressed("move_down"):
+		dir.y += 1.0
+	if Input.is_action_pressed("move_left"):
+		dir.x -= 1.0
+	if Input.is_action_pressed("move_right"):
+		dir.x += 1.0
+	if dir != Vector2.ZERO:
+		dir = dir.normalized()
+	return dir
