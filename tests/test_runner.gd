@@ -385,6 +385,12 @@ func _ready() -> void:
 	_test_npc_controller_has_visible_sprite_after_ready()
 	_test_npc_controller_sprite_tint_is_deterministic_per_name()
 
+	_test_title_screen_instantiates_with_spec_menu_shape()
+	_test_title_screen_continue_disabled_without_save()
+	_test_title_screen_continue_enabled_with_save()
+	_test_title_screen_new_game_prepares_fresh_state_and_persists()
+	_test_title_screen_continue_prepare_loads_or_reports_failure()
+
 	if _failures.is_empty():
 		print("ALL TESTS PASSED (%d checks)" % _pass_count)
 		get_tree().quit(0)
@@ -4918,3 +4924,98 @@ func _test_npc_controller_sprite_tint_is_deterministic_per_name() -> void:
 	npc_a.queue_free()
 	npc_b.queue_free()
 	npc_c.queue_free()
+
+## --- Frontend: Title screen (#92) ---
+##
+## Same discipline as the other frontend blocks: what's meaningfully
+## testable headlessly is scene instantiation, the spec §1 menu shape,
+## Continue's SaveManager.has_save_file() gating, and the state-only
+## prepare_* halves of the New Game / Continue actions. The navigating
+## buttons themselves are never emitted here -- their handlers end in
+## get_tree().change_scene_to_file()/quit(), which would swap the
+## TestRunner scene out from under this suite (same reason pause_menu.gd's
+## quit button is never emitted) -- so those handlers stay thin pairings
+## of tested prepare halves and an untested one-line navigation tail.
+## Every test bookends its disk writes with SaveManager.delete_save_file(),
+## matching the save/load round-trip tests above.
+
+func _make_title_screen() -> TitleScreen:
+	var scene: PackedScene = load("res://scenes/ui/TitleScreen.tscn")
+	var title_screen: TitleScreen = scene.instantiate()
+	add_child(title_screen)
+	return title_screen
+
+func _title_screen_continue_button(title_screen: TitleScreen) -> Button:
+	return title_screen.get_node("Root/MenuPanel/Margin/VBox/ContinueButton") as Button
+
+func _test_title_screen_instantiates_with_spec_menu_shape() -> void:
+	SaveManager.delete_save_file()
+	var title_screen := _make_title_screen()
+	var vbox: Node = title_screen.get_node("Root/MenuPanel/Margin/VBox")
+	_check(vbox.get_node_or_null("NewGameButton") is Button,
+		"Title screen should offer a New Game button per spec §1")
+	_check(_title_screen_continue_button(title_screen) != null,
+		"Title screen should offer a Continue button per spec §1")
+	_check((vbox.get_node("SettingsButton") as Button).disabled,
+		"Settings should be a disabled placeholder while no settings system exists, not a faked screen")
+	_check(vbox.get_node_or_null("QuitButton") is Button,
+		"Title screen should offer Quit per spec §1")
+	title_screen.queue_free()
+
+func _test_title_screen_continue_disabled_without_save() -> void:
+	SaveManager.delete_save_file()
+	_check(not SaveManager.has_save_file(), "sanity: no save file should exist after delete_save_file()")
+	var title_screen := _make_title_screen()
+	_check(_title_screen_continue_button(title_screen).disabled,
+		"Continue should be disabled when SaveManager.has_save_file() is false")
+	title_screen.queue_free()
+
+func _test_title_screen_continue_enabled_with_save() -> void:
+	SaveManager.delete_save_file()
+	SaveManager.save_game() # writes a save file from the managers' current state
+	_check(SaveManager.has_save_file(), "sanity: save_game() should have created the save file")
+	var title_screen := _make_title_screen()
+	_check(not _title_screen_continue_button(title_screen).disabled,
+		"Continue should be enabled when SaveManager.has_save_file() is true")
+	title_screen.queue_free()
+	SaveManager.delete_save_file()
+
+func _test_title_screen_new_game_prepares_fresh_state_and_persists() -> void:
+	SaveManager.delete_save_file()
+	SaveManager.mark_intro_seen() # dirties meta save state AND persists it to disk
+	TimeManager.year = 7 # public-field poke, same discipline as the save/load round-trip test
+	var title_screen := _make_title_screen()
+	title_screen.prepare_new_game()
+	_check(not SaveManager.has_seen_intro(),
+		"New Game should reset intro_seen via SaveManager.new_game() so the intro plays again on the fresh save")
+	_check(TimeManager.year == 1,
+		"New Game should reset time to fresh-boot defaults, got year=%d" % TimeManager.year)
+	_check(SaveManager.has_save_file(),
+		"prepare_new_game should leave a persisted fresh save for MainController's boot load-or-new to pick up")
+	title_screen.queue_free()
+	SaveManager.delete_save_file()
+
+func _test_title_screen_continue_prepare_loads_or_reports_failure() -> void:
+	SaveManager.delete_save_file()
+	var title_screen := _make_title_screen()
+	_check(not title_screen.prepare_continue(),
+		"prepare_continue should report failure with no save file, leaving the player on the title screen")
+	SaveManager.mark_intro_seen() # persists intro_seen = true
+	SaveManager.intro_seen = false # simulate a fresh boot's in-memory state (same public poke as the round-trip test)
+	_check(title_screen.prepare_continue(),
+		"prepare_continue should load an existing save and report success")
+	_check(SaveManager.has_seen_intro(),
+		"the loaded save should restore system state (intro_seen here), i.e. Continue lands where the player was")
+	# Corrupt-file edge: has_save_file() gates on existence, not readability,
+	# so Continue can be offered/clicked with garbage on disk -- the honest
+	# behavior is reporting failure here rather than routing into Main.tscn,
+	# whose load-or-new fallback would silently start a brand-new game.
+	SaveManager.delete_save_file()
+	var corrupt := FileAccess.open(SaveManager.SAVE_PATH, FileAccess.WRITE)
+	corrupt.store_string("this is not json{")
+	corrupt.close()
+	_check(SaveManager.has_save_file(), "sanity: the corrupt placeholder file should exist on disk")
+	_check(not title_screen.prepare_continue(),
+		"prepare_continue should report failure on a corrupt save instead of silently becoming a new game")
+	title_screen.queue_free()
+	SaveManager.delete_save_file()
