@@ -78,6 +78,11 @@ func apply_save_data(data: Dictionary) -> void:
 		WeatherManager.from_save_dict(data["weather"])
 	if data.has("intro_seen"):
 		intro_seen = data["intro_seen"]
+	# Issue #90: the clock above is restored without firing day_started
+	# (that only fires at the 2AM rollover), so any day-edge-derived state
+	# must be re-derived here explicitly or a mid-festival save reloads
+	# with no festival.
+	FestivalManager.rederive_active_festival()
 
 ## Resets every system to its fresh-boot defaults and starts a brand new
 ## save -- calling from_save_dict({}) directly (not via apply_save_data,
@@ -106,6 +111,7 @@ func new_game() -> void:
 	CommunityGoalManager.from_save_dict({})
 	WeatherManager.from_save_dict({})
 	intro_seen = false
+	FestivalManager.rederive_active_festival() # expire any live festival against the reset date
 	save_game()
 
 func has_seen_intro() -> bool:
