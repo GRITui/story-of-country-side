@@ -261,3 +261,8 @@ system) before declaring the backlog empty.
   stamina (from #12) as HUD-bound state; could extend to tool tier display.
 * Isometric grid math is in design/art/isometric-grid-spec.md (PR #39) —
   ToolManager's AoE offsets use this coordinate system directly.
+
+
+## DONE — S4-B2 (#90 festival lost on quit+relaunch)
+* Fixed via pure backend re-derivation: `FestivalManager.rederive_active_festival()` (PR #104, squash-merged), called from `SaveManager.apply_save_data()`/`new_game()`; no new save fields.
+* Audit note (per #90 AC): any future autoload deriving state solely from `day_started` needs the same boot-time rederivation — none currently do besides FestivalManager.
