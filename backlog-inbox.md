@@ -2330,3 +2330,34 @@ either, so the remote branches remain as harmless merged-and-stale refs).
     gaps known to this seat as of this cycle.
   </description>
 </task_item>
+
+<task_item>
+  <id>SUPERUSER-BTN-COMPETITIVE-GAPS</id>
+  <status>DONE</status>
+  <description>
+    Sprint-003 addendum 3 (same day): assessed competing with retro
+    farm-sims (BTN-class) and filed the missing emotional-payoff layer,
+    all verified at HEAD. Already credible without new work: five
+    activity loops, 5-species ranching, artisan machines, festivals,
+    and a deep backend marriage system (pendant @8hearts, wedding,
+    children, spousal bonus). Biggest surprise: that endgame is
+    UNREACHABLE -- mermaid_pendant has no source anywhere and zero
+    presentation exists. Also verified absent entirely: cooking/eating
+    (StaminaManager.restore has no gameplay caller), birthdays (string
+    appears nowhere), rain-doesn't-water-crops (flagged by weather's own
+    docstring), real music (sine drone per Audio-Squad standup).
+    Filed:
+    - #109 P2 cooking & eating (kitchen @ House Tier 2)
+    - #110 P2 birthdays + calendar overlay (Content-lane fields)
+    - #111 P2 present the marriage loop (pendant source, heart events,
+      proposal/wedding moments)
+    - #112 P3 weather depth (rain waters crops, harmless storm,
+      tomorrow forecast)
+    - #113 P3 seasonal music loops + festival jingle
+    - #114 P4 pet companion (after avatar)
+    Anti-recommendation recorded: no BTN-style eviction deadline
+    (Decision A) and no sprite-volume arms race; compete on correctness,
+    coziness, modern UX. Sequencing: embodiment first, then social
+    payoff (#111/#110), then texture (#109/#112/#113).
+  </description>
+</task_item>

@@ -117,4 +117,47 @@ experience-layer gaps now fully ticketed and ranked — embodiment
 (#100-102), economy input cost (#91), new-player onboarding (#108),
 world variety (#105-107). No untriaged design gaps known to this seat.
 
+---
+
+## Addendum 3 (same day): BTN competitive gap analysis
+
+Asked to assess competing with retro farm-sims (Harvest Moon: Back to
+Nature) and file the worth-building gaps. Full audit against HEAD:
+
+ALREADY CREDIBLE (verified, do not rebuild): all five activity loops,
+5-species ranching, artisan machines, tool tiers, festivals+minigame,
+community goals, and a backend marriage system deeper than expected
+(mermaid_pendant proposal @8 hearts, 3-day engagement, children,
+spousal bonus). Structural advantages over retro originals: every
+economy path test-covered (962 checks) and deliberately open-ended
+cozy pacing (Decision A; challenge_mode exists for the deadline crowd).
+
+BIGGEST SURPRISE: the romance endgame is unreachable — mermaid_pendant
+has no source anywhere in the game; proposal/wedding fire as silent
+state changes with zero presentation.
+
+Filed this cycle (the missing emotional-payoff layer):
+- #109 [P2 area:economy] Cooking & eating — recipes -> StaminaManager
+  restore(); kitchen gated on House Tier 2; artisan goods gain a
+  second use. No hunger system.
+- #110 [P2 area:social] Villager birthdays + calendar overlay —
+  "birthday" appeared nowhere in scripts/; fields go into existing
+  GiftPreferenceTable resources (Content lane); gift multiplier small.
+- #111 [P2 area:social] Present the marriage loop — obtainable pendant
+  source, heart-event cutscenes via IntroSequence pattern, propose
+  button + wedding moment.
+- #112 [P3 area:agriculture] Weather depth — rain auto-waters (docstring
+  flags it absent), rare storm default-harmless, tomorrow forecast in HUD.
+- #113 [P3] Real seasonal music — replace sine drone; sourcing under
+  ATTRIBUTION.md norms; festival jingle folded in from Audio-Squad thread.
+- #114 [P4 idea] Pet companion — pure charm, only after avatar lands.
+
+ANTI-RECOMMENDATION on record for PM: do NOT chase BTN's sprite/art
+volume or its 3-year eviction stress mechanic (contradicts Decision A);
+compete on systems correctness, coziness, and modern UX instead.
+
+Sequencing suggestion: embodiment cluster first (#100/#101/#102), then
+#111 + #110 (social payoff), with #109/#112/#113 as texture passes.
+
+
 
