@@ -228,6 +228,10 @@ func _ready() -> void:
 	_test_festival_mini_game_overlay_continue_ends_festival_and_closes()
 	_test_main_controller_shows_festival_overlay_on_festival_started()
 	_test_main_controller_removes_festival_overlay_when_it_closes()
+
+	_test_festival_survives_save_reload_same_day()
+	_test_non_festival_day_stays_inactive_after_reload()
+	_test_saved_mid_festival_loaded_past_end_stays_expired()
 	_test_map_overlay_lists_all_locations_on_ready()
 	_test_map_overlay_travel_click_emits_travel_requested_and_closed()
 	_test_map_overlay_close_button_emits_closed_only()
@@ -5055,3 +5059,70 @@ func _test_title_screen_continue_prepare_loads_or_reports_failure() -> void:
 		"prepare_continue should report failure on a corrupt save instead of silently becoming a new game")
 	title_screen.queue_free()
 	SaveManager.delete_save_file()
+
+## --- Issue #90: active-festival state re-derived on boot/save-load ---
+
+func _test_festival_survives_save_reload_same_day() -> void:
+	var tm := TimeManager
+	tm.year = 1
+	tm.season_index = 0 ## Spring -- bloomtide_fair is day 13 (the #90 repro)
+	tm.day_in_season = 13
+	tm.hour = 6
+	tm.minute = 0
+	FestivalManager.end_festival() ## fresh-process baseline: nothing active
+	_check(FestivalManager.start_festival("bloomtide_fair"), "#90 setup: start_festival should succeed on its own day")
+	var saved := SaveManager.build_save_data()
+	## Simulate quit+relaunch: a brand-new process has no transient festival
+	## state and default clock values until load_game() applies the save.
+	FestivalManager.end_festival()
+	tm.year = 1
+	tm.season_index = 0
+	tm.day_in_season = 1
+	tm.hour = TimeManager.DAY_START_HOUR
+	tm.minute = 0
+	SaveManager.apply_save_data(saved)
+	_check(FestivalManager.is_festival_active(), "#90: festival saved mid-festival must be active again after reload")
+	_check(FestivalManager.get_active_festival() != null \
+		and FestivalManager.get_active_festival().festival_id == "bloomtide_fair",
+		"#90: re-derived festival should be bloomtide_fair")
+	_check(TimeManager.is_frozen(), "#90: clock should be frozen again by re-derivation")
+	FestivalManager.end_festival() ## cleanup for later tests
+
+func _test_non_festival_day_stays_inactive_after_reload() -> void:
+	var tm := TimeManager
+	if not FestivalManager.festival_started.is_connected(_on_festival_started_for_test):
+		FestivalManager.festival_started.connect(_on_festival_started_for_test)
+	_festival_started_events.clear()
+	tm.season_index = 0
+	tm.day_in_season = 12 ## Spring 12: the day BEFORE bloomtide_fair
+	tm.hour = 10
+	tm.minute = 0
+	FestivalManager.end_festival()
+	var saved := SaveManager.build_save_data()
+	SaveManager.apply_save_data(saved)
+	_check(not FestivalManager.is_festival_active(), "#90: non-festival-day save must stay inactive after reload")
+	_check(_festival_started_events.is_empty(), "#90: reload on a non-festival day must not emit festival_started")
+
+func _test_saved_mid_festival_loaded_past_end_stays_expired() -> void:
+	var tm := TimeManager
+	if not FestivalManager.festival_started.is_connected(_on_festival_started_for_test):
+		FestivalManager.festival_started.connect(_on_festival_started_for_test)
+	tm.season_index = 1 ## Summer -- sunfield_revel is day 15
+	tm.day_in_season = 15
+	tm.hour = 7
+	tm.minute = 30
+	FestivalManager.end_festival()
+	FestivalManager.start_festival("sunfield_revel")
+	var saved := SaveManager.build_save_data()
+	## The player kept playing past the festival before quitting, so the
+	## loaded state's date has moved past the festival day.
+	saved["time"]["day_in_season"] = 16
+	tm.season_index = 0
+	tm.day_in_season = 1
+	tm.hour = TimeManager.DAY_START_HOUR
+	tm.minute = 0
+	_festival_started_events.clear() ## drop the setup run's own emission
+	SaveManager.apply_save_data(saved)
+	_check(not FestivalManager.is_festival_active(), "#90: festival whose day has passed must stay expired after reload")
+	_check(_festival_started_events.is_empty(), "#90: expired festival must not emit festival_started on reload")
+	_check(tm.season_index == 1 and tm.day_in_season == 16 and tm.hour == 7, "#90: restored date/hour should match the save payload")

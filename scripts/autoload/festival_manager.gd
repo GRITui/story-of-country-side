@@ -36,9 +36,14 @@ extends Node
 ## No to_save_dict()/from_save_dict() -- same discipline ENG-15 documented
 ## for FishingManager. Every festival is purely date-driven: which
 ## festival is active on a given day is fully re-derivable from
-## TimeManager's restored season/day_in_season the instant a save loads
-## (day_started fires again as time resumes), and _active_festival_id
-## itself is transient session state, not save-worthy data. Wiring a
+## TimeManager's restored season/day_in_season, and _active_festival_id
+## itself is transient session state, not save-worthy data. That
+## re-derivation is NOT free at boot though -- #90: activation only fired
+## on TimeManager.day_started's 2AM edge, so a quit+relaunch mid-festival
+## never re-derived it. rederive_active_festival() below is the fix;
+## SaveManager.apply_save_data()/new_game() call it after restoring the
+## clock so the same date-derivation _on_day_started uses runs on every
+## save-load path too. Wiring a
 ## hollow to_save_dict()/from_save_dict() pair that just round-trips
 ## _active_festival_id would be fabricating structure for state that's
 ## already reconstructed for free -- see SaveManager's own docstring for
@@ -172,3 +177,23 @@ func _on_day_started(day_in_season: int, season: String, _day_of_week: String) -
 	var def := get_festival_for_date(season, day_in_season)
 	if def != null:
 		start_festival(def.festival_id)
+
+## Re-runs the exact date-derivation _on_day_started uses against
+## TimeManager's CURRENT date, without waiting for the next 2AM
+## day_started edge (#90): SaveManager calls this after restoring the
+## clock from a save, so a quit+relaunch mid-festival reloads with the
+## festival still active. Also expires a stale active festival (one whose
+## day has passed) via end_festival() rather than silently clearing it --
+## leaving the "festival" freeze reason behind would keep the clock frozen
+## forever. Returns whether a festival is active afterwards.
+func rederive_active_festival() -> bool:
+	var def := get_festival_for_date(TimeManager.current_season(), TimeManager.day_in_season)
+	if def == null:
+		if is_festival_active():
+			end_festival()
+		return false
+	if _active_festival_id == def.festival_id:
+		return true # already active, idempotent
+	if is_festival_active():
+		end_festival()
+	return start_festival(def.festival_id)
