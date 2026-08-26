@@ -7,6 +7,14 @@
   <sprint_completion_percentage>100</sprint_completion_percentage>
 </squad_metadata>
 
+## DONE — Sprint 4 S4-B1 (issue #97)
+sell_item() silently destroyed stock when unit_price <= 0 (bin drops the
+shipment after inventory already removed it). Fixed in
+scripts/autoload/inventory_manager.gd: reject up front, return false, no
+signal/state change, matching remove_item's failure pattern. No registry or
+clamping (#96 untouched). +3 tests; suite ALL PASSED (983 checks), Godot 4.3
+headless. PR gritui/story-of-country-side#103 squash-merged as 0e6d109.
+
 ## Epoch 32 update (Producer session)
 Step 0: no new GitHub issues (#52/#53/#1 unchanged), no open PRs.
 squad-handshake-content.md/-frontend.md/-qa.md all read fresh -- nothing
