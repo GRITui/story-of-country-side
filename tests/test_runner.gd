@@ -409,6 +409,13 @@ func _ready() -> void:
 	_test_title_screen_new_game_prepares_fresh_state_and_persists()
 	_test_title_screen_continue_prepare_loads_or_reports_failure()
 
+	_test_input_map_manager_registers_all_actions()
+	_test_input_map_manager_get_action_name()
+	_test_input_map_manager_is_action_registered()
+	_test_main_controller_get_movement_vector_zero_when_no_input()
+	_test_main_controller_get_movement_vector_single_axis()
+	_test_main_controller_get_movement_vector_diagonal_normalized()
+
 	if _failures.is_empty():
 		print("ALL TESTS PASSED (%d checks)" % _pass_count)
 		get_tree().quit(0)
@@ -5301,3 +5308,72 @@ func _test_saved_mid_festival_loaded_past_end_stays_expired() -> void:
 	_check(not FestivalManager.is_festival_active(), "#90: festival whose day has passed must stay expired after reload")
 	_check(_festival_started_events.is_empty(), "#90: expired festival must not emit festival_started on reload")
 	_check(tm.season_index == 1 and tm.day_in_season == 16 and tm.hour == 7, "#90: restored date/hour should match the save payload")
+
+## --- ENG-101: InputMapManager ---
+
+func _test_input_map_manager_registers_all_actions() -> void:
+	var im := InputMapManager
+	var expected_actions := [
+		"move_up", "move_down", "move_left", "move_right",
+		"interact", "menu",
+		"hotbar_1", "hotbar_2", "hotbar_3", "hotbar_4", "hotbar_5",
+		"hotbar_6", "hotbar_7", "hotbar_8", "hotbar_9",
+	]
+	for action in expected_actions:
+		_check(im.is_action_registered(action),
+			"InputMapManager should register '%s'" % action)
+		var events := InputMap.action_get_events(action)
+		_check(events.size() > 0,
+			"'%s' should have at least one key event, got %d" % [action, events.size()])
+
+	_check(InputMap.action_get_events("move_up").size() == 2,
+		"move_up should have 2 key events (W + Up), got %d" % InputMap.action_get_events("move_up").size())
+	_check(InputMap.action_get_events("move_down").size() == 2,
+		"move_down should have 2 key events (S + Down)")
+	_check(InputMap.action_get_events("move_left").size() == 2,
+		"move_left should have 2 key events (A + Left)")
+	_check(InputMap.action_get_events("move_right").size() == 2,
+		"move_right should have 2 key events (D + Right)")
+	_check(InputMap.action_get_events("interact").size() == 2,
+		"interact should have 2 key events (E + Enter)")
+	_check(InputMap.action_get_events("menu").size() == 1,
+		"menu should have 1 key event (Escape)")
+
+func _test_input_map_manager_get_action_name() -> void:
+	var im := InputMapManager
+	_check(im.get_action_name("interact") == "Interact",
+		"get_action_name('interact') should return 'Interact', got '%s'" % im.get_action_name("interact"))
+	_check(im.get_action_name("move_up") == "Move Up",
+		"get_action_name('move_up') should return 'Move Up'")
+	_check(im.get_action_name("hotbar_3") == "Hotbar 3",
+		"get_action_name('hotbar_3') should return 'Hotbar 3'")
+	_check(im.get_action_name("nonexistent_action") == "nonexistent_action",
+		"get_action_name should return the raw name for unregistered actions")
+
+func _test_input_map_manager_is_action_registered() -> void:
+	var im := InputMapManager
+	_check(im.is_action_registered("move_up"), "move_up should be registered")
+	_check(im.is_action_registered("interact"), "interact should be registered")
+	_check(not im.is_action_registered("fly_to_moon"), "an unregistered action should return false")
+
+## --- ENG-101: MainController get_movement_vector ---
+
+func _test_main_controller_get_movement_vector_zero_when_no_input() -> void:
+	var controller := _make_main_controller_with_intro_seen()
+	var dir := controller.get_movement_vector()
+	_check(dir == Vector2.ZERO,
+		"get_movement_vector should return Vector2.ZERO when no movement keys are held")
+	controller.queue_free()
+
+func _test_main_controller_get_movement_vector_single_axis() -> void:
+	var controller := _make_main_controller_with_intro_seen()
+	_check(controller.get_movement_vector() == Vector2.ZERO,
+		"sanity: should start at zero before simulating input")
+	controller.queue_free()
+
+func _test_main_controller_get_movement_vector_diagonal_normalized() -> void:
+	var controller := _make_main_controller_with_intro_seen()
+	var dir := controller.get_movement_vector()
+	_check(dir.length() <= 1.0,
+		"movement vector should never exceed length 1.0, got %f" % dir.length())
+	controller.queue_free()
