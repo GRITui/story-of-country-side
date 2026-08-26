@@ -51,3 +51,33 @@ Pending-shipment persistence is exactly right (raw lines survive
 save/reload and still pay exactly once — the festival #90 boot-gap does
 NOT afflict the bin). Two-gate purchase ordering is consistently correct
 across ToolManager and InfrastructureManager.
+
+---
+
+## Addendum (same day): embodiment triage — avatar / controls / NPCs
+
+Follow-up tester pass asked "do we need main character, controls, other
+NPCs?" Verified against HEAD before answering:
+
+- `project.godot` has NO `[input]` section — zero registered actions;
+  all interaction is raw mouse clicks + overlay buttons.
+- No player representation anywhere (no CharacterBody2D/avatar/sprite).
+- `NPCController` (with sprite, schedule consumption, name tint) is
+  instantiated only by tests — never in any world scene. Schedules,
+  relationships, gifts, festivals are all backend-done yet invisible.
+
+Verdict: YES to all three; each is a missing core affordance, not polish.
+Filed as issues this cycle:
+
+- #100 P2 enhancement: player avatar in world scenes (minimal v1:
+  placeholder sprite, facing, tool-swing feedback; no physics/anim sets)
+- #101 P2 enhancement: control scheme + input map (named actions:
+  move/interact/advance_dialog/hotbar keys; mouse-click stays primary;
+  explicitly NO combat inputs per Decision B)
+- #102 P2 enhancement [area:social]: instantiate NPCs in world scenes
+  driven by existing schedules — zero new backend or art required
+
+Sequencing recommendation: #101+#100 land together (embodiment layer),
+then #102 reuses it. Anti-recommendation recorded for PM: do NOT add
+combat controls/enemy AI scope when triaging these.
+

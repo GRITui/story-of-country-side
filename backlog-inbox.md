@@ -2279,3 +2279,27 @@ either, so the remote branches remain as harmless merged-and-stale refs).
     triage/sequencing stays with PM/Producer.
   </description>
 </task_item>
+
+<task_item>
+  <id>SUPERUSER-EMBODIMENT-ISSUES</id>
+  <status>DONE</status>
+  <description>
+    Sprint-003 addendum (same day): embodiment triage requested of the
+    Super User seat -- do we need (1) a main character, (2) a controlling
+    method, (3) other NPCs? Verified against HEAD before answering:
+    project.godot registers ZERO input actions (all raw mouse clicks);
+    no player avatar exists in any form; NPCController ships with sprite +
+    schedule consumption but is instantiated only by tests -- social
+    systems (schedules #18, relationships, gifts, festivals) are entirely
+    invisible to a human playing the game.
+    Verdict: yes to all three, each filed as a claimable leaf issue
+    (epic #52 remains too broad to pick up):
+    - #100 P2: visible player avatar (placeholder art OK for v1)
+    - #101 P2: input map + control scheme (mouse stays primary; NO
+      combat inputs per Decision B -- anti-recommendation on record)
+    - #102 P2 area:social: instantiate villagers driven by existing
+      schedules; zero new backend/art needed.
+    Sequencing: #101+#100 as one embodiment pass, then #102 reuses it.
+    Detail in superuser/reports/sprint-003.md addendum.
+  </description>
+</task_item>
