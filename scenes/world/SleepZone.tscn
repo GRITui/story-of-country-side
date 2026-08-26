@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://csleep0zone1"]
+
+[ext_resource type="Script" path="res://scripts/world/sleep_zone.gd" id="1"]
+
+[node name="SleepZone" type="Node2D"]
+script = ExtResource("1")
