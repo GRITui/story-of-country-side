@@ -12,9 +12,14 @@ class_name MainController
 ## once per save (SaveManager.has_seen_intro() persists across loads) and
 ## is skipped on every subsequent boot.
 ##
-## When a real title screen lands, it should call SaveManager.new_game()
-## itself (from its "New Game" button) and this _ready()-time auto-boot
-## behavior should move behind that menu instead of running unconditionally.
+## The title screen (#92, scenes/ui/TitleScreen.tscn) now owns entry-point
+## selection: its New Game button calls SaveManager.new_game() itself and
+## its Continue button calls SaveManager.load_game() -- exactly as this
+## file originally prescribed -- then routes into this scene. This
+## _ready()-time load-or-new deliberately STAYS unconditional: Main.tscn
+## must keep working as an independently bootalable entry point (smoke
+## boots, superuser/autoplay/autoplay_driver.gd), and re-applying the
+## state the title screen just staged is idempotent.
 ##
 ## The always-on HUD (design/ui-flows/menu-hud-flow-spec.md §2) is added as
 ## a sibling CanvasLayer here rather than always-present in Main.tscn itself,
