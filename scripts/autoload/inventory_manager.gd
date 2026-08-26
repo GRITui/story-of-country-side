@@ -57,7 +57,15 @@ func has_item(item_id: String, quantity: int = 1) -> bool:
 ## one call so every future item-producing activity doesn't reimplement
 ## this same two-step glue. Fails without shipping anything if the ledger
 ## doesn't have enough of item_id.
+##
+## Also fails (returns false) when unit_price <= 0 (#97): the bin's
+## ship_item silently ignores non-positive-price shipments, so without this
+## guard the stock was destroyed here and then dropped by the bin -- goods
+## gone, zero gold, no signal. Like every other failure path in this file,
+## a rejected sale emits nothing and leaves both ledger and bin untouched.
 func sell_item(item_id: String, quantity: int, unit_price: int) -> bool:
+	if unit_price <= 0:
+		return false
 	if not remove_item(item_id, quantity):
 		return false
 	ShippingBinManager.ship_item(item_id, quantity, unit_price)
