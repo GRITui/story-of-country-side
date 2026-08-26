@@ -76,6 +76,8 @@ var _pause_menu: CanvasLayer
 var _active_world_scene: Node2D
 var _current_location: String = "" ## empty until the first travel_to() call, so the initial boot travel isn't a same-location no-op
 var _festival_overlay: FestivalMiniGameOverlay
+var _sleep_system
+var _sleep_zone
 
 func _ready() -> void:
 	if not SaveManager.load_game():
@@ -102,6 +104,7 @@ func _show_hud() -> void:
 	_hud = _hud_scene.instantiate()
 	add_child(_hud)
 	_show_pause_menu()
+	_init_sleep_system()
 	travel_to(STARTING_LOCATION)
 	FestivalManager.festival_started.connect(_on_festival_started)
 
@@ -111,6 +114,10 @@ func _show_pause_menu() -> void:
 	_pause_menu = _pause_menu_scene.instantiate()
 	add_child(_pause_menu)
 	_pause_menu.travel_requested.connect(travel_to)
+
+func _init_sleep_system() -> void:
+	_sleep_system = load("res://scripts/world/sleep_system.gd").new()
+	add_child(_sleep_system)
 
 func current_location() -> String:
 	return _current_location
@@ -126,10 +133,12 @@ func travel_to(location: String) -> void:
 	if not LOCATION_SCENE_PATHS.has(location) or location == _current_location:
 		return
 	if _active_world_scene != null and is_instance_valid(_active_world_scene):
+		_remove_sleep_zone()
 		_active_world_scene.free()
 	_active_world_scene = load(LOCATION_SCENE_PATHS[location]).instantiate()
 	add_child(_active_world_scene)
 	_current_location = location
+	_add_sleep_zone()
 
 func _on_festival_started(_festival_id: String) -> void:
 	if _festival_overlay != null and is_instance_valid(_festival_overlay):
@@ -142,3 +151,19 @@ func _on_festival_overlay_closed() -> void:
 	if _festival_overlay != null and is_instance_valid(_festival_overlay):
 		_festival_overlay.queue_free()
 	_festival_overlay = null
+
+func _add_sleep_zone() -> void:
+	_sleep_zone = load("res://scenes/world/SleepZone.tscn").instantiate()
+	_sleep_zone.position = Vector2(0, 0)
+	_active_world_scene.add_child(_sleep_zone)
+	_sleep_zone.sleep_initiated.connect(_on_sleep_initiated)
+
+func _remove_sleep_zone() -> void:
+	if _sleep_zone != null and is_instance_valid(_sleep_zone):
+		if _sleep_zone.sleep_initiated.is_connected(_on_sleep_initiated):
+			_sleep_zone.sleep_initiated.disconnect(_on_sleep_initiated)
+		_sleep_zone.queue_free()
+	_sleep_zone = null
+
+func _on_sleep_initiated() -> void:
+	_sleep_system.start_sleep()
