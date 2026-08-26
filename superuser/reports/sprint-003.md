@@ -159,5 +159,45 @@ compete on systems correctness, coziness, and modern UX instead.
 Sequencing suggestion: embodiment cluster first (#100/#101/#102), then
 #111 + #110 (social payoff), with #109/#112/#113 as texture passes.
 
+---
+
+## Addendum 4 (same day): genre benchmark + SCAMPER roadmap decision
+
+Benchmarked against genre leaders (SDV = content depth + modding moat;
+Fields of Mistria = juice over features; SoS = seasonal rhythm; Roots of
+Pacha = co-op niche DEFERRED; Graveyard Keeper = theme coherence, not
+our path; Littlewood = friction-removal-as-feature). Conclusion: S-tier
+wins on rhythm/feel/retention, not mechanics — and mechanics are this
+repo's proven strength. Spend almost entirely on the experience layer.
+
+SCAMPER outputs filed:
+- #116 [P3] skill milestone perks (Combine; idle level_changed hook)
+- #115 [P3 area:social] Winter festival + minigame variety (Magnify;
+  verified Winter has zero festivals)
+- #117 [P3] collection journal (Put-to-other-use of discovery data)
+- #118 [P3] multi-slot saves (Eliminate single-save anxiety; REQUIRED
+  before shipping #92's destructive New Game)
+- #120 [needs-decision] soften pass-out gold penalty (Eliminate; tester
+  lean option c — reduced stamina next day, evaluated after #109)
+- #119 [P4 idea] modding-lite content packs (Adapt SDV moat; file now
+  because #96/#108/#110/#116 are choosing data shapes NOW — reserve the
+  seam free, build far-future)
+
+Rejected by SCAMPER for v1 (recorded so they don't resurface silently):
+dynamic NPC shop pricing (enabled later by #96 anyway), quest-gated
+biome travel (contradicts openness), co-op multiplayer (different era of
+cost), combat anything (Decision B).
+
+ROADMAP DECISION (phases, exit criteria in superuser report):
+P0 Trust: #97 + parity green. P1 Feel: #92/#93/#94/#100/#101/#102.
+P2 New-player arc: #108/#91/#96/#98. P3 Season rhythm+payoff:
+#110/#111/#115/#112/#109. P4 Retention/longevity: #105-107 world,
+#113/#116/#117/#118; decide #120; reserve #119 seams.
+S-TIER BAR (measurable): zero open P0/P1; first-payout inside ~15 real
+minutes via starter chain; no shipped system invisible on screen;
+festival+birthday present every season; journal+perks live; cozy
+friction floor met (sleep-skip, rain relief, multi-slot).
+
+
 
 

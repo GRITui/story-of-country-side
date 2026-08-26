@@ -2361,3 +2361,29 @@ either, so the remote branches remain as harmless merged-and-stale refs).
     payoff (#111/#110), then texture (#109/#112/#113).
   </description>
 </task_item>
+
+<task_item>
+  <id>SUPERUSER-SCAMPER-ROADMAP</id>
+  <status>DONE</status>
+  <description>
+    Sprint-003 addendum 4 (same day): genre benchmark (SDV/Mistria/SoS/
+    Pacha/GK/Littlewood) + SCAMPER applied to this codebase. Core finding:
+    S-tier wins on rhythm/feel/retention, not mechanics -- mechanics are
+    already our strength. Verified whitespace before filing: Winter has
+    ZERO festivals (Spring13/Summer15/Fall16 only); SkillManager's
+    perk hook is explicitly reserved but unused; no discovery journal
+    exists anywhere.
+    Filed: #116 skill perks (Combine), #115 winter festival (Magnify),
+    #117 collection journal (Put-to-other-use), #118 multi-slot saves
+    (Eliminate; gate for #92's New Game), #120 needs-decision pass-out
+    penalty softening, #119 P4 modding-lite seam reservation.
+    Rejected-for-v1 on record: dynamic shop pricing, gated biomes,
+    co-op, combat.
+    ROADMAP DECISION recorded in superuser/reports/sprint-003.md
+    addendum 4: five phases P0 Trust -> P1 Feel -> P2 new-player arc ->
+    P3 season rhythm/payoff -> P4 retention, with a measurable S-tier
+    bar (no open P0/P1; first payout <~15 real minutes via #108 chain;
+    no invisible shipped systems; full-season social rhythm; journal +
+    perks live; cozy friction floor).
+  </description>
+</task_item>
