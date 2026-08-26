@@ -2250,3 +2250,32 @@ either, so the remote branches remain as harmless merged-and-stale refs).
     sequencing/triage stays with PM/Producer per SQUAD-SPLIT.md.
   </description>
 </task_item>
+
+<task_item>
+  <id>SUPERUSER-SPRINT-003</id>
+  <status>DONE</status>
+  <description>
+    Sprint-003 tester pass (2026-08-26, base @ 78fa37e): retailer-lens
+    economy simulation via new public-APIs-only harness
+    superuser/autoplay/RetailSimDriver.tscn (--phase retail).
+    Baseline parity first: 962/962 checks, clean smoke boot.
+    Result: 21 checks / 19 pass / 2 fail (one bug class).
+    PASS side worth knowing: overnight payout math exact across mixed
+    price lines; pending shipments survive save/reload byte-exact and
+    settle exactly once (the #90 day-edge boot gap does NOT hit the
+    bin); two-gate purchase ordering held everywhere on the buy side.
+    Findings filed as GitHub issues this cycle:
+    - #97 P1 bug BLOCKER: InventoryManager.sell_item() silently destroys
+      stock when unit_price <= 0 (returns true, goods gone, no payout);
+      cross-autoload guard mismatch with ShippingBinManager.ship_item();
+      needs a front validation + missing test case before #91's shop UI
+      feeds it a computed price.
+    - #96 P2 enhancement: canonical price registry (sell/buy lookups incl.
+      quality variants; today scattered across CropDefinition,
+      FarmPlotManager constants, and unvalidated caller unit_price).
+    - #98 P3 enhancement: persist per-line sale history for a morning
+      sales summary (payout detail currently discarded at settlement).
+    Full detail: superuser/reports/sprint-003.md. Advisory as always --
+    triage/sequencing stays with PM/Producer.
+  </description>
+</task_item>
