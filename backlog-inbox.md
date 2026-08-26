@@ -2303,3 +2303,30 @@ either, so the remote branches remain as harmless merged-and-stale refs).
     Detail in superuser/reports/sprint-003.md addendum.
   </description>
 </task_item>
+
+<task_item>
+  <id>SUPERUSER-WORLD-ONBOARDING-ISSUES</id>
+  <status>DONE</status>
+  <description>
+    Sprint-003 addendum 2 (same day): assessed multi-map country-side/
+    mountain/sea expansion + overall game design + a starter quest bundle,
+    all verified at HEAD before filing. Key facts: world is one biome in
+    four costumes (flat grids, menu travel); multi-map feasibility HIGH
+    (scene-swap extends by dictionary entry; procedural tile art is
+    location-agnostic; FishingManager's sea fish already exist against
+    abstract location strings with no coast to stand on). Quest audit:
+    engine proven by 10 signal-evaluated quests but ALL are late-game
+    automation unlocks -- zero day-one guidance exists.
+    Filed this cycle:
+    - #106 [epic] three-biome world expansion (leaves cross-linked)
+    - #105 [P2] sea coast map: pier fishing for the existing ocean pools
+    - #107 [P2] mountain region map: mountainside home for mine entrance
+    - #108 [P2 area:economy] starter quest chain (ship->earn->befriend->
+      explore); steps 1-3 buildable today; single small backend ask is an
+      EARN_GOLD condition type; no seed step until #91 lands.
+    Sequencing: after #100/#101 embodiment; additive-only (no save
+    migration). Design-health snapshot recorded in
+    superuser/reports/sprint-003.md addendum 2 -- no untriaged design
+    gaps known to this seat as of this cycle.
+  </description>
+</task_item>

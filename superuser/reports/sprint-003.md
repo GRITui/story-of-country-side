@@ -81,3 +81,40 @@ Sequencing recommendation: #101+#100 land together (embodiment layer),
 then #102 reuses it. Anti-recommendation recorded for PM: do NOT add
 combat controls/enemy AI scope when triaging these.
 
+---
+
+## Addendum 2 (same day): world expansion + game-design assessment
+
+Asked to assess (a) multiple themed maps — country-side plus mountain
+and sea, (b) overall game design, (c) bundling a simple starting quest
+for new players. Findings, all verified at HEAD:
+
+- World today = ONE biome wearing four name tags:
+  LOCATION_SCENE_PATHS has 4 flat same-palette grids; MapOverlay
+  self-documents as "four flat buttons, no zones".
+- Multi-map feasibility is HIGH: scene-swap architecture extends by
+  dictionary entry; procedural_tile_art.gd is location-agnostic
+  (biome palettes are generation params); FishingManager already
+  registers sea fish (tuna/sardine/squid/eel/sturgeon) against abstract
+  location strings — sea content exists with no sea to stand on.
+- Quest audit: QuestManager's condition engine is proven (10 signal-
+  evaluated quests) but ALL TEN are late-game InfrastructureManager
+  automation unlocks. Zero day-one guidance exists anywhere. Combined
+  with #91 free planting, #93 171s days, no avatar (#100): the first
+  hour is aimless idling.
+
+Filed this cycle:
+- #106 [epic] three-biome world expansion (valley/mountain/sea)
+- #105 [P2] Sea coast map + pier fishing (ocean pools get a home)
+- #107 [P2] Mountain region map (mine entrance gets a mountainside)
+- #108 [P2 area:economy] Starter quest chain ship→earn→befriend→explore;
+  steps 1-3 buildable TODAY against shipped systems; only backend ask is
+  one small EARN_GOLD condition type (~10 lines, existing pattern);
+  deliberately no seed step until #91 lands.
+
+Design-health snapshot for PM: systems layer complete and verified;
+experience-layer gaps now fully ticketed and ranked — embodiment
+(#100-102), economy input cost (#91), new-player onboarding (#108),
+world variety (#105-107). No untriaged design gaps known to this seat.
+
+
