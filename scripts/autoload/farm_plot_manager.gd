@@ -22,11 +22,27 @@ extends Node
 ## Quality-tier odds/multipliers below are still placeholder balance (no
 ## quality economy design exists in the doc) -- content pass leaves those
 ## untouched, only the crop roster and prices are in scope here.
+##
+## Seed economy (#91): plant() used to be free/infinite (no inventory
+## check at all). Seeds are now real InventoryManager items under the
+## "<crop_id>_seed" convention (get_seed_item_id) -- plant() requires and
+## consumes one, buy_seed() is the smallest-viable purchase path (spends
+## gold via ShippingBinManager.spend(), credits InventoryManager
+## directly), and SaveManager.new_game() calls grant_starting_seeds() so
+## day 1 starts with a real (if placeholder-priced) planting decision.
 
 signal crop_planted(position: Vector2i, crop_id: String)
 signal crop_watered(position: Vector2i)
 signal crop_harvested(position: Vector2i, item_id: String, quality: String, quantity: int)
 signal crop_withered(position: Vector2i, crop_id: String) ## fires when a planted crop's season ends before harvest
+signal seed_purchased(crop_id: String, quantity: int, total_cost: int) ## #91: buy_seed() succeeded
+
+## #91: starting seed grant applied by SaveManager.new_game() via
+## grant_starting_seeds() -- enough for a meaningful first-day choice
+## (ship what vs. plant what) without also being a large gold sink,
+## matching the issue's "e.g. 8 parsnip seeds" proposal.
+const STARTING_SEED_CROP_ID := "parsnip"
+const STARTING_SEED_QUANTITY := 8
 
 const QUALITY_NORMAL := "normal"
 const QUALITY_SILVER := "silver"
@@ -61,19 +77,20 @@ func _ready() -> void:
 ## pass; only newly-added crops are free of that constraint.
 func _register_default_content() -> void:
 	# Spring
-	register_crop(_make_crop("parsnip", "Parsnip", ["Spring"], 4, false, 0, 35, 4))
-	register_crop(_make_crop("cauliflower", "Cauliflower", ["Spring"], 6, false, 0, 80, 8))
+	register_crop(_make_crop("parsnip", "Parsnip", ["Spring"], 4, false, 0, 35, 4, 15))
+	register_crop(_make_crop("cauliflower", "Cauliflower", ["Spring"], 6, false, 0, 80, 8, 35))
 	# Summer
-	register_crop(_make_crop("tomato", "Tomato", ["Summer"], 5, true, 3, 45, 6))
-	register_crop(_make_crop("melon", "Melon", ["Summer"], 7, false, 0, 140, 12))
+	register_crop(_make_crop("tomato", "Tomato", ["Summer"], 5, true, 3, 45, 6, 25))
+	register_crop(_make_crop("melon", "Melon", ["Summer"], 7, false, 0, 140, 12, 60))
 	# Fall
-	register_crop(_make_crop("pumpkin", "Pumpkin", ["Fall"], 7, false, 0, 120, 12))
-	register_crop(_make_crop("corn", "Corn", ["Fall"], 8, true, 4, 55, 6))
+	register_crop(_make_crop("pumpkin", "Pumpkin", ["Fall"], 7, false, 0, 120, 12, 50))
+	register_crop(_make_crop("corn", "Corn", ["Fall"], 8, true, 4, 55, 6, 30))
 	# Winter (Winter is a real TimeManager season; previously had no crop)
-	register_crop(_make_crop("frost_kale", "Frost Kale", ["Winter"], 6, false, 0, 70, 7))
+	register_crop(_make_crop("frost_kale", "Frost Kale", ["Winter"], 6, false, 0, 70, 7, 30))
 
 func _make_crop(crop_id: String, display_name: String, seasons: Array[String],
-	days_to_grow: int, regrowable: bool, regrow_days: int, sell_price: int, xp: int) -> CropDefinition:
+	days_to_grow: int, regrowable: bool, regrow_days: int, sell_price: int, xp: int,
+	seed_price: int = 5) -> CropDefinition:
 	var def := CropDefinition.new()
 	def.crop_id = crop_id
 	def.display_name = display_name
@@ -83,6 +100,7 @@ func _make_crop(crop_id: String, display_name: String, seasons: Array[String],
 	def.regrow_days = regrow_days
 	def.base_sell_price = sell_price
 	def.xp_reward = xp
+	def.seed_price = seed_price
 	return def
 
 ## Re-registering the same crop_id is a content overwrite (last write
@@ -118,8 +136,59 @@ func can_plant(position: Vector2i, crop_id: String) -> bool:
 		return false
 	return def.valid_seasons.has(TimeManager.current_season())
 
+## #91: quality tiers are encoded into the harvested item_id (see
+## get_item_id below); seeds get the same treatment but with their own
+## fixed "_seed" suffix on the base crop_id -- a seed has no quality tier
+## of its own, so this is a separate convention, not get_item_id reused.
+func get_seed_item_id(crop_id: String) -> String:
+	return "%s_seed" % crop_id
+
+func get_seed_price(crop_id: String) -> int:
+	var def: CropDefinition = _definitions.get(crop_id)
+	if def == null:
+		return 0
+	return def.seed_price
+
+## #91: smallest viable purchase path (per issue #91's proposal) --
+## spends gold via ShippingBinManager.spend() and credits seed inventory
+## via InventoryManager.add_item(), no separate shop autoload/UI. Fails
+## cleanly (no partial spend, no signal) on an unknown crop, a
+## non-positive quantity/price, or insufficient gold -- same
+## check-before-spend shape as InventoryManager.remove_item/
+## ToolManager.upgrade_tool.
+func buy_seed(crop_id: String, quantity: int = 1) -> bool:
+	if quantity <= 0:
+		return false
+	var def: CropDefinition = _definitions.get(crop_id)
+	if def == null or def.seed_price <= 0:
+		return false
+	var total_cost := def.seed_price * quantity
+	if not ShippingBinManager.spend(total_cost):
+		return false
+	InventoryManager.add_item(get_seed_item_id(crop_id), quantity)
+	seed_purchased.emit(crop_id, quantity, total_cost)
+	return true
+
+## #91: SaveManager.new_game() calls this once after resetting Inventory/
+## FarmPlotManager to their fresh-boot defaults -- a starting-inventory
+## grant is cross-cutting (touches InventoryManager, not just this
+## manager's own state) so it isn't folded into from_save_dict({})'s
+## per-manager reset the way STARTING_GOLD is.
+func grant_starting_seeds() -> void:
+	InventoryManager.add_item(get_seed_item_id(STARTING_SEED_CROP_ID), STARTING_SEED_QUANTITY)
+
+## #91: planting now requires + consumes one real seed item instead of
+## being free/infinite -- can_plant() above stays season/empty-plot only
+## (no inventory side effect) so UI can still preview plantability without
+## spending anything; the seed check/consume only happens here, in the
+## actual mutating call. Fails cleanly (returns false, no plot mutation,
+## no signal, seed not consumed) when the player has no seed on hand --
+## same "check before spend" shape as InventoryManager.remove_item.
 func plant(position: Vector2i, crop_id: String) -> bool:
 	if not can_plant(position, crop_id):
+		return false
+	var seed_item_id := get_seed_item_id(crop_id)
+	if not InventoryManager.remove_item(seed_item_id, 1):
 		return false
 	var plot := FarmPlot.new()
 	plot.crop_id = crop_id
