@@ -30,3 +30,29 @@ func get_target_for(hour: int, minute: int, for_season: String, for_weather: Str
 		else:
 			break
 	return chosen
+
+## Backend-facing API (#102): schedule-debug overlay can introspect any NPC's
+## schedule for development/debugging/testing. Implements F-S9-03 with B-S9-04.
+##
+## Returns the entire schedule for npc_name, including season/weather
+## gating, for display purposes (e.g. debug overlays). QA tests can assert
+## that a schedule has expected entries for specific locations/times.
+func get_debug_schedule_for(npc_name: String) -> Array[NPCScheduleEntry]:
+	var debug_entries: Array[NPCScheduleEntry] = []
+	# Create copies of entries to avoid exposing internal state
+	for entry in entries:
+		var copy := NPCScheduleEntry.new()
+		copy.hour = entry.hour
+		copy.minute = entry.minute
+		copy.position = entry.position
+		copy.location_name = entry.location_name
+		copy.season = entry.season
+		copy.weather = entry.weather
+		debug_entries.append(copy)
+	return debug_entries
+
+## Returns the current active entry for hour/minute/season/weather, or null
+## if no entry matches. QA tests can verify NPCs move to expected targets
+## at expected times without running the entire simulation.
+func get_current_entry(npc_name: String, hour: int, minute: int, for_season: String, for_weather: String) -> NPCScheduleEntry:
+	return get_target_for(hour, minute, for_season, for_weather)
