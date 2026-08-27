@@ -69,6 +69,10 @@ class_name FarmScene
 ## selection UI/hotbar-binding yet (HUD's own docstring already flags the
 ## hotbar has no real item binding -- same gap, not re-solved here). This is
 ## a placeholder interaction model, not a designed one.
+##
+## Seed Shop (#123): pressing "B" toggles scenes/ui/ShopOverlay.tscn, a
+## minimal restock UI for FarmPlotManager.buy_seed() -- see
+## scripts/ui/shop_overlay.gd's own docstring and _toggle_shop() below.
 
 const GRID_WIDTH := 8
 const GRID_HEIGHT := 8
@@ -106,11 +110,14 @@ const DECORATIVE_PROPS := [
 ]
 
 @onready var _tilemap: TileMap = $TileMap
+var _player_avatar: PlayerAvatar
+var _shop_overlay: ShopOverlay
 
 func _ready() -> void:
 	_build_tileset()
 	_render_all_plots()
 	_add_decorative_props()
+	_add_player_avatar()
 
 	FarmPlotManager.crop_planted.connect(_on_crop_planted)
 	FarmPlotManager.crop_watered.connect(_on_crop_watered)
@@ -145,6 +152,15 @@ func _add_decorative_props() -> void:
 		sprite.offset = Vector2(-texture.get_width() / 2.0, -texture.get_height())
 		sprite.position = _tilemap.map_to_local(prop["grid_pos"])
 		add_child(sprite)
+
+## Player avatar (#100): places a PlayerAvatar at the grid's center anchor
+## on scene entry -- see player_avatar.gd's own docstring for why a scene-
+## local reset-per-entry is acceptable v1. Every subsequent tile click
+## moves it toward the clicked cell (see _handle_tile_click).
+func _add_player_avatar() -> void:
+	_player_avatar = PlayerAvatar.new()
+	_player_avatar.position = _tilemap.map_to_local(Vector2i(GRID_WIDTH / 2, GRID_HEIGHT / 2))
+	add_child(_player_avatar)
 
 ## Re-derives a tile's visual state from FarmPlotManager.get_plot() -- the
 ## single source of truth -- rather than tracking any scene-local duplicate
@@ -190,25 +206,88 @@ func _on_crop_withered(position: Vector2i, _crop_id: String) -> void:
 	if _in_grid(position):
 		_paint_tile(position, STATE_WITHERED)
 
+## #101: direct keyboard movement, additive alongside the click-to-move
+## stand-in below -- see player_avatar.gd's move_by_input() docstring for
+## the precedence rule (a movement key press cancels any in-flight click
+## move). Input.get_vector already zeroes out when nothing is pressed, so
+## the no-call-when-idle contract move_by_input() documents is satisfied
+## by just always calling it here.
+func _process(delta: float) -> void:
+	var direction := Input.get_vector("move_left", "move_right", "move_up", "move_down")
+	_player_avatar.move_by_input(direction, delta)
+
+## Resolves the tile the interact action (#101) should act on: one nominal
+## tile-step in front of the avatar, in whatever direction it last faced
+## (see player_avatar.gd's `facing`). Reuses the same tilemap.local_to_map()
+## transform the mouse-click path already uses (both _player_avatar.position
+## and the tilemap share this scene's local coordinate space), so this
+## stays correct under the isometric projection without any separate
+## grid-direction math.
+func _facing_tile() -> Vector2i:
+	return _tilemap.local_to_map(_player_avatar.position + _player_avatar.facing * TILE_HEIGHT)
+
 ## Click-to-interact stretch goal (see class docstring): a single click
 ## plants (if empty), waters (if planted and not yet watered today), or
 ## harvests (if ready) -- one action per click, cycling through the plot's
 ## lifecycle. Whichever FarmPlotManager call applies returns false and is a
 ## silent no-op if its own preconditions aren't met (wrong season, already
 ## watered, etc.) -- this scene never duplicates that validation.
+##
+## #101: the `interact` action runs the identical cycle against
+## _facing_tile() instead of a clicked cell -- one shared _handle_tile_click
+## body, two ways to trigger it, per the issue's own ask ("wire interact to
+## whatever the avatar is adjacent to"). Mouse click remains the primary
+## targeting input, per the issue's scope guard.
+##
+## Seed Shop toggle (#123: buy_seed() had no UI hook -- see
+## scripts/ui/shop_overlay.gd's own docstring for the overlay itself).
+## "B" is still checked as a raw physical keycode rather than a named
+## input action -- #101 (landed the same sprint, in parallel) registered
+## project.godot's [input] section for movement/interact/dialog, but no
+## shop-toggle action was part of that spec, and no dedicated shopkeeper
+## NPC/building exists yet either (out of scope for #123's v1), so a raw
+## key check remains the simplest toggle that doesn't require either.
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		var local_pos: Vector2 = _tilemap.to_local(get_global_mouse_position())
 		var cell: Vector2i = _tilemap.local_to_map(local_pos)
 		_handle_tile_click(cell)
+	elif event.is_action_pressed("interact"):
+		_handle_tile_click(_facing_tile())
+	elif event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_B:
+		_toggle_shop()
+
+func _toggle_shop() -> void:
+	if _shop_overlay != null and is_instance_valid(_shop_overlay):
+		_close_shop()
+	else:
+		_open_shop()
+
+func _open_shop() -> void:
+	_shop_overlay = load("res://scenes/ui/ShopOverlay.tscn").instantiate()
+	add_child(_shop_overlay)
+	_shop_overlay.closed.connect(_close_shop)
+
+func _close_shop() -> void:
+	if _shop_overlay != null and is_instance_valid(_shop_overlay):
+		# free(), not queue_free() -- a re-press of "B" in the same frame
+		# (or a headless test asserting the overlay is gone right after
+		# closing) needs the node actually out of the tree immediately,
+		# same precedent InventoryOverlay's row-removal already documents.
+		_shop_overlay.free()
+	_shop_overlay = null
 
 func _handle_tile_click(position: Vector2i) -> void:
 	if not _in_grid(position):
 		return
+	_player_avatar.move_to(_tilemap.map_to_local(position))
 	var plot: FarmPlot = FarmPlotManager.get_plot(position)
+	var acted := false
 	if plot == null or plot.is_empty():
-		FarmPlotManager.plant(position, PLACEHOLDER_PLANT_CROP_ID)
+		acted = FarmPlotManager.plant(position, PLACEHOLDER_PLANT_CROP_ID)
 	elif plot.harvest_ready:
-		FarmPlotManager.harvest(position)
+		acted = not FarmPlotManager.harvest(position).is_empty()
 	elif not plot.watered_today:
-		FarmPlotManager.water(position)
+		acted = FarmPlotManager.water(position)
+	if acted:
+		_player_avatar.pulse_tool_use()

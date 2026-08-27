@@ -101,11 +101,13 @@ const DECORATIVE_PROP_PATHS := [
 ]
 
 @onready var _tilemap: TileMap = $TileMap
+var _player_avatar: PlayerAvatar
 
 func _ready() -> void:
 	_build_tileset()
 	_render_all_tiles()
 	_add_decorative_props()
+	_add_player_avatar()
 
 	MiningManager.rock_broken.connect(_on_rock_broken)
 	MiningManager.floor_descended.connect(_on_floor_descended)
@@ -147,6 +149,16 @@ func _add_decorative_props() -> void:
 		sprite.position = _tilemap.map_to_local(positions[i])
 		add_child(sprite)
 
+## Player avatar (#100): mirrors farm_scene.gd's _add_player_avatar.
+## Anchored at the floor's center (from get_floor_size(), same "don't
+## hardcode a size this scene doesn't own" discipline _add_decorative_props
+## already follows), moved toward each clicked tile thereafter.
+func _add_player_avatar() -> void:
+	var floor_size := MiningManager.get_floor_size()
+	_player_avatar = PlayerAvatar.new()
+	_player_avatar.position = _tilemap.map_to_local(Vector2i(floor_size.x / 2, floor_size.y / 2))
+	add_child(_player_avatar)
+
 func _refresh_tile(tile: Vector2i) -> void:
 	_paint_tile(tile, _tile_state(tile))
 
@@ -174,18 +186,36 @@ func _on_rock_broken(tile: Vector2i, _item_id: String, _quantity: int) -> void:
 func _on_floor_descended(_new_floor_index: int) -> void:
 	_render_all_tiles()
 
+## #101: direct keyboard movement -- mirrors farm_scene.gd's _process
+## exactly, see that file for the precedence-rule docstring.
+func _process(delta: float) -> void:
+	var direction := Input.get_vector("move_left", "move_right", "move_up", "move_down")
+	_player_avatar.move_by_input(direction, delta)
+
+## Resolves the interact-action target tile -- mirrors farm_scene.gd's
+## _facing_tile() exactly.
+func _facing_tile() -> Vector2i:
+	return _tilemap.local_to_map(_player_avatar.position + _player_avatar.facing * TILE_HEIGHT)
+
 ## Click-to-interact (see class docstring): mirrors every prior world
-## scene's _unhandled_input pattern exactly.
+## scene's _unhandled_input pattern exactly, plus the `interact` action
+## (#101) driving _handle_tile_click against _facing_tile().
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		var local_pos: Vector2 = _tilemap.to_local(get_global_mouse_position())
 		var cell: Vector2i = _tilemap.local_to_map(local_pos)
 		_handle_tile_click(cell)
+	elif event.is_action_pressed("interact"):
+		_handle_tile_click(_facing_tile())
 
 func _handle_tile_click(tile: Vector2i) -> void:
 	if not _in_grid(tile):
 		return
+	_player_avatar.move_to(_tilemap.map_to_local(tile))
+	var acted := false
 	if tile == MiningManager.get_ladder_position():
-		MiningManager.descend_ladder()
+		acted = MiningManager.descend_ladder()
 	elif MiningManager.has_rock(tile):
-		MiningManager.break_rock(tile)
+		acted = not MiningManager.break_rock(tile).is_empty()
+	if acted:
+		_player_avatar.pulse_tool_use()

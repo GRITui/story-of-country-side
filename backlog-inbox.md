@@ -2422,6 +2422,204 @@ either, so the remote branches remain as harmless merged-and-stale refs).
 </task_item>
 
 <task_item>
+  <id>ENG-91</id>
+  <status>IN_PROGRESS</status>
+  <priority>HIGH</priority>
+  <title>Seed economy: seeds as items + starting grant + purchase path</title>
+  <description>
+    Claimed for Sprint 1 by Product Owner, assigned to Engineer/Backend
+    Squad. See issue #91 for full spec. Backend lane per SQUAD-SPLIT.md
+    (scripts/autoload/**, scripts/economy/**, scripts/farming/**).
+  </description>
+</task_item>
+
+<task_item>
+  <id>FRONTEND-100</id>
+  <status>IN_PROGRESS</status>
+  <priority>HIGH</priority>
+  <title>Player avatar: a visible main character in world scenes</title>
+  <description>
+    Claimed for Sprint 1 by Product Owner, assigned to Frontend Squad. See
+    issue #100 for full spec. Frontend lane per SQUAD-SPLIT.md
+    (scenes/**, scripts/story/**, scripts/npc/npc_controller.gd). Must not
+    touch backend autoloads except through existing public methods/signals.
+  </description>
+</task_item>
+
+<task_item>
+  <id>ENG-91</id>
+  <status>DONE</status>
+  <priority>HIGH</priority>
+  <title>Seed economy: seeds as items + starting grant + purchase path</title>
+  <description>
+    Shipped by Engineer/Backend Squad: PR gritui/story-of-country-side#122
+    (branch feature/eng-91-seed-economy). CropDefinition.seed_price;
+    FarmPlotManager.plant() now requires/consumes a real "&lt;crop_id&gt;_seed"
+    InventoryManager item; FarmPlotManager.buy_seed() purchase path via
+    ShippingBinManager.spend(); SaveManager.new_game() grants 8 starting
+    parsnip seeds via FarmPlotManager.grant_starting_seeds(). 1009/1009
+    tests pass (+17 new), verified headless Godot 4.3-stable. See
+    squad-handshake-engineer.md's "Sprint 1 — ENG-91 DONE" entry for the
+    full trail. Follow-up gaps (not built here): no shop/purchase UI hook
+    yet (Frontend/UI task), seed_price values are a placeholder heuristic
+    pending Content lane's real balance pass.
+  </description>
+</task_item>
+
+<task_item>
+  <id>FRONTEND-100</id>
+  <status>DONE</status>
+  <priority>HIGH</priority>
+  <title>Player avatar: a visible main character in world scenes</title>
+  <description>
+    Shipped via PR #121 (frontend/player-avatar branch, not yet merged as
+    of this entry). Adds scripts/world/player_avatar.gd (PlayerAvatar,
+    Node2D) -- a bottom-anchored placeholder sprite via the existing
+    ProceduralCharacterArt generator NPCController already uses, tinted a
+    fixed color distinct from any NPC's name-hashed tint. Wired into
+    FarmScene/RanchScene/MineScene/ForageScene: placed at each grid's
+    center anchor on _ready(), moved toward the clicked tile on every
+    _handle_tile_click, and a brief tint pulse plays when that click's
+    manager call actually succeeds. Meets issue #100's ask list (sprite,
+    pseudo-move toward last click with 4-dir facing, tool-use tint pulse,
+    position persists within a scene visit / resets on scene swap --
+    explicitly accepted as fine for v1 per the issue's own text). No
+    backend surface touched -- pure presentation via each manager's
+    existing public methods only, same tier as npc_controller.gd; no new
+    autoload/save-data needed since position stays scene-local per #100's
+    own v1 acceptance.
+    Verification: headless boot of scenes/Main.tscn via Godot 4.3.stable
+    (matches project.godot's config/features) -- clean, no errors -- and
+    the full tests/TestRunner.tscn suite: 992/992 checks passing. No
+    dedicated PlayerAvatar unit tests added (existing scene-level tests
+    already exercise every _handle_tile_click path this reuses; this
+    repo's test suite has historically focused on backend autoloads and
+    scene-state rendering, and NPCController -- the closest precedent --
+    also has no dedicated tests).
+    Follow-up gaps noted in PR: depends on #101 (real input map) for any
+    actual player-driven movement beyond this click-to-pseudo-move
+    stand-in; #102 (visible NPCs) can reuse this same PlayerAvatar/
+    ProceduralCharacterArt layer.
+  </description>
+</task_item>
+
+<task_item>
+  <id>CONTENT-SEED-BALANCE</id>
+  <status>DONE</status>
+  <priority>MEDIUM</priority>
+  <title>Real balance pass on CropDefinition.seed_price placeholder values</title>
+  <description>
+    Sprint 2, Content Squad. Replaced PR #122's flat "~40-55% of
+    base_sell_price" seed_price placeholder with a real per-crop pass
+    across all 7 registered crops, grounded in each crop's actual
+    base_sell_price, days_to_grow, and regrow behavior against the
+    28-day season (TimeManager.DAYS_PER_SEASON):
+    - One-time-harvest crops (parsnip, cauliflower, melon, pumpkin,
+      frost_kale) re-priced to ~30-35% of base_sell_price: parsnip
+      15 -> 12, cauliflower 35 -> 28, melon 60 -> 45, pumpkin 50 -> 38,
+      frost_kale 30 -> 24.
+    - Regrowable crops (tomato, corn) re-priced to ~two-thirds of
+      base_sell_price since one seed pays out across many harvests in a
+      season (tomato: 8 harvests/season -> 25 -> 30; corn: 6
+      harvests/season -> 30 -> 38), applying the "regrowable can
+      rationally support a higher seed price" reasoning PR #122 flagged
+      but never applied.
+    Values/strings only per SQUAD-SPLIT.md's Content lane -- no method
+    signatures, signal definitions, or control flow touched
+    (scripts/autoload/farm_plot_manager.gd's _register_default_content()
+    call-site values plus scripts/farming/crop_definition.gd's stale
+    docstring). No test assertions needed updating -- tests/test_runner.gd's
+    buy_seed/plant tests all read prices dynamically via
+    FarmPlotManager.get_seed_price() rather than hardcoding old numbers.
+    Verified: clean headless boot of scenes/Main.tscn and full
+    tests/TestRunner.tscn suite, 1009/1009 checks passing, against Godot
+    4.3-stable (matches project.godot's config/features). PR: see
+    squad-handshake-content.md for number/link.
+  </description>
+</task_item>
+
+<task_item>
+  <id>FRONTEND-123</id>
+  <status>DONE</status>
+  <priority>P2</priority>
+  <title>Seed shop UI: a buyable-goods overlay hooked to buy_seed() (frontend)</title>
+  <description>
+    Sprint 2, Frontend Squad. GitHub issue #123 -- the UI-hook gap PR
+    #122 (ENG-91) flagged: FarmPlotManager.buy_seed(crop_id, quantity)
+    landed as a callable, fully-tested backend method with no scene/UI
+    hook at all.
+    Shipped: scenes/ui/ShopOverlay.tscn + scripts/ui/shop_overlay.gd, a
+    minimal full-screen Seed Shop overlay following the existing
+    InventoryOverlay/SkillsOverlay chrome/discipline -- one row per crop
+    (display_name + real CropDefinition.seed_price via
+    FarmPlotManager.get_crop_definition()), a Buy x1 button calling
+    buy_seed(crop_id, 1) directly, a status line reflecting success/
+    failure (insufficient gold) back to the player, and a gold label
+    kept in sync via ShippingBinManager.gold_changed. CROP_IDS is a
+    hardcoded 7-item list (FarmPlotManager has no "list every crop_id"
+    getter -- same gap SkillsOverlay's own SKILL_NAMES already hit for
+    SkillManager; flagged as a backend follow-up, not reached around).
+    scripts/world/farm_scene.gd: pressing "B" (raw physical keycode, not
+    a new input action -- project.godot has no [input] section yet and
+    FRONTEND-101 is landing the real input map this same sprint;
+    touching project.godot here would be a pure landing-order conflict
+    for no v1 benefit) toggles the overlay as a child of FarmScene. No
+    dedicated shopkeeper NPC/building -- explicitly out of scope for v1
+    per the issue.
+    Frontend-only (scenes/ui/**, scripts/world/farm_scene.gd) per
+    SQUAD-SPLIT.md -- no scripts/autoload/** changes; buy_seed() consumed
+    exactly as-is via its public method/signal.
+    +18 headless tests (row listing with real seed_price, buy success/
+    failure paths incl. status text and reactive gold label, close
+    signal, FarmScene's B-key open/close toggle).
+    Verification: re-verified the live baseline on the fresh base branch
+    first (1009/1009 checks passing, before this PR's own changes) since
+    CONTENT-SEED-BALANCE (#124) was landing concurrently this sprint;
+    merged that in cleanly (pure value/docstring changes, no signature
+    conflicts) and re-ran -- 1030/1030 checks passing. Clean headless
+    boot of scenes/Main.tscn. Godot 4.3-stable (matches project.godot's
+    config/features).
+    Follow-up gaps: no quantity stepper (fixed Buy x1 per click, matching
+    the issue's "simple toggle" v1 framing); FarmPlotManager could use a
+    list_crop_ids() getter so this overlay stops hardcoding its crop
+    roster. PR: see squad-handshake-frontend.md for number/link.
+  </description>
+</task_item>
+
+<task_item>
+  <id>PO-SPRINT-1-PLANNING</id>
+  <source>PRODUCT_OWNER</source>
+  <status>DONE</status>
+  <priority>HIGH</priority>
+  <title>Sprint 1 plan: close the one real economy bug, start the embodiment epic</title>
+  <description>
+    Product Owner sprint planning pass. Reviewed open GitHub issues (#91-120)
+    and backlog-inbox status. Two findings stood out over everything else
+    labeled P2/P3: (1) #91 is the only open issue that is an actual economic
+    bug, not a scope gap -- planting is currently free and infinite, which
+    undermines every other economy system already shipped (shipping bin,
+    price registry, seed-destruction guard from #97). (2) Super User's own
+    embodiment triage (#100/#101/#102) found the game currently has no
+    visible player character, no registered input map, and no NPCs
+    instantiated in any scene -- the "five activities + economy + social"
+    backend is complete but literally invisible in play. Both are P0-in-
+    substance even though labeled P1/P2.
+    Sprint 1 goal: "A player can see themselves, and seeds cost money."
+    Scope (sized to land inside one 30-120 min squad execution window each,
+    run in parallel since they touch disjoint lanes per SQUAD-SPLIT.md):
+      - ENG-91 (Backend/Engineer Squad): seeds as items + starting grant +
+        purchase path, per issue #91.
+      - FRONTEND-100 (Frontend Squad): visible player avatar in world
+        scenes, per issue #100. Deliberately NOT bundling #101 (input map)
+        or #102 (NPC instantiation) into this sprint -- keep the diff
+        reviewable, they're natural Sprint 2 follow-ons once the avatar
+        exists to control.
+    Explicitly out of scope this sprint: #93, #96, #105-119 (queued,
+    unaffected by this sprint's outcome).
+  </description>
+</task_item>
+
+<task_item>
   <id>PO-SPRINT-1-RETRO</id>
   <source>PRODUCT_OWNER</source>
   <status>DONE</status>
@@ -2494,69 +2692,5 @@ either, so the remote branches remain as harmless merged-and-stale refs).
     Deferred to Sprint 3 on purpose: #102 (NPC instantiation) -- shares
     world-scene files with FRONTEND-101, running them the same sprint
     would recreate exactly the conflict pattern retro'd above.
-  </description>
-</task_item>
-
-<task_item>
-  <id>FRONTEND-101</id>
-  <status>IN_PROGRESS</status>
-  <priority>HIGH</priority>
-  <title>Define a control scheme + input map (currently mouse-click only)</title>
-  <description>
-    Claimed for Sprint 2 by Product Owner, assigned to Frontend Squad. See
-    issue #101. Builds on #100's PlayerAvatar. Frontend lane per
-    SQUAD-SPLIT.md.
-  </description>
-</task_item>
-
-<task_item>
-  <id>FRONTEND-123</id>
-  <status>IN_PROGRESS</status>
-  <priority>HIGH</priority>
-  <title>Seed shop UI: a buyable-goods overlay hooked to buy_seed()</title>
-  <description>
-    Claimed for Sprint 2 by Product Owner, assigned to a second Frontend
-    Squad session. See issue #123 (filed this sprint's retro out of the
-    gap ENG-91/PR #122 left behind). Frontend lane, scenes/ui/** only, per
-    SQUAD-SPLIT.md.
-  </description>
-</task_item>
-
-<task_item>
-  <id>CONTENT-SEED-BALANCE</id>
-  <status>IN_PROGRESS</status>
-  <priority>MEDIUM</priority>
-  <title>Real balance pass on CropDefinition.seed_price placeholder values</title>
-  <description>
-    Claimed for Sprint 2 by Product Owner, assigned to Content Squad.
-    seed_price was shipped in PR #122 as a documented ratio-of-sell-price
-    heuristic, not a real playtested balance pass. Content lane per
-    SQUAD-SPLIT.md: values/strings only, no logic changes; update any test
-    asserting the old placeholder numbers as part of this task.
-  </description>
-</task_item>
-
-<task_item>
-  <id>ENG-91</id>
-  <status>IN_PROGRESS</status>
-  <priority>HIGH</priority>
-  <title>Seed economy: seeds as items + starting grant + purchase path</title>
-  <description>
-    Claimed for Sprint 1 by Product Owner, assigned to Engineer/Backend
-    Squad. See issue #91 for full spec. Backend lane per SQUAD-SPLIT.md
-    (scripts/autoload/**, scripts/economy/**, scripts/farming/**).
-  </description>
-</task_item>
-
-<task_item>
-  <id>FRONTEND-100</id>
-  <status>IN_PROGRESS</status>
-  <priority>HIGH</priority>
-  <title>Player avatar: a visible main character in world scenes</title>
-  <description>
-    Claimed for Sprint 1 by Product Owner, assigned to Frontend Squad. See
-    issue #100 for full spec. Frontend lane per SQUAD-SPLIT.md
-    (scenes/**, scripts/story/**, scripts/npc/npc_controller.gd). Must not
-    touch backend autoloads except through existing public methods/signals.
   </description>
 </task_item>

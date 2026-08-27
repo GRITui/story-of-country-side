@@ -57,6 +57,7 @@ var _music_stopped_count := 0 ## member, not a local -- GDScript lambdas capture
 var _community_goal_overlay_closed_count := 0 ## same reason
 var _festival_mini_game_overlay_closed_count := 0 ## same reason
 var _fishing_overlay_closed_count := 0 ## same reason
+var _shop_overlay_closed_count := 0 ## same reason
 
 func _ready() -> void:
 	_test_minute_and_hour_wrap()
@@ -145,6 +146,13 @@ func _ready() -> void:
 	_test_sell_price_applies_quality_multiplier()
 	_test_crop_withers_when_season_ends_unharvested()
 	_test_farm_plot_save_round_trip()
+
+	_test_plant_without_seed_fails_cleanly()
+	_test_plant_consumes_one_seed_from_inventory()
+	_test_buy_seed_deducts_gold_and_credits_inventory()
+	_test_buy_seed_fails_when_gold_insufficient()
+	_test_buy_seed_fails_for_unknown_crop()
+	_test_new_game_grants_starting_seeds()
 
 	_test_forage_register_node_seeds_season_valid_item()
 	_test_forage_gather_credits_inventory_and_xp_and_sets_cooldown()
@@ -252,6 +260,11 @@ func _ready() -> void:
 	_test_farm_scene_click_plants_empty_tile()
 	_test_farm_scene_click_ignores_out_of_grid_position()
 	_test_farm_scene_renders_decorative_props()
+	_test_farm_scene_b_key_toggles_shop_overlay()
+	_test_shop_overlay_lists_all_known_crops_on_ready()
+	_test_shop_overlay_buy_button_success_updates_status_and_gold()
+	_test_shop_overlay_buy_button_insufficient_gold_shows_failure()
+	_test_shop_overlay_close_emits_closed_signal()
 	_test_ranch_scene_instantiates_without_error()
 	_test_ranch_scene_renders_empty_grid_on_ready()
 	_test_ranch_scene_renders_already_occupied_pen_on_ready()
@@ -1421,6 +1434,13 @@ func _test_inventory_save_round_trip() -> void:
 func _reset_farm_plot_manager() -> void:
 	FarmPlotManager._plots = {}
 
+## #91: plant() now requires + consumes a real seed item -- tests that
+## expect plant() to succeed must stock the matching seed first. Call
+## this AFTER any _reset_inventory_manager() in the same test (that call
+## wipes _counts back to {}), not before.
+func _grant_seed_for_test(crop_id: String, quantity: int = 99) -> void:
+	InventoryManager.add_item(FarmPlotManager.get_seed_item_id(crop_id), quantity)
+
 func _on_crop_planted_for_test(position: Vector2i, crop_id: String) -> void:
 	_crop_planted_events.append([position, crop_id])
 
@@ -1444,6 +1464,7 @@ func _test_plant_and_water_and_growth_progresses_on_watered_days() -> void:
 	_reset_farm_plot_manager()
 	TimeManager.season_index = 0 # Spring
 	var fpm := FarmPlotManager
+	_grant_seed_for_test("parsnip")
 	_crop_planted_events = []
 	fpm.crop_planted.connect(_on_crop_planted_for_test)
 	var ok := fpm.plant(Vector2i(1, 1), "parsnip")
@@ -1465,6 +1486,7 @@ func _test_growth_does_not_progress_on_unwatered_days() -> void:
 	_reset_farm_plot_manager()
 	TimeManager.season_index = 0 # Spring
 	var fpm := FarmPlotManager
+	_grant_seed_for_test("parsnip")
 	fpm.plant(Vector2i(2, 2), "parsnip")
 	fpm._on_day_started(1, "Spring", "Mon") # never watered
 	var plot := fpm.get_plot(Vector2i(2, 2))
@@ -1475,6 +1497,7 @@ func _test_watered_today_resets_each_day() -> void:
 	_reset_farm_plot_manager()
 	TimeManager.season_index = 0 # Spring
 	var fpm := FarmPlotManager
+	_grant_seed_for_test("parsnip")
 	fpm.plant(Vector2i(3, 3), "parsnip")
 	fpm.water(Vector2i(3, 3))
 	fpm._on_day_started(1, "Spring", "Mon")
@@ -1485,6 +1508,7 @@ func _test_cannot_water_twice_same_day() -> void:
 	_reset_farm_plot_manager()
 	TimeManager.season_index = 0 # Spring
 	var fpm := FarmPlotManager
+	_grant_seed_for_test("parsnip")
 	fpm.plant(Vector2i(4, 4), "parsnip")
 	var first := fpm.water(Vector2i(4, 4))
 	var second := fpm.water(Vector2i(4, 4))
@@ -1503,6 +1527,7 @@ func _test_harvest_credits_inventory_and_xp_and_clears_plot() -> void:
 	TimeManager.season_index = 0 # Spring
 	SkillManager._xp = {}
 	var fpm := FarmPlotManager
+	_grant_seed_for_test("parsnip")
 	fpm.plant(Vector2i(5, 5), "parsnip")
 	_grow_to_harvest(Vector2i(5, 5), 4)
 	_check(fpm.get_plot(Vector2i(5, 5)).harvest_ready, "sanity: plot should be ready to harvest")
@@ -1526,6 +1551,7 @@ func _test_regrowable_crop_resets_instead_of_clearing() -> void:
 	_reset_inventory_manager()
 	TimeManager.season_index = 1 # Summer, Tomato
 	var fpm := FarmPlotManager
+	_grant_seed_for_test("tomato")
 	fpm.plant(Vector2i(6, 6), "tomato")
 	_grow_to_harvest(Vector2i(6, 6), 5) # tomato days_to_grow
 	fpm.harvest(Vector2i(6, 6), FarmPlotManager.QUALITY_NORMAL)
@@ -1547,6 +1573,7 @@ func _test_forced_quality_skips_random_roll() -> void:
 	_reset_inventory_manager()
 	TimeManager.season_index = 0
 	var fpm := FarmPlotManager
+	_grant_seed_for_test("parsnip")
 	fpm.plant(Vector2i(7, 7), "parsnip")
 	_grow_to_harvest(Vector2i(7, 7), 4)
 	var result := fpm.harvest(Vector2i(7, 7), FarmPlotManager.QUALITY_GOLD)
@@ -1575,6 +1602,7 @@ func _test_crop_withers_when_season_ends_unharvested() -> void:
 	_reset_farm_plot_manager()
 	TimeManager.season_index = 0 # Spring
 	var fpm := FarmPlotManager
+	_grant_seed_for_test("parsnip")
 	fpm.plant(Vector2i(8, 8), "parsnip")
 	fpm.water(Vector2i(8, 8))
 
@@ -1592,6 +1620,7 @@ func _test_farm_plot_save_round_trip() -> void:
 	_reset_inventory_manager()
 	TimeManager.season_index = 0 # Spring
 	var fpm := FarmPlotManager
+	_grant_seed_for_test("parsnip")
 	fpm.plant(Vector2i(9, 9), "parsnip")
 	fpm.water(Vector2i(9, 9))
 	fpm._on_day_started(1, "Spring", "Mon")
@@ -1605,6 +1634,79 @@ func _test_farm_plot_save_round_trip() -> void:
 	var plot := fpm.get_plot(Vector2i(9, 9))
 	_check(plot != null and plot.crop_id == "parsnip" and plot.days_grown == 1 and not plot.watered_today,
 		"farm plot state should round-trip through save/load, got %s" % [plot.to_dict() if plot else null])
+
+## --- #91: Seed economy (seeds as items, starting grant, purchase path) ---
+
+func _test_plant_without_seed_fails_cleanly() -> void:
+	_reset_farm_plot_manager()
+	_reset_inventory_manager()
+	TimeManager.season_index = 0 # Spring
+	var fpm := FarmPlotManager
+	_check(InventoryManager.get_count(fpm.get_seed_item_id("parsnip")) == 0,
+		"sanity: no parsnip seed should be on hand before this test grants any")
+	_crop_planted_events = []
+	fpm.crop_planted.connect(_on_crop_planted_for_test)
+	var ok := fpm.plant(Vector2i(0, 0), "parsnip")
+	fpm.crop_planted.disconnect(_on_crop_planted_for_test)
+
+	_check(not ok, "plant() should fail cleanly with no seed item in inventory")
+	_check(not fpm.is_planted(Vector2i(0, 0)), "a rejected plant() should leave the plot empty")
+	_check(_crop_planted_events.is_empty(), "crop_planted should not fire on a rejected plant()")
+
+func _test_plant_consumes_one_seed_from_inventory() -> void:
+	_reset_farm_plot_manager()
+	_reset_inventory_manager()
+	TimeManager.season_index = 0 # Spring
+	var fpm := FarmPlotManager
+	var seed_item_id := fpm.get_seed_item_id("parsnip")
+	InventoryManager.add_item(seed_item_id, 2)
+
+	var ok := fpm.plant(Vector2i(0, 0), "parsnip")
+	_check(ok, "plant() should succeed when a matching seed is on hand")
+	_check(InventoryManager.get_count(seed_item_id) == 1,
+		"plant() should consume exactly one seed, got %d remaining" % InventoryManager.get_count(seed_item_id))
+
+	InventoryManager.remove_item(seed_item_id, 1) # spend the last one
+	var second_ok := fpm.plant(Vector2i(1, 0), "parsnip")
+	_check(not second_ok, "plant() should fail once the seed stock is exhausted")
+
+func _test_buy_seed_deducts_gold_and_credits_inventory() -> void:
+	_reset_inventory_manager()
+	var fpm := FarmPlotManager
+	ShippingBinManager.gold = 1000
+	var seed_item_id := fpm.get_seed_item_id("parsnip")
+	var price := fpm.get_seed_price("parsnip")
+	_check(price > 0, "sanity: parsnip should have a positive seed_price configured")
+
+	_check(InventoryManager.get_count(seed_item_id) == 0, "sanity: no seeds on hand before purchase")
+	var ok := fpm.buy_seed("parsnip", 3)
+	_check(ok, "buy_seed should succeed with enough gold")
+	_check(InventoryManager.get_count(seed_item_id) == 3,
+		"buy_seed should credit InventoryManager with the purchased quantity, got %d" % InventoryManager.get_count(seed_item_id))
+	_check(ShippingBinManager.gold == 1000 - (price * 3),
+		"buy_seed should deduct quantity * seed_price gold, got %d" % ShippingBinManager.gold)
+
+func _test_buy_seed_fails_when_gold_insufficient() -> void:
+	_reset_inventory_manager()
+	var fpm := FarmPlotManager
+	var seed_item_id := fpm.get_seed_item_id("parsnip")
+	ShippingBinManager.gold = 1 # cheaper than any seed price
+
+	var ok := fpm.buy_seed("parsnip", 1)
+	_check(not ok, "buy_seed should fail cleanly when gold is insufficient")
+	_check(ShippingBinManager.gold == 1, "a rejected buy_seed should leave gold untouched")
+	_check(InventoryManager.get_count(seed_item_id) == 0, "a rejected buy_seed should credit no seeds")
+
+func _test_buy_seed_fails_for_unknown_crop() -> void:
+	ShippingBinManager.gold = 1000
+	var ok := FarmPlotManager.buy_seed("not_a_real_crop", 1)
+	_check(not ok, "buy_seed should fail cleanly for an unregistered crop_id")
+
+func _test_new_game_grants_starting_seeds() -> void:
+	SaveManager.new_game()
+	var seed_item_id := FarmPlotManager.get_seed_item_id(FarmPlotManager.STARTING_SEED_CROP_ID)
+	_check(InventoryManager.get_count(seed_item_id) == FarmPlotManager.STARTING_SEED_QUANTITY,
+		"new_game() should grant STARTING_SEED_QUANTITY starting seeds, got %d" % InventoryManager.get_count(seed_item_id))
 
 ## --- ENG-17: Foraging (ForagingManager) ---
 
@@ -2974,6 +3076,7 @@ func _test_farm_scene_renders_empty_grid_on_ready() -> void:
 func _test_farm_scene_renders_already_planted_plot_on_ready() -> void:
 	_reset_farm_plot_manager()
 	TimeManager.season_index = 0 # Spring
+	_grant_seed_for_test("parsnip")
 	FarmPlotManager.plant(Vector2i(2, 3), "parsnip")
 	var farm_scene := _make_farm_scene()
 	_check(_farm_scene_cell_source(farm_scene, Vector2i(2, 3)) == Vector2i(FarmScene.STATE_PLANTED, 0),
@@ -2984,6 +3087,7 @@ func _test_farm_scene_updates_on_crop_planted_signal() -> void:
 	_reset_farm_plot_manager()
 	TimeManager.season_index = 0 # Spring
 	var farm_scene := _make_farm_scene()
+	_grant_seed_for_test("parsnip")
 	FarmPlotManager.plant(Vector2i(1, 1), "parsnip")
 	_check(_farm_scene_cell_source(farm_scene, Vector2i(1, 1)) == Vector2i(FarmScene.STATE_PLANTED, 0),
 		"planting should reactively update the tile to STATE_PLANTED via crop_planted")
@@ -2992,6 +3096,7 @@ func _test_farm_scene_updates_on_crop_planted_signal() -> void:
 func _test_farm_scene_updates_on_crop_watered_signal() -> void:
 	_reset_farm_plot_manager()
 	TimeManager.season_index = 0 # Spring
+	_grant_seed_for_test("parsnip")
 	FarmPlotManager.plant(Vector2i(4, 4), "parsnip")
 	var farm_scene := _make_farm_scene()
 	FarmPlotManager.water(Vector2i(4, 4))
@@ -3003,6 +3108,7 @@ func _test_farm_scene_updates_on_crop_harvested_signal() -> void:
 	_reset_farm_plot_manager()
 	TimeManager.season_index = 0 # Spring
 	_reset_inventory_manager()
+	_grant_seed_for_test("parsnip")
 	FarmPlotManager.plant(Vector2i(5, 5), "parsnip")
 	FarmPlotManager.get_plot(Vector2i(5, 5)).watered_today = true
 	FarmPlotManager.get_plot(Vector2i(5, 5)).days_grown = 4
@@ -3018,6 +3124,7 @@ func _test_farm_scene_updates_on_crop_harvested_signal() -> void:
 func _test_farm_scene_updates_on_crop_withered_signal() -> void:
 	_reset_farm_plot_manager()
 	TimeManager.season_index = 0 # Spring
+	_grant_seed_for_test("parsnip")
 	FarmPlotManager.plant(Vector2i(6, 6), "parsnip")
 	var farm_scene := _make_farm_scene()
 	FarmPlotManager._plots.erase(Vector2i(6, 6)) # mirror what FarmPlotManager._on_day_started does before it emits crop_withered
@@ -3029,6 +3136,7 @@ func _test_farm_scene_updates_on_crop_withered_signal() -> void:
 func _test_farm_scene_click_plants_empty_tile() -> void:
 	_reset_farm_plot_manager()
 	TimeManager.season_index = 0 # Spring
+	_grant_seed_for_test(FarmScene.PLACEHOLDER_PLANT_CROP_ID)
 	var farm_scene := _make_farm_scene()
 	_check(FarmPlotManager.get_plot(Vector2i(0, 0)) == null, "sanity: tile should start unplanted")
 	farm_scene._handle_tile_click(Vector2i(0, 0))
@@ -3668,6 +3776,7 @@ func _test_sprinkler_system_auto_waters_all_plots() -> void:
 	InventoryManager.add_item("stone", 500)
 	InfrastructureManager.build_automation(InfrastructureManager.SPRINKLER_SYSTEM)
 
+	_grant_seed_for_test("parsnip")
 	FarmPlotManager.plant(Vector2i(0, 0), "parsnip")
 	FarmPlotManager.plant(Vector2i(1, 0), "parsnip")
 	_check(not FarmPlotManager.get_plot(Vector2i(0, 0)).watered_today,
@@ -3724,6 +3833,7 @@ func _test_automation_not_run_when_not_built() -> void:
 	_reset_farm_plot_manager()
 	_reset_animal_manager()
 
+	_grant_seed_for_test("parsnip")
 	FarmPlotManager.plant(Vector2i(0, 0), "parsnip")
 	AnimalManager.add_animal("hen1", "chicken")
 
@@ -5126,3 +5236,81 @@ func _test_saved_mid_festival_loaded_past_end_stays_expired() -> void:
 	_check(not FestivalManager.is_festival_active(), "#90: festival whose day has passed must stay expired after reload")
 	_check(_festival_started_events.is_empty(), "#90: expired festival must not emit festival_started on reload")
 	_check(tm.season_index == 1 and tm.day_in_season == 16 and tm.hour == 7, "#90: restored date/hour should match the save payload")
+
+## --- Frontend: Seed Shop overlay (#123, ENG-91/PR #122's UI-hook gap) ---
+##
+## Same discipline as the Skills/Inventory overlay blocks above: pure
+## display primed once from FarmPlotManager/CropDefinition, kept in sync
+## via seed_purchased/gold_changed, no ShopOverlay-local duplicate state.
+
+func _reset_shipping_bin_manager_gold(amount: int = ShippingBinManager.STARTING_GOLD) -> void:
+	ShippingBinManager.gold = amount
+
+func _make_shop_overlay() -> ShopOverlay:
+	var scene: PackedScene = load("res://scenes/ui/ShopOverlay.tscn")
+	var overlay: ShopOverlay = scene.instantiate()
+	add_child(overlay)
+	return overlay
+
+func _test_farm_scene_b_key_toggles_shop_overlay() -> void:
+	_reset_farm_plot_manager()
+	TimeManager.season_index = 0 # Spring
+	var farm_scene := _make_farm_scene()
+	_check(farm_scene.get_node_or_null("ShopOverlay") == null, "sanity: shop overlay should not exist until toggled")
+	var key_event := InputEventKey.new()
+	key_event.pressed = true
+	key_event.physical_keycode = KEY_B
+	farm_scene._unhandled_input(key_event)
+	_check(farm_scene.get_node_or_null("ShopOverlay") != null, "pressing B should open the ShopOverlay as a child of FarmScene")
+	farm_scene._unhandled_input(key_event)
+	_check(farm_scene.get_node_or_null("ShopOverlay") == null, "pressing B again should close the ShopOverlay")
+	farm_scene.queue_free()
+
+func _test_shop_overlay_lists_all_known_crops_on_ready() -> void:
+	var overlay := _make_shop_overlay()
+	for crop_id in ShopOverlay.CROP_IDS:
+		var def: CropDefinition = FarmPlotManager.get_crop_definition(crop_id)
+		var price_label: Label = overlay.get_node("Root/Panel/Margin/VBox/SeedList/Row_%s/PriceLabel_%s" % [crop_id, crop_id])
+		_check(price_label.text == "%s seed -- %d gold" % [def.display_name, def.seed_price],
+			"overlay should list %s with its real CropDefinition.seed_price" % crop_id)
+	overlay.queue_free()
+
+func _test_shop_overlay_buy_button_success_updates_status_and_gold() -> void:
+	_reset_inventory_manager()
+	_reset_shipping_bin_manager_gold(1000)
+	var overlay := _make_shop_overlay()
+	var parsnip_price := FarmPlotManager.get_seed_price("parsnip")
+	overlay.get_node("Root/Panel/Margin/VBox/SeedList/Row_parsnip/BuyButton_parsnip").pressed.emit()
+	_check(InventoryManager.get_count(FarmPlotManager.get_seed_item_id("parsnip")) == 1,
+		"buying should credit one seed via the real buy_seed() call")
+	_check(ShippingBinManager.gold == 1000 - parsnip_price,
+		"buying should spend seed_price gold via the real buy_seed() call")
+	_check(overlay.get_node("Root/Panel/Margin/VBox/StatusLabel").text == "Bought 1 Parsnip seed.",
+		"a successful purchase should report success back to the player")
+	_check(overlay.get_node("Root/Panel/Margin/VBox/Header/GoldLabel").text == "Gold: %d" % ShippingBinManager.gold,
+		"the gold label should update reactively via gold_changed")
+	overlay.queue_free()
+
+func _test_shop_overlay_buy_button_insufficient_gold_shows_failure() -> void:
+	_reset_inventory_manager()
+	_reset_shipping_bin_manager_gold(0)
+	var overlay := _make_shop_overlay()
+	overlay.get_node("Root/Panel/Margin/VBox/SeedList/Row_parsnip/BuyButton_parsnip").pressed.emit()
+	_check(InventoryManager.get_count(FarmPlotManager.get_seed_item_id("parsnip")) == 0,
+		"a failed purchase (insufficient gold) must not credit a seed")
+	_check(ShippingBinManager.gold == 0, "a failed purchase must not spend any gold")
+	_check(overlay.get_node("Root/Panel/Margin/VBox/StatusLabel").text == "Can't buy Parsnip seed -- not enough gold.",
+		"a failed purchase should report the failure back to the player")
+	overlay.queue_free()
+	_reset_shipping_bin_manager_gold()
+
+func _on_shop_overlay_closed_for_test() -> void:
+	_shop_overlay_closed_count += 1
+
+func _test_shop_overlay_close_emits_closed_signal() -> void:
+	_shop_overlay_closed_count = 0
+	var overlay := _make_shop_overlay()
+	overlay.closed.connect(_on_shop_overlay_closed_for_test)
+	overlay.get_node("Root/Panel/Margin/VBox/Header/CloseButton").pressed.emit()
+	_check(_shop_overlay_closed_count == 1, "pressing Close should emit the closed signal exactly once")
+	overlay.queue_free()

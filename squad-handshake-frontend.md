@@ -7,6 +7,85 @@
   <sprint_completion_percentage>100</sprint_completion_percentage>
 </squad_metadata>
 
+## Sprint 1 — FRONTEND-100 DONE
+Shipped a visible player avatar in every world scene, via PR #121
+(frontend/player-avatar branch), against issue #100's own ask list
+("Player avatar: a visible main character in world scenes (you are
+currently a disembodied cursor)"). Claimed for Sprint 1 by the Product
+Owner (backlog-inbox.md).
+
+Adds `scripts/world/player_avatar.gd` (`PlayerAvatar`, a `Node2D`) --
+reuses `ProceduralCharacterArt.build_silhouette_texture` (the same
+generator `NPCController` already uses, see that file's own docstring)
+for a bottom-anchored placeholder sprite, tinted a fixed warm-red
+(`Color(0.82, 0.28, 0.24)`) deliberately outside NPCController's own
+name-hashed hue/sat/val band so the player never coincidentally matches
+an NPC. Wired into all four existing world scenes (Farm/Ranch/Mine/
+Forage): one `PlayerAvatar` placed at the grid's center anchor in
+`_ready()`, `move_to()` called with `_tilemap.map_to_local(cell)` on
+every click in each scene's existing `_handle_tile_click` (no new input
+handling -- click-to-interact stays exactly as it was), and
+`pulse_tool_use()` (a brief sprite tint pulse) fires only when that
+click's underlying manager call actually succeeded, checked via each
+public method's own `bool`/`Dictionary` return value.
+
+Meets #100's ask list: (1) one placeholder sprite per scene: done; (2)
+pseudo-moves toward the last tile clicked with 4-dir facing via
+`flip_h`, no full walk-cycle (explicitly not required v1): done; (3)
+tool-use tint-pulse feedback: done; (4) position persists across actions
+within the same scene visit (ordinary child node, never recreated on
+click), resets on scene swap (`main_controller.travel_to()` frees the
+whole scene) -- explicitly accepted as fine for v1 per the issue's own
+text.
+
+Deliberately did NOT build, per the issue's own out-of-scope list:
+collision physics, a free camera, a clothing system, animation sets
+beyond facing+swing, or any control scheme -- #101 (real input map) is a
+separate, later issue; this PR introduces no new player input, only
+reuses each scene's pre-existing click handler.
+
+Contract compliance: pure presentation, same tier as
+`npc_controller.gd` -- no backend autoload touched beyond calling
+existing public methods and reading their existing return values
+(`FarmPlotManager.plant()`/`.water()`/`.harvest()`,
+`AnimalManager.add_animal()`/`.feed()`/`.brush()`/`.collect_product()`,
+`MiningManager.break_rock()`/`.descend_ladder()`,
+`ForagingManager.gather()`). No new backend state added or requested --
+position stays scene-local per #100's own v1 acceptance of
+reset-on-scene-swap, so this didn't need to file a backend follow-up the
+way prior epochs' getter requests did.
+
+Verification: no Godot binary existed in this environment -- downloaded
+Godot 4.3-stable linux x86_64 (matching `project.godot`'s
+`config/features`) via the pre-configured proxy, ran one `--headless
+--editor --quit-after` pass first to generate the resource-import cache
+and the global script-class cache (both empty at repo checkout, a
+pre-existing gap unrelated to this change -- confirmed by booting a
+clean `git stash`-ed checkout first and seeing the identical missing-
+import/missing-class errors before this PR's changes were even applied).
+After that one-time import pass: headless boot of `scenes/Main.tscn` --
+clean, no errors. Full `tests/TestRunner.tscn` suite: **992/992 checks
+passing**. No dedicated `PlayerAvatar` unit tests added -- this repo's
+existing per-scene test suites already exercise every
+`_handle_tile_click` code path this PR's `move_to()`/`pulse_tool_use()`
+calls sit inside, and the closest existing precedent (`NPCController`,
+also a bare presentation `Node2D` reading backend data) has no dedicated
+tests of its own either; noted here rather than silently skipped, per
+the task's own instruction that this repo's suite has historically
+focused on backend autoloads.
+
+Follow-up gaps (not this task's scope, noted in the PR body too):
+- Depends on #101 (real input map) for any actual player-driven movement
+  scheme beyond this click-to-pseudo-move stand-in -- the avatar today
+  only ever moves in response to the same clicks that already drove
+  plant/water/harvest etc., not free movement.
+- #102 (visible NPCs) can reuse this same `PlayerAvatar`/
+  `ProceduralCharacterArt` layer, per issue #100's own text.
+
+`backlog-inbox.md`'s FRONTEND-100 task_item updated to `DONE` the
+append-only way (new block referencing the same id, prior `IN_PROGRESS`
+block left untouched).
+
 ## Epoch 24 update
 Shipped a small, self-contained sub-scope: HUD weather display, via PR #63
 (squash-merged). `WeatherManager` (backend, PR #62 this same epoch) had a
@@ -414,3 +493,69 @@ its own instructions, but that session's ID format wasn't accepted by
 this environment's trigger tool ("unsupported version") -- routed the
 reply through STANDUP.md instead (2026-08-25T00:40Z entry), the
 established cross-squad fallback channel.
+
+## Sprint 2 -- FRONTEND-123 DONE
+
+Claimed FRONTEND-123 (issue #123: Seed shop UI hooked to
+FarmPlotManager.buy_seed(), the UI-hook gap PR #122/ENG-91 flagged --
+buy_seed() landed as a fully-tested, callable backend method with no
+scene/UI hook at all).
+
+Shipped: `scenes/ui/ShopOverlay.tscn` + `scripts/ui/shop_overlay.gd`, a
+minimal full-screen Seed Shop overlay -- same chrome/discipline as
+InventoryOverlay/SkillsOverlay (title top-left, close top-right, pure
+display primed from `FarmPlotManager.get_crop_definition()` and kept in
+sync via `seed_purchased`/`gold_changed`, no local price/gold
+duplicate). One row per crop_id in a hardcoded `CROP_IDS` list --
+`FarmPlotManager` has no "list every crop_id" getter, same gap
+SkillsOverlay's own `SKILL_NAMES` already hit for `SkillManager`;
+flagged below as a backend follow-up rather than reached around. Each
+row shows `display_name` + real `seed_price` and a `Buy x1` button
+calling `buy_seed(crop_id, 1)` directly; a status line reflects
+success/failure (insufficient gold) back to the player.
+
+`scripts/world/farm_scene.gd`: pressing "B" toggles the overlay as a
+child of FarmScene -- the "simple toggle, no dedicated NPC/building
+needed for v1" surface the issue asked for. Checked as a raw physical
+keycode, not a new input action: `project.godot` has no `[input]`
+section yet (`PauseMenu` already reuses the built-in `ui_cancel` action
+for the same reason), and FRONTEND-101 is landing the real input map +
+player movement this same sprint in parallel -- touching
+`project.godot`'s `[input]` block here would be a pure landing-order
+conflict with that work for no v1 benefit. Disjoint files from
+FRONTEND-101 as expected (scenes/ui/**, scripts/world/farm_scene.gd vs.
+scripts/world/player_avatar.gd + project.godot's `[input]` section) --
+no overlap hit.
+
++18 headless tests: shop row listing (real seed_price per crop), buy
+success (seed credited, gold spent, status text, gold label updates
+reactively) and failure (insufficient gold -- no seed credited, no gold
+spent, failure status text) paths, close-button signal, and FarmScene's
+B-key open/close toggle.
+
+Verification: re-verified the live baseline on the fresh base branch
+myself before making any change (1009/1009 checks passing) since
+CONTENT-SEED-BALANCE (#124, a real balance pass on `seed_price` values)
+was landing concurrently this sprint -- merged it into the feature
+branch (pure value/docstring changes, no signature conflicts, per
+SQUAD-SPLIT.md's documented merge pattern) and re-ran: **1030/1030
+checks pass**. Clean headless boot of `scenes/Main.tscn`. Godot
+4.3-stable (binary already present in this session's environment from a
+prior run, matching `project.godot`'s `config/features`).
+
+Shipped as PR #125 against `claude/farming-game-pm-requirements-w9ugtk`.
+
+Follow-up gaps (not built here):
+- No quantity stepper -- fixed `Buy x1` per click, matching issue
+  #123's "simple toggle" v1 framing; a player who wants more just
+  clicks again.
+- No dedicated shopkeeper NPC/building -- explicitly out of scope for
+  v1 per the issue.
+- To Backend squad: `FarmPlotManager` has no `list_crop_ids()` getter
+  to enumerate registered crop ids (only `get_crop_definition(crop_id)`
+  for an already-known id) -- ShopOverlay's `CROP_IDS` is a hardcoded
+  copy of the seven ids `_register_default_content()` currently
+  registers, same shape as the SkillsOverlay/SkillManager gap already
+  logged above. A `list_crop_ids()` getter would let this overlay read
+  the real roster instead of hardcoding it, and would stop silently
+  drifting stale if Content lane adds/removes a crop.
