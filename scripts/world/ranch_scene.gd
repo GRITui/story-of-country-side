@@ -63,6 +63,11 @@ class_name RanchScene
 ## today), else collects its product (if ready) -- one action per click,
 ## cycling through the daily loop. This is a placeholder interaction model,
 ## not a designed one, same disclosure FarmScene's docstring makes.
+##
+## Villagers (#102): Sana is instantiated here per NPCRoster's placeholder
+## daily schedule (see farm_scene.gd's own docstring for the full rationale
+## -- dynamic entities under a YSort `_dynamic_layer`, clicking a villager
+## opens RelationshipsOverlay instead of acting on the pen behind them).
 
 const GRID_WIDTH := 5
 const GRID_HEIGHT := 4
@@ -87,13 +92,21 @@ const PLACEHOLDER_SPECIES_ID := "chicken"
 
 const ATLAS_SOURCE_ID := 0
 
+## Matches NPCRoster.NPC_HOME_SCENE's "Ranch" value -- see npc_roster.gd.
+const HOME_SCENE_NAME := "Ranch"
+
 @onready var _tilemap: TileMap = $TileMap
 var _player_avatar: PlayerAvatar
+var _relationships_overlay: RelationshipsOverlay
+var _dynamic_layer: Node2D
+var _npcs: Array[NPCController] = []
 
 func _ready() -> void:
 	_build_tileset()
 	_render_all_pens()
+	_add_dynamic_layer()
 	_add_player_avatar()
+	_add_villagers()
 
 	AnimalManager.animal_added.connect(_on_animal_added)
 	AnimalManager.animal_fed.connect(_on_animal_changed)
@@ -116,7 +129,49 @@ func _render_all_pens() -> void:
 func _add_player_avatar() -> void:
 	_player_avatar = PlayerAvatar.new()
 	_player_avatar.position = _tilemap.map_to_local(Vector2i(GRID_WIDTH / 2, GRID_HEIGHT / 2))
-	add_child(_player_avatar)
+	_dynamic_layer.add_child(_player_avatar)
+
+## Depth-sort container (#102) -- mirrors farm_scene.gd's
+## _add_dynamic_layer() exactly, see that file for the docstring.
+func _add_dynamic_layer() -> void:
+	_dynamic_layer = Node2D.new()
+	_dynamic_layer.name = "DynamicLayer"
+	_dynamic_layer.y_sort_enabled = true
+	add_child(_dynamic_layer)
+
+## Villagers (#102) -- mirrors farm_scene.gd's _add_villagers() exactly,
+## see that file's and npc_roster.gd's own docstrings.
+func _add_villagers() -> void:
+	for npc_name in NPCRoster.npcs_for_scene(HOME_SCENE_NAME):
+		var npc := NPCController.new()
+		npc.npc_name = npc_name
+		npc.schedule = NPCRoster.build_schedule(npc_name, _tilemap)
+		_dynamic_layer.add_child(npc)
+		_npcs.append(npc)
+
+## Mirrors farm_scene.gd's _npc_at_local_point() exactly.
+func _npc_at_local_point(local_pos: Vector2) -> NPCController:
+	const HALF_WIDTH := 20.0
+	const HEIGHT := 54.0
+	for npc in _npcs:
+		if local_pos.x >= npc.position.x - HALF_WIDTH and local_pos.x <= npc.position.x + HALF_WIDTH \
+				and local_pos.y <= npc.position.y and local_pos.y >= npc.position.y - HEIGHT:
+			return npc
+	return null
+
+## Mirrors farm_scene.gd's _open_relationships_for()/_close_relationships()
+## exactly -- see that file's docstring.
+func _open_relationships_for(_npc_name: String) -> void:
+	if _relationships_overlay != null and is_instance_valid(_relationships_overlay):
+		return
+	_relationships_overlay = load("res://scenes/ui/RelationshipsOverlay.tscn").instantiate()
+	add_child(_relationships_overlay)
+	_relationships_overlay.closed.connect(_close_relationships)
+
+func _close_relationships() -> void:
+	if _relationships_overlay != null and is_instance_valid(_relationships_overlay):
+		_relationships_overlay.free()
+	_relationships_overlay = null
 
 ## Deterministic position <-> animal_id mapping -- see class docstring for
 ## why this scene derives ids from position rather than tracking a separate
@@ -188,6 +243,10 @@ func _facing_tile() -> Vector2i:
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		var local_pos: Vector2 = _tilemap.to_local(get_global_mouse_position())
+		var clicked_npc := _npc_at_local_point(local_pos)
+		if clicked_npc != null:
+			_open_relationships_for(clicked_npc.npc_name)
+			return
 		var cell: Vector2i = _tilemap.local_to_map(local_pos)
 		_handle_tile_click(cell)
 	elif event.is_action_pressed("interact"):

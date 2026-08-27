@@ -65,6 +65,12 @@ class_name MineScene
 ## re-render pass on that signal rather than trying to diff individual
 ## tiles.
 ##
+## Villagers (#102): Colton and Tobias are instantiated here per NPCRoster's
+## placeholder daily schedule (see farm_scene.gd's own docstring for the
+## full rationale -- dynamic entities under a YSort `_dynamic_layer`,
+## clicking a villager opens RelationshipsOverlay instead of acting on the
+## tile behind them).
+##
 ## Interaction: clicking a rock tile breaks it via MiningManager.break_rock();
 ## clicking the ladder tile descends via MiningManager.descend_ladder().
 ## MiningManager.descend_ladder() itself has no concept of player
@@ -89,6 +95,9 @@ const STATE_COLORS := {
 
 const ATLAS_SOURCE_ID := 0
 
+## Matches NPCRoster.NPC_HOME_SCENE's "Mine" value -- see npc_roster.gd.
+const HOME_SCENE_NAME := "Mine"
+
 ## Real illustrated CC0 decorative prop textures (see class docstring).
 ## Paired with grid positions computed from get_floor_size() in
 ## _add_decorative_props() -- not hardcoded, since this scene's grid size
@@ -102,12 +111,17 @@ const DECORATIVE_PROP_PATHS := [
 
 @onready var _tilemap: TileMap = $TileMap
 var _player_avatar: PlayerAvatar
+var _relationships_overlay: RelationshipsOverlay
+var _dynamic_layer: Node2D
+var _npcs: Array[NPCController] = []
 
 func _ready() -> void:
 	_build_tileset()
 	_render_all_tiles()
 	_add_decorative_props()
+	_add_dynamic_layer()
 	_add_player_avatar()
+	_add_villagers()
 
 	MiningManager.rock_broken.connect(_on_rock_broken)
 	MiningManager.floor_descended.connect(_on_floor_descended)
@@ -157,7 +171,49 @@ func _add_player_avatar() -> void:
 	var floor_size := MiningManager.get_floor_size()
 	_player_avatar = PlayerAvatar.new()
 	_player_avatar.position = _tilemap.map_to_local(Vector2i(floor_size.x / 2, floor_size.y / 2))
-	add_child(_player_avatar)
+	_dynamic_layer.add_child(_player_avatar)
+
+## Depth-sort container (#102) -- mirrors farm_scene.gd's
+## _add_dynamic_layer() exactly, see that file for the docstring.
+func _add_dynamic_layer() -> void:
+	_dynamic_layer = Node2D.new()
+	_dynamic_layer.name = "DynamicLayer"
+	_dynamic_layer.y_sort_enabled = true
+	add_child(_dynamic_layer)
+
+## Villagers (#102) -- mirrors farm_scene.gd's _add_villagers() exactly,
+## see that file's and npc_roster.gd's own docstrings.
+func _add_villagers() -> void:
+	for npc_name in NPCRoster.npcs_for_scene(HOME_SCENE_NAME):
+		var npc := NPCController.new()
+		npc.npc_name = npc_name
+		npc.schedule = NPCRoster.build_schedule(npc_name, _tilemap)
+		_dynamic_layer.add_child(npc)
+		_npcs.append(npc)
+
+## Mirrors farm_scene.gd's _npc_at_local_point() exactly.
+func _npc_at_local_point(local_pos: Vector2) -> NPCController:
+	const HALF_WIDTH := 20.0
+	const HEIGHT := 54.0
+	for npc in _npcs:
+		if local_pos.x >= npc.position.x - HALF_WIDTH and local_pos.x <= npc.position.x + HALF_WIDTH \
+				and local_pos.y <= npc.position.y and local_pos.y >= npc.position.y - HEIGHT:
+			return npc
+	return null
+
+## Mirrors farm_scene.gd's _open_relationships_for()/_close_relationships()
+## exactly -- see that file's docstring.
+func _open_relationships_for(_npc_name: String) -> void:
+	if _relationships_overlay != null and is_instance_valid(_relationships_overlay):
+		return
+	_relationships_overlay = load("res://scenes/ui/RelationshipsOverlay.tscn").instantiate()
+	add_child(_relationships_overlay)
+	_relationships_overlay.closed.connect(_close_relationships)
+
+func _close_relationships() -> void:
+	if _relationships_overlay != null and is_instance_valid(_relationships_overlay):
+		_relationships_overlay.free()
+	_relationships_overlay = null
 
 func _refresh_tile(tile: Vector2i) -> void:
 	_paint_tile(tile, _tile_state(tile))
@@ -203,6 +259,10 @@ func _facing_tile() -> Vector2i:
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		var local_pos: Vector2 = _tilemap.to_local(get_global_mouse_position())
+		var clicked_npc := _npc_at_local_point(local_pos)
+		if clicked_npc != null:
+			_open_relationships_for(clicked_npc.npc_name)
+			return
 		var cell: Vector2i = _tilemap.local_to_map(local_pos)
 		_handle_tile_click(cell)
 	elif event.is_action_pressed("interact"):

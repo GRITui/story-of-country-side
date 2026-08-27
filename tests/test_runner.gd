@@ -78,6 +78,10 @@ func _ready() -> void:
 	_test_controller_pauses_while_time_frozen()
 	_test_controller_retargets_on_schedule_change()
 
+	_test_npc_roster_covers_every_marriageable_npc_exactly_once()
+	_test_npc_roster_build_schedule_converts_grid_positions_through_tilemap()
+	_test_npc_roster_unknown_npc_builds_empty_schedule()
+
 	_test_talk_awards_points_once_per_day()
 	_test_gift_applies_preference_deltas()
 	_test_gift_once_per_day()
@@ -262,6 +266,9 @@ func _ready() -> void:
 	_test_farm_scene_click_ignores_out_of_grid_position()
 	_test_farm_scene_renders_decorative_props()
 	_test_farm_scene_b_key_toggles_shop_overlay()
+	_test_farm_scene_instantiates_one_npc_per_home_villager()
+	_test_farm_scene_clicking_a_villager_opens_relationships_overlay()
+	_test_farm_scene_click_far_from_any_villager_does_not_open_overlay()
 	_test_shop_overlay_lists_all_known_crops_on_ready()
 	_test_shop_overlay_buy_button_success_updates_status_and_gold()
 	_test_shop_overlay_buy_button_insufficient_gold_shows_failure()
@@ -655,6 +662,47 @@ func _test_controller_retargets_on_schedule_change() -> void:
 	_check(target_before != target_after, "retargeting should replace the entry reference, not just mutate in place")
 
 	npc.queue_free()
+
+## --- Frontend: NPCRoster (#102, placeholder villager-placement content) ---
+##
+## Pure data/logic, unlike the presentation nodes (NPCController, every
+## world scene) this content feeds -- worth real unit coverage rather than
+## just headless/manual verification.
+
+func _test_npc_roster_covers_every_marriageable_npc_exactly_once() -> void:
+	var all_placed: Array[String] = []
+	for scene_name in ["Farm", "Ranch", "Mine", "Forage"]:
+		all_placed.append_array(NPCRoster.npcs_for_scene(scene_name))
+	for npc_name in MarriageManager.MARRIAGEABLE_NPCS:
+		_check(all_placed.count(npc_name) == 1,
+			"%s (a MARRIAGEABLE_NPCS villager) should be placed in exactly one world scene, found in %d" % [npc_name, all_placed.count(npc_name)])
+	_check(all_placed.size() == MarriageManager.MARRIAGEABLE_NPCS.size(),
+		"NPCRoster should place exactly the six known villagers, no extras")
+
+func _test_npc_roster_build_schedule_converts_grid_positions_through_tilemap() -> void:
+	var tilemap := TileMap.new()
+	tilemap.tile_set = ProceduralTileArt.build_isometric_tileset({0: Color.WHITE}, 64, 32, 0, [])
+	add_child(tilemap)
+
+	var schedule := NPCRoster.build_schedule("Elena", tilemap)
+	var stops: Array = NPCRoster.NPC_DAILY_STOPS["Elena"]
+	_check(schedule.entries.size() == stops.size(), "build_schedule should produce one NPCScheduleEntry per authored stop")
+	for i in range(stops.size()):
+		var entry: NPCScheduleEntry = schedule.entries[i]
+		_check(entry.hour == stops[i]["hour"] and entry.minute == stops[i]["minute"],
+			"entry %d should keep its authored hour/minute" % i)
+		_check(entry.position == tilemap.map_to_local(stops[i]["grid_pos"]),
+			"entry %d's position should be the grid stop converted through the given TileMap" % i)
+		_check(entry.location_name == "Farm", "Elena's entries should carry her home scene as location_name")
+
+	tilemap.queue_free()
+
+func _test_npc_roster_unknown_npc_builds_empty_schedule() -> void:
+	var tilemap := TileMap.new()
+	add_child(tilemap)
+	var schedule := NPCRoster.build_schedule("NotARealVillager", tilemap)
+	_check(schedule.entries.is_empty(), "an unrecognized npc_name should build a schedule with no entries, not crash")
+	tilemap.queue_free()
 
 ## --- ENG-19: Relationship System ---
 
@@ -5284,6 +5332,60 @@ func _test_farm_scene_b_key_toggles_shop_overlay() -> void:
 	_check(farm_scene.get_node_or_null("ShopOverlay") != null, "pressing B should open the ShopOverlay as a child of FarmScene")
 	farm_scene._unhandled_input(key_event)
 	_check(farm_scene.get_node_or_null("ShopOverlay") == null, "pressing B again should close the ShopOverlay")
+	farm_scene.queue_free()
+
+## --- Frontend: villager instantiation (#102) ---
+##
+## FarmScene is the representative case here (RanchScene/MineScene/
+## ForageScene all mirror the exact same _add_dynamic_layer/_add_villagers/
+## _npc_at_local_point/_open_relationships_for pattern, per each file's own
+## docstring) -- same "one scene gets full coverage, the rest mirror it
+## exactly" precedent every prior world-scene test block already follows.
+
+func _test_farm_scene_instantiates_one_npc_per_home_villager() -> void:
+	_reset_farm_plot_manager()
+	TimeManager.season_index = 0 # Spring
+	var farm_scene := _make_farm_scene()
+	var dynamic_layer: Node2D = farm_scene.get_node("DynamicLayer")
+	_check(dynamic_layer.y_sort_enabled, "dynamic entities should sit under a YSort-enabled layer per isometric-grid-spec.md section 4")
+
+	var npc_names: Array[String] = []
+	for child in dynamic_layer.get_children():
+		if child is NPCController:
+			npc_names.append(child.npc_name)
+	for expected_name in NPCRoster.npcs_for_scene("Farm"):
+		_check(npc_names.has(expected_name), "%s should be instantiated as an NPCController under FarmScene's DynamicLayer" % expected_name)
+	_check(npc_names.size() == NPCRoster.npcs_for_scene("Farm").size(),
+		"FarmScene should instantiate exactly its own NPCRoster.npcs_for_scene('Farm') villagers, no more")
+	farm_scene.queue_free()
+
+func _test_farm_scene_clicking_a_villager_opens_relationships_overlay() -> void:
+	_reset_farm_plot_manager()
+	TimeManager.season_index = 0 # Spring
+	var farm_scene := _make_farm_scene()
+	_check(farm_scene.get_node_or_null("RelationshipsOverlay") == null, "sanity: no overlay before any click")
+
+	var dynamic_layer: Node2D = farm_scene.get_node("DynamicLayer")
+	var an_npc: NPCController = null
+	for child in dynamic_layer.get_children():
+		if child is NPCController:
+			an_npc = child
+			break
+	_check(an_npc != null, "sanity: FarmScene should have at least one villager to click")
+
+	var clicked := farm_scene._npc_at_local_point(an_npc.position)
+	_check(clicked == an_npc, "a point at the villager's own anchor position should hit-test to that villager")
+	farm_scene._open_relationships_for(an_npc.npc_name)
+	_check(farm_scene.get_node_or_null("RelationshipsOverlay") != null,
+		"clicking a villager should open the existing RelationshipsOverlay, not a new dialog system")
+	farm_scene.queue_free()
+
+func _test_farm_scene_click_far_from_any_villager_does_not_open_overlay() -> void:
+	_reset_farm_plot_manager()
+	TimeManager.season_index = 0 # Spring
+	var farm_scene := _make_farm_scene()
+	var far_point := Vector2(10000, 10000)
+	_check(farm_scene._npc_at_local_point(far_point) == null, "a point far from every villager should not hit-test to any of them")
 	farm_scene.queue_free()
 
 func _test_shop_overlay_lists_all_known_crops_on_ready() -> void:
