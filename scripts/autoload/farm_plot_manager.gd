@@ -234,13 +234,6 @@ func plant(position: Vector2i, crop_id: String) -> bool:
 	crop_planted.emit(position, crop_id)
 	return true
 
-func get_all_crop_ids() -> Array[String]:
-	var ids: Array[String] = []
-	for crop_id: String in _definitions.keys():
-		ids.append(crop_id)
-	ids.sort()
-	return ids
-
 func get_seed_id(crop_id: String) -> String:
 	return "%s_seed" % crop_id
 func water(position: Vector2i) -> bool:
