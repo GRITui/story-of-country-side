@@ -79,6 +79,7 @@ const ATLAS_SOURCE_ID := 0
 func _ready() -> void:
 	_build_tileset()
 	_populate_and_render_all_nodes()
+	_spawn_player_avatar()
 
 	ForagingManager.forage_gathered.connect(_on_forage_gathered)
 	ForagingManager.forage_node_rerolled.connect(_on_forage_node_rerolled)
@@ -133,3 +134,14 @@ func _handle_tile_click(position: Vector2i) -> void:
 		return
 	if ForagingManager.is_available(position):
 		ForagingManager.gather(position)
+
+func _spawn_player_avatar() -> void:
+	var avatar: PlayerAvatar = load("res://scenes/world/player_avatar.tscn").instantiate()
+	avatar.position = _tilemap.map_to_local(Vector2i(GRID_WIDTH / 2, GRID_HEIGHT / 2))
+	add_child(avatar)
+	var cam: Camera2D = $Camera2D
+	if cam:
+		var cam_offset := cam.position
+		cam.reparent(avatar)
+		cam.position = cam_offset
+		cam.make_current()

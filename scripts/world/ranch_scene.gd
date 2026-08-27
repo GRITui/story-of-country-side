@@ -92,6 +92,7 @@ const ATLAS_SOURCE_ID := 0
 func _ready() -> void:
 	_build_tileset()
 	_render_all_pens()
+	_spawn_player_avatar()
 
 	AnimalManager.animal_added.connect(_on_animal_added)
 	AnimalManager.animal_fed.connect(_on_animal_changed)
@@ -182,3 +183,14 @@ func _handle_tile_click(position: Vector2i) -> void:
 		AnimalManager.brush(animal_id)
 	elif animal.product_ready:
 		AnimalManager.collect_product(animal_id)
+
+func _spawn_player_avatar() -> void:
+	var avatar: PlayerAvatar = load("res://scenes/world/player_avatar.tscn").instantiate()
+	avatar.position = _tilemap.map_to_local(Vector2i(GRID_WIDTH / 2, GRID_HEIGHT / 2))
+	add_child(avatar)
+	var cam: Camera2D = $Camera2D
+	if cam:
+		var cam_offset := cam.position
+		cam.reparent(avatar)
+		cam.position = cam_offset
+		cam.make_current()

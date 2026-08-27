@@ -106,6 +106,7 @@ func _ready() -> void:
 	_build_tileset()
 	_render_all_tiles()
 	_add_decorative_props()
+	_spawn_player_avatar()
 
 	MiningManager.rock_broken.connect(_on_rock_broken)
 	MiningManager.floor_descended.connect(_on_floor_descended)
@@ -189,3 +190,15 @@ func _handle_tile_click(tile: Vector2i) -> void:
 		MiningManager.descend_ladder()
 	elif MiningManager.has_rock(tile):
 		MiningManager.break_rock(tile)
+
+func _spawn_player_avatar() -> void:
+	var avatar: PlayerAvatar = load("res://scenes/world/player_avatar.tscn").instantiate()
+	var floor_size := MiningManager.get_floor_size()
+	avatar.position = _tilemap.map_to_local(Vector2i(floor_size.x / 2, floor_size.y / 2))
+	add_child(avatar)
+	var cam: Camera2D = $Camera2D
+	if cam:
+		var cam_offset := cam.position
+		cam.reparent(avatar)
+		cam.position = cam_offset
+		cam.make_current()

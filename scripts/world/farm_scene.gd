@@ -111,6 +111,7 @@ func _ready() -> void:
 	_build_tileset()
 	_render_all_plots()
 	_add_decorative_props()
+	_spawn_player_avatar()
 
 	FarmPlotManager.crop_planted.connect(_on_crop_planted)
 	FarmPlotManager.crop_watered.connect(_on_crop_watered)
@@ -212,3 +213,14 @@ func _handle_tile_click(position: Vector2i) -> void:
 		FarmPlotManager.harvest(position)
 	elif not plot.watered_today:
 		FarmPlotManager.water(position)
+
+func _spawn_player_avatar() -> void:
+	var avatar: PlayerAvatar = load("res://scenes/world/player_avatar.tscn").instantiate()
+	avatar.position = _tilemap.map_to_local(Vector2i(GRID_WIDTH / 2, GRID_HEIGHT / 2))
+	add_child(avatar)
+	var cam: Camera2D = $Camera2D
+	if cam:
+		var cam_offset := cam.position
+		cam.reparent(avatar)
+		cam.position = cam_offset
+		cam.make_current()
