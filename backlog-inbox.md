@@ -2387,3 +2387,98 @@ either, so the remote branches remain as harmless merged-and-stale refs).
     perks live; cozy friction floor).
   </description>
 </task_item>
+
+<task_item>
+  <id>PO-SPRINT-1-PLANNING</id>
+  <source>PRODUCT_OWNER</source>
+  <status>DONE</status>
+  <priority>HIGH</priority>
+  <title>Sprint 1 plan: close the one real economy bug, start the embodiment epic</title>
+  <description>
+    Product Owner sprint planning pass. Reviewed open GitHub issues (#91-120)
+    and backlog-inbox status. Two findings stood out over everything else
+    labeled P2/P3: (1) #91 is the only open issue that is an actual economic
+    bug, not a scope gap -- planting is currently free and infinite, which
+    undermines every other economy system already shipped (shipping bin,
+    price registry, seed-destruction guard from #97). (2) Super User's own
+    embodiment triage (#100/#101/#102) found the game currently has no
+    visible player character, no registered input map, and no NPCs
+    instantiated in any scene -- the "five activities + economy + social"
+    backend is complete but literally invisible in play. Both are P0-in-
+    substance even though labeled P1/P2.
+    Sprint 1 goal: "A player can see themselves, and seeds cost money."
+    Scope (sized to land inside one 30-120 min squad execution window each,
+    run in parallel since they touch disjoint lanes per SQUAD-SPLIT.md):
+      - ENG-91 (Backend/Engineer Squad): seeds as items + starting grant +
+        purchase path, per issue #91.
+      - FRONTEND-100 (Frontend Squad): visible player avatar in world
+        scenes, per issue #100. Deliberately NOT bundling #101 (input map)
+        or #102 (NPC instantiation) into this sprint -- keep the diff
+        reviewable, they're natural Sprint 2 follow-ons once the avatar
+        exists to control.
+    Explicitly out of scope this sprint: #93, #96, #105-119 (queued,
+    unaffected by this sprint's outcome).
+  </description>
+</task_item>
+
+<task_item>
+  <id>ENG-91</id>
+  <status>IN_PROGRESS</status>
+  <priority>HIGH</priority>
+  <title>Seed economy: seeds as items + starting grant + purchase path</title>
+  <description>
+    Claimed for Sprint 1 by Product Owner, assigned to Engineer/Backend
+    Squad. See issue #91 for full spec. Backend lane per SQUAD-SPLIT.md
+    (scripts/autoload/**, scripts/economy/**, scripts/farming/**).
+  </description>
+</task_item>
+
+<task_item>
+  <id>FRONTEND-100</id>
+  <status>IN_PROGRESS</status>
+  <priority>HIGH</priority>
+  <title>Player avatar: a visible main character in world scenes</title>
+  <description>
+    Claimed for Sprint 1 by Product Owner, assigned to Frontend Squad. See
+    issue #100 for full spec. Frontend lane per SQUAD-SPLIT.md
+    (scenes/**, scripts/story/**, scripts/npc/npc_controller.gd). Must not
+    touch backend autoloads except through existing public methods/signals.
+  </description>
+</task_item>
+
+<task_item>
+  <id>FRONTEND-100</id>
+  <status>DONE</status>
+  <priority>HIGH</priority>
+  <title>Player avatar: a visible main character in world scenes</title>
+  <description>
+    Shipped via PR #121 (frontend/player-avatar branch, not yet merged as
+    of this entry). Adds scripts/world/player_avatar.gd (PlayerAvatar,
+    Node2D) -- a bottom-anchored placeholder sprite via the existing
+    ProceduralCharacterArt generator NPCController already uses, tinted a
+    fixed color distinct from any NPC's name-hashed tint. Wired into
+    FarmScene/RanchScene/MineScene/ForageScene: placed at each grid's
+    center anchor on _ready(), moved toward the clicked tile on every
+    _handle_tile_click, and a brief tint pulse plays when that click's
+    manager call actually succeeds. Meets issue #100's ask list (sprite,
+    pseudo-move toward last click with 4-dir facing, tool-use tint pulse,
+    position persists within a scene visit / resets on scene swap --
+    explicitly accepted as fine for v1 per the issue's own text). No
+    backend surface touched -- pure presentation via each manager's
+    existing public methods only, same tier as npc_controller.gd; no new
+    autoload/save-data needed since position stays scene-local per #100's
+    own v1 acceptance.
+    Verification: headless boot of scenes/Main.tscn via Godot 4.3.stable
+    (matches project.godot's config/features) -- clean, no errors -- and
+    the full tests/TestRunner.tscn suite: 992/992 checks passing. No
+    dedicated PlayerAvatar unit tests added (existing scene-level tests
+    already exercise every _handle_tile_click path this reuses; this
+    repo's test suite has historically focused on backend autoloads and
+    scene-state rendering, and NPCController -- the closest precedent --
+    also has no dedicated tests).
+    Follow-up gaps noted in PR: depends on #101 (real input map) for any
+    actual player-driven movement beyond this click-to-pseudo-move
+    stand-in; #102 (visible NPCs) can reuse this same PlayerAvatar/
+    ProceduralCharacterArt layer.
+  </description>
+</task_item>

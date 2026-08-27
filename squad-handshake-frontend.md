@@ -7,6 +7,85 @@
   <sprint_completion_percentage>100</sprint_completion_percentage>
 </squad_metadata>
 
+## Sprint 1 — FRONTEND-100 DONE
+Shipped a visible player avatar in every world scene, via PR #121
+(frontend/player-avatar branch), against issue #100's own ask list
+("Player avatar: a visible main character in world scenes (you are
+currently a disembodied cursor)"). Claimed for Sprint 1 by the Product
+Owner (backlog-inbox.md).
+
+Adds `scripts/world/player_avatar.gd` (`PlayerAvatar`, a `Node2D`) --
+reuses `ProceduralCharacterArt.build_silhouette_texture` (the same
+generator `NPCController` already uses, see that file's own docstring)
+for a bottom-anchored placeholder sprite, tinted a fixed warm-red
+(`Color(0.82, 0.28, 0.24)`) deliberately outside NPCController's own
+name-hashed hue/sat/val band so the player never coincidentally matches
+an NPC. Wired into all four existing world scenes (Farm/Ranch/Mine/
+Forage): one `PlayerAvatar` placed at the grid's center anchor in
+`_ready()`, `move_to()` called with `_tilemap.map_to_local(cell)` on
+every click in each scene's existing `_handle_tile_click` (no new input
+handling -- click-to-interact stays exactly as it was), and
+`pulse_tool_use()` (a brief sprite tint pulse) fires only when that
+click's underlying manager call actually succeeded, checked via each
+public method's own `bool`/`Dictionary` return value.
+
+Meets #100's ask list: (1) one placeholder sprite per scene: done; (2)
+pseudo-moves toward the last tile clicked with 4-dir facing via
+`flip_h`, no full walk-cycle (explicitly not required v1): done; (3)
+tool-use tint-pulse feedback: done; (4) position persists across actions
+within the same scene visit (ordinary child node, never recreated on
+click), resets on scene swap (`main_controller.travel_to()` frees the
+whole scene) -- explicitly accepted as fine for v1 per the issue's own
+text.
+
+Deliberately did NOT build, per the issue's own out-of-scope list:
+collision physics, a free camera, a clothing system, animation sets
+beyond facing+swing, or any control scheme -- #101 (real input map) is a
+separate, later issue; this PR introduces no new player input, only
+reuses each scene's pre-existing click handler.
+
+Contract compliance: pure presentation, same tier as
+`npc_controller.gd` -- no backend autoload touched beyond calling
+existing public methods and reading their existing return values
+(`FarmPlotManager.plant()`/`.water()`/`.harvest()`,
+`AnimalManager.add_animal()`/`.feed()`/`.brush()`/`.collect_product()`,
+`MiningManager.break_rock()`/`.descend_ladder()`,
+`ForagingManager.gather()`). No new backend state added or requested --
+position stays scene-local per #100's own v1 acceptance of
+reset-on-scene-swap, so this didn't need to file a backend follow-up the
+way prior epochs' getter requests did.
+
+Verification: no Godot binary existed in this environment -- downloaded
+Godot 4.3-stable linux x86_64 (matching `project.godot`'s
+`config/features`) via the pre-configured proxy, ran one `--headless
+--editor --quit-after` pass first to generate the resource-import cache
+and the global script-class cache (both empty at repo checkout, a
+pre-existing gap unrelated to this change -- confirmed by booting a
+clean `git stash`-ed checkout first and seeing the identical missing-
+import/missing-class errors before this PR's changes were even applied).
+After that one-time import pass: headless boot of `scenes/Main.tscn` --
+clean, no errors. Full `tests/TestRunner.tscn` suite: **992/992 checks
+passing**. No dedicated `PlayerAvatar` unit tests added -- this repo's
+existing per-scene test suites already exercise every
+`_handle_tile_click` code path this PR's `move_to()`/`pulse_tool_use()`
+calls sit inside, and the closest existing precedent (`NPCController`,
+also a bare presentation `Node2D` reading backend data) has no dedicated
+tests of its own either; noted here rather than silently skipped, per
+the task's own instruction that this repo's suite has historically
+focused on backend autoloads.
+
+Follow-up gaps (not this task's scope, noted in the PR body too):
+- Depends on #101 (real input map) for any actual player-driven movement
+  scheme beyond this click-to-pseudo-move stand-in -- the avatar today
+  only ever moves in response to the same clicks that already drove
+  plant/water/harvest etc., not free movement.
+- #102 (visible NPCs) can reuse this same `PlayerAvatar`/
+  `ProceduralCharacterArt` layer, per issue #100's own text.
+
+`backlog-inbox.md`'s FRONTEND-100 task_item updated to `DONE` the
+append-only way (new block referencing the same id, prior `IN_PROGRESS`
+block left untouched).
+
 ## Epoch 24 update
 Shipped a small, self-contained sub-scope: HUD weather display, via PR #63
 (squash-merged). `WeatherManager` (backend, PR #62 this same epoch) had a

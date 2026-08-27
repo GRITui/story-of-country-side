@@ -75,10 +75,12 @@ const STATE_COLORS := {
 const ATLAS_SOURCE_ID := 0
 
 @onready var _tilemap: TileMap = $TileMap
+var _player_avatar: PlayerAvatar
 
 func _ready() -> void:
 	_build_tileset()
 	_populate_and_render_all_nodes()
+	_add_player_avatar()
 
 	ForagingManager.forage_gathered.connect(_on_forage_gathered)
 	ForagingManager.forage_node_rerolled.connect(_on_forage_node_rerolled)
@@ -94,6 +96,12 @@ func _populate_and_render_all_nodes() -> void:
 			var position := Vector2i(x, y)
 			ForagingManager.register_node(position) # no-op if already registered
 			_refresh_tile(position)
+
+## Player avatar (#100): mirrors farm_scene.gd's _add_player_avatar.
+func _add_player_avatar() -> void:
+	_player_avatar = PlayerAvatar.new()
+	_player_avatar.position = _tilemap.map_to_local(Vector2i(GRID_WIDTH / 2, GRID_HEIGHT / 2))
+	add_child(_player_avatar)
 
 func _refresh_tile(position: Vector2i) -> void:
 	_paint_tile(position, _node_state(position))
@@ -131,5 +139,7 @@ func _unhandled_input(event: InputEvent) -> void:
 func _handle_tile_click(position: Vector2i) -> void:
 	if not _in_grid(position):
 		return
+	_player_avatar.move_to(_tilemap.map_to_local(position))
 	if ForagingManager.is_available(position):
-		ForagingManager.gather(position)
+		if not ForagingManager.gather(position).is_empty():
+			_player_avatar.pulse_tool_use()
