@@ -106,11 +106,13 @@ const DECORATIVE_PROPS := [
 ]
 
 @onready var _tilemap: TileMap = $TileMap
+var _player_avatar: PlayerAvatar
 
 func _ready() -> void:
 	_build_tileset()
 	_render_all_plots()
 	_add_decorative_props()
+	_add_player_avatar()
 
 	FarmPlotManager.crop_planted.connect(_on_crop_planted)
 	FarmPlotManager.crop_watered.connect(_on_crop_watered)
@@ -145,6 +147,15 @@ func _add_decorative_props() -> void:
 		sprite.offset = Vector2(-texture.get_width() / 2.0, -texture.get_height())
 		sprite.position = _tilemap.map_to_local(prop["grid_pos"])
 		add_child(sprite)
+
+## Player avatar (#100): places a PlayerAvatar at the grid's center anchor
+## on scene entry -- see player_avatar.gd's own docstring for why a scene-
+## local reset-per-entry is acceptable v1. Every subsequent tile click
+## moves it toward the clicked cell (see _handle_tile_click).
+func _add_player_avatar() -> void:
+	_player_avatar = PlayerAvatar.new()
+	_player_avatar.position = _tilemap.map_to_local(Vector2i(GRID_WIDTH / 2, GRID_HEIGHT / 2))
+	add_child(_player_avatar)
 
 ## Re-derives a tile's visual state from FarmPlotManager.get_plot() -- the
 ## single source of truth -- rather than tracking any scene-local duplicate
@@ -205,10 +216,14 @@ func _unhandled_input(event: InputEvent) -> void:
 func _handle_tile_click(position: Vector2i) -> void:
 	if not _in_grid(position):
 		return
+	_player_avatar.move_to(_tilemap.map_to_local(position))
 	var plot: FarmPlot = FarmPlotManager.get_plot(position)
+	var acted := false
 	if plot == null or plot.is_empty():
-		FarmPlotManager.plant(position, PLACEHOLDER_PLANT_CROP_ID)
+		acted = FarmPlotManager.plant(position, PLACEHOLDER_PLANT_CROP_ID)
 	elif plot.harvest_ready:
-		FarmPlotManager.harvest(position)
+		acted = not FarmPlotManager.harvest(position).is_empty()
 	elif not plot.watered_today:
-		FarmPlotManager.water(position)
+		acted = FarmPlotManager.water(position)
+	if acted:
+		_player_avatar.pulse_tool_use()

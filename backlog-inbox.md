@@ -2465,3 +2465,40 @@ either, so the remote branches remain as harmless merged-and-stale refs).
     pending Content lane's real balance pass.
   </description>
 </task_item>
+
+<task_item>
+  <id>FRONTEND-100</id>
+  <status>DONE</status>
+  <priority>HIGH</priority>
+  <title>Player avatar: a visible main character in world scenes</title>
+  <description>
+    Shipped via PR #121 (frontend/player-avatar branch, not yet merged as
+    of this entry). Adds scripts/world/player_avatar.gd (PlayerAvatar,
+    Node2D) -- a bottom-anchored placeholder sprite via the existing
+    ProceduralCharacterArt generator NPCController already uses, tinted a
+    fixed color distinct from any NPC's name-hashed tint. Wired into
+    FarmScene/RanchScene/MineScene/ForageScene: placed at each grid's
+    center anchor on _ready(), moved toward the clicked tile on every
+    _handle_tile_click, and a brief tint pulse plays when that click's
+    manager call actually succeeds. Meets issue #100's ask list (sprite,
+    pseudo-move toward last click with 4-dir facing, tool-use tint pulse,
+    position persists within a scene visit / resets on scene swap --
+    explicitly accepted as fine for v1 per the issue's own text). No
+    backend surface touched -- pure presentation via each manager's
+    existing public methods only, same tier as npc_controller.gd; no new
+    autoload/save-data needed since position stays scene-local per #100's
+    own v1 acceptance.
+    Verification: headless boot of scenes/Main.tscn via Godot 4.3.stable
+    (matches project.godot's config/features) -- clean, no errors -- and
+    the full tests/TestRunner.tscn suite: 992/992 checks passing. No
+    dedicated PlayerAvatar unit tests added (existing scene-level tests
+    already exercise every _handle_tile_click path this reuses; this
+    repo's test suite has historically focused on backend autoloads and
+    scene-state rendering, and NPCController -- the closest precedent --
+    also has no dedicated tests).
+    Follow-up gaps noted in PR: depends on #101 (real input map) for any
+    actual player-driven movement beyond this click-to-pseudo-move
+    stand-in; #102 (visible NPCs) can reuse this same PlayerAvatar/
+    ProceduralCharacterArt layer.
+  </description>
+</task_item>
