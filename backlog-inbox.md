@@ -2445,3 +2445,23 @@ either, so the remote branches remain as harmless merged-and-stale refs).
     touch backend autoloads except through existing public methods/signals.
   </description>
 </task_item>
+
+<task_item>
+  <id>ENG-91</id>
+  <status>DONE</status>
+  <priority>HIGH</priority>
+  <title>Seed economy: seeds as items + starting grant + purchase path</title>
+  <description>
+    Shipped by Engineer/Backend Squad: PR gritui/story-of-country-side#122
+    (branch feature/eng-91-seed-economy). CropDefinition.seed_price;
+    FarmPlotManager.plant() now requires/consumes a real "&lt;crop_id&gt;_seed"
+    InventoryManager item; FarmPlotManager.buy_seed() purchase path via
+    ShippingBinManager.spend(); SaveManager.new_game() grants 8 starting
+    parsnip seeds via FarmPlotManager.grant_starting_seeds(). 1009/1009
+    tests pass (+17 new), verified headless Godot 4.3-stable. See
+    squad-handshake-engineer.md's "Sprint 1 — ENG-91 DONE" entry for the
+    full trail. Follow-up gaps (not built here): no shop/purchase UI hook
+    yet (Frontend/UI task), seed_price values are a placeholder heuristic
+    pending Content lane's real balance pass.
+  </description>
+</task_item>
