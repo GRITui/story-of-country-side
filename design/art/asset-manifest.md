@@ -54,7 +54,7 @@ Bottom-center anchor. Matches `FarmPlotManager` registered ids:
 corn, frost_kale.
 
 ### `animals/` (each = 3-frame bob strip, 96×32, frame 32px, facing right)
-Matches `AnimalManager` registered species ids cellular.
+Matches `AnimalManager` registered species ids:
 `chicken, duck, cow, goat, sheep`.
 
 ### `items/` (16×16 icons) — `icon_<item_id>.png`
@@ -97,7 +97,7 @@ town cluster, lake).
 
 ## Count check
 ```
-tiles 13 · characters 14 · crops 7 · animals 5 · items 40 · props 10+6 · map 1 · ui 13
+tiles 13 · characters 14 · crops 7 · animals 5 · items 40 · props 16 · map 1 · ui 13
 TOTAL 109 PNGs
 ```
 (verified above with `find assets/pixelart -name '*.png' | wc -l` → 109)

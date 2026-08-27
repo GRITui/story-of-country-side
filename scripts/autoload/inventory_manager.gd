@@ -55,6 +55,9 @@ func get_count(item_id: String) -> int:
 func has_item(item_id: String, quantity: int = 1) -> bool:
 	return get_count(item_id) >= quantity
 
+func get_all_items() -> Dictionary:
+	return _counts.duplicate()
+
 ## Convenience for the "pull from inventory, place in the shipping bin"
 ## flow #13 needs end-to-end (crop/tile logic must not ship directly) --
 ## removes from the ledger and forwards to ShippingBinManager.ship_item in
