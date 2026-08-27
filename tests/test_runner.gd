@@ -290,6 +290,17 @@ func _ready() -> void:
 	_test_mine_scene_click_ignores_out_of_grid_position()
 	_test_mine_scene_renders_decorative_props()
 
+	_test_farm_scene_spawns_player_avatar()
+	_test_ranch_scene_spawns_player_avatar()
+	_test_forage_scene_spawns_player_avatar()
+	_test_mine_scene_spawns_player_avatar()
+	_test_player_avatar_has_visible_sprite()
+	_test_player_avatar_movement_vector_read()
+	_test_player_avatar_camera_follows()
+	_test_player_avatar_spawns_at_correct_position()
+	_test_player_avatar_is_character_body()
+	_test_player_avatar_has_collision_shape()
+
 	_test_available_fish_filters_by_location_season_hour()
 	_test_available_fish_sorted_and_ignores_unregistered()
 	_test_attempt_catch_unregistered_fish_returns_empty()
@@ -415,6 +426,15 @@ func _ready() -> void:
 	_test_main_controller_get_movement_vector_zero_when_no_input()
 	_test_main_controller_get_movement_vector_single_axis()
 	_test_main_controller_get_movement_vector_diagonal_normalized()
+
+	_test_cook_recipe_consumes_ingredients_and_restores_stamina()
+	_test_cook_recipe_fails_when_missing_ingredients()
+	_test_cook_recipe_fails_unknown_recipe()
+	_test_cook_recipe_adds_xp()
+	_test_cook_recipe_fires_signal()
+	_test_get_available_recipes_filters_correctly()
+	_test_get_all_recipes_returns_defaults()
+	_test_cooking_save_round_trip()
 
 	if _failures.is_empty():
 		print("ALL TESTS PASSED (%d checks)" % _pass_count)
@@ -5377,3 +5397,254 @@ func _test_main_controller_get_movement_vector_diagonal_normalized() -> void:
 	_check(dir.length() <= 1.0,
 		"movement vector should never exceed length 1.0, got %f" % dir.length())
 	controller.queue_free()
+
+## --- Frontend: Player Avatar (visible character in world scenes) ---
+##
+## Each world scene spawns a PlayerAvatar with a Camera2D reparented to
+## follow it. These verify avatar presence, position, sprite, collision,
+## movement-vector wiring, and camera follow.
+
+func _find_avatar_child(scene: Node) -> Node:
+	for child in scene.get_children():
+		if child.get_script() != null and child.get_script().get_global_name() == "PlayerAvatar":
+			return child
+	return null
+
+func _find_camera_descendant(node: Node) -> Camera2D:
+	if node is Camera2D:
+		return node
+	for child in node.get_children():
+		var found := _find_camera_descendant(child)
+		if found:
+			return found
+	return null
+
+func _test_farm_scene_spawns_player_avatar() -> void:
+	_reset_farm_plot_manager()
+	TimeManager.season_index = 0
+	var farm_scene := _make_farm_scene()
+	var avatar := _find_avatar_child(farm_scene)
+	_check(avatar != null, "FarmScene should spawn a PlayerAvatar child")
+	farm_scene.queue_free()
+
+func _test_ranch_scene_spawns_player_avatar() -> void:
+	_reset_animal_manager()
+	var scene: PackedScene = load("res://scenes/world/RanchScene.tscn")
+	var ranch_scene: RanchScene = scene.instantiate()
+	add_child(ranch_scene)
+	var avatar := _find_avatar_child(ranch_scene)
+	_check(avatar != null, "RanchScene should spawn a PlayerAvatar child")
+	ranch_scene.queue_free()
+
+func _test_forage_scene_spawns_player_avatar() -> void:
+	var scene: PackedScene = load("res://scenes/world/ForageScene.tscn")
+	var forage_scene: ForageScene = scene.instantiate()
+	add_child(forage_scene)
+	var avatar := _find_avatar_child(forage_scene)
+	_check(avatar != null, "ForageScene should spawn a PlayerAvatar child")
+	forage_scene.queue_free()
+
+func _test_mine_scene_spawns_player_avatar() -> void:
+	var scene: PackedScene = load("res://scenes/world/MineScene.tscn")
+	var mine_scene: MineScene = scene.instantiate()
+	add_child(mine_scene)
+	var avatar := _find_avatar_child(mine_scene)
+	_check(avatar != null, "MineScene should spawn a PlayerAvatar child")
+	mine_scene.queue_free()
+
+func _test_player_avatar_has_visible_sprite() -> void:
+	_reset_farm_plot_manager()
+	TimeManager.season_index = 0
+	var farm_scene := _make_farm_scene()
+	var avatar := _find_avatar_child(farm_scene)
+	_check(avatar != null, "sanity: avatar should exist")
+	var has_sprite := false
+	for child in avatar.get_children():
+		if child is Sprite2D and child.texture != null:
+			has_sprite = true
+	_check(has_sprite, "PlayerAvatar should have a Sprite2D child with a texture")
+	farm_scene.queue_free()
+
+func _test_player_avatar_movement_vector_read() -> void:
+	_reset_farm_plot_manager()
+	TimeManager.season_index = 0
+	var farm_scene := _make_farm_scene()
+	var avatar := _find_avatar_child(farm_scene)
+	_check(avatar != null, "sanity: avatar should exist")
+	var avatar_node: Node2D = avatar as Node2D
+	var before: Vector2 = avatar_node.position
+	avatar._physics_process(0.1)
+	var after: Vector2 = avatar_node.position
+	_check(before == after, "avatar should not move when no input keys are held (get_movement_vector returns ZERO)")
+	farm_scene.queue_free()
+
+func _test_player_avatar_camera_follows() -> void:
+	_reset_farm_plot_manager()
+	TimeManager.season_index = 0
+	var farm_scene := _make_farm_scene()
+	var avatar := _find_avatar_child(farm_scene)
+	_check(avatar != null, "sanity: avatar should exist")
+	var cam := _find_camera_descendant(avatar)
+	_check(cam != null, "Camera2D should be reparented under PlayerAvatar")
+	_check(cam.is_current(), "the reparented Camera2D should be the current camera")
+	farm_scene.queue_free()
+
+func _test_player_avatar_spawns_at_correct_position() -> void:
+	_reset_farm_plot_manager()
+	TimeManager.season_index = 0
+	var farm_scene := _make_farm_scene()
+	var avatar := _find_avatar_child(farm_scene)
+	_check(avatar != null, "sanity: avatar should exist")
+	var tilemap: TileMap = farm_scene.get_node("TileMap")
+	var expected := tilemap.map_to_local(Vector2i(4, 4))
+	var avatar_node: Node2D = avatar as Node2D
+	_check(avatar_node.position.is_equal_approx(expected),
+		"avatar should spawn at grid center (4,4), expected %s got %s" % [expected, avatar_node.position])
+	farm_scene.queue_free()
+
+func _test_player_avatar_is_character_body() -> void:
+	_reset_farm_plot_manager()
+	TimeManager.season_index = 0
+	var farm_scene := _make_farm_scene()
+	var avatar := _find_avatar_child(farm_scene)
+	_check(avatar is CharacterBody2D, "PlayerAvatar should be a CharacterBody2D for move_and_slide physics")
+	farm_scene.queue_free()
+
+func _test_player_avatar_has_collision_shape() -> void:
+	_reset_farm_plot_manager()
+	TimeManager.season_index = 0
+	var farm_scene := _make_farm_scene()
+	var avatar := _find_avatar_child(farm_scene)
+	_check(avatar != null, "sanity: avatar should exist")
+	var has_collision := false
+	for child in avatar.get_children():
+		if child is CollisionShape2D and child.shape != null:
+			has_collision = true
+	_check(has_collision, "PlayerAvatar should have a CollisionShape2D with a shape assigned")
+
+## --- Issue #94: UX Polish - Live hotbar ---
+
+func _test_hud_hotbar_shows_items_on_ready() -> void:
+	_reset_inventory_manager()
+	InventoryManager.add_item("parsnip", 5)
+	InventoryManager.add_item("egg", 3)
+	var hud := _make_hud()
+	var slot0: PanelContainer = hud.get_node("BottomBar/HotbarCluster/Hotbar/Slot0")
+	var label0: Label = slot0.get_node("VBox/Count")
+	_check(label0.text == "x5", "hotbar slot 0 should show parsnip x5, got '%s'" % label0.text)
+	var slot1: PanelContainer = hud.get_node("BottomBar/HotbarCluster/Hotbar/Slot1")
+	var label1: Label = slot1.get_node("VBox/Count")
+	_check(label1.text == "x3", "hotbar slot 1 should show egg x3, got '%s'" % label1.text)
+	hud.queue_free()
+
+func _test_hud_hotbar_updates_on_item_changed() -> void:
+	_reset_inventory_manager()
+	InventoryManager.add_item("parsnip", 2)
+	var hud := _make_hud()
+	var slot0: PanelContainer = hud.get_node("BottomBar/HotbarCluster/Hotbar/Slot0")
+	var label0: Label = slot0.get_node("VBox/Count")
+	_check(label0.text == "x2", "hotbar should start with parsnip x2")
+	InventoryManager.add_item("parsnip", 3)
+	_check(label0.text == "x5", "hotbar should reactively update to parsnip x5 via item_changed, got '%s'" % label0.text)
+	hud.queue_free()
+
+func _test_hud_hotbar_hides_empty_slots() -> void:
+	_reset_inventory_manager()
+	var hud := _make_hud()
+	var slot0: PanelContainer = hud.get_node("BottomBar/HotbarCluster/Hotbar/Slot0")
+	_check(not slot0.visible, "empty hotbar slot 0 should be hidden when inventory is empty")
+	hud.queue_free()
+
+## --- Issue #94: UX Polish - Last-location persistence ---
+
+func _test_main_controller_travel_to_saves_and_restores_position() -> void:
+	var controller := _make_main_controller_with_intro_seen()
+	var farm_scene := _find_farm_scene_child(controller)
+	var cam := _find_camera_descendant(farm_scene)
+	_check(cam != null, "sanity: Camera2D should exist in farm scene")
+	cam.position = Vector2(100, 200) # move Camera2D to a non-default position
+	controller.travel_to("Ranch")
+	_check(controller.current_location() == "Ranch", "should be at Ranch now")
+	controller.travel_to("Farm")
+	var restored_scene := _find_farm_scene_child(controller)
+	var restored_cam := _find_camera_descendant(restored_scene)
+	_check(restored_cam != null, "sanity: Camera2D should exist after restore")
+	_check(restored_cam.position.is_equal_approx(Vector2(100, 200)),
+		"returning to Farm should restore Camera2D to its saved position, expected (100,200) got %s" % restored_cam.position)
+	controller.queue_free()
+
+## --- ENG-109: Cooking (CookingManager) ---
+
+func _reset_cooking_manager() -> void:
+	CookingManager._recipes = {}
+	CookingManager._register_default_recipes()
+
+var _recipe_cooked_events: Array = []
+
+func _on_recipe_cooked_for_test(recipe_id: String, stamina_restore: int) -> void:
+	_recipe_cooked_events.append([recipe_id, stamina_restore])
+
+func _test_cook_recipe_consumes_ingredients_and_restores_stamina() -> void:
+	_reset_cooking_manager()
+	_reset_inventory_manager()
+	InventoryManager.add_item("parsnip", 3)
+	StaminaManager.max_stamina = 100
+	StaminaManager.current_stamina = 50
+	var ok := CookingManager.cook("parsnip_soup")
+	_check(ok, "cooking parsnip_soup with 3 parsnips should succeed")
+	_check(InventoryManager.get_count("parsnip") == 2, "cooking should consume 1 parsnip, got %d remaining" % InventoryManager.get_count("parsnip"))
+	_check(StaminaManager.current_stamina == 80, "parsnip_soup restores 30 stamina: 50+30=80, got %d" % StaminaManager.current_stamina)
+
+func _test_cook_recipe_fails_when_missing_ingredients() -> void:
+	_reset_cooking_manager()
+	_reset_inventory_manager()
+	InventoryManager.add_item("tomato", 1) # need tomato AND pumpkin for veggie_medley
+	var ok := CookingManager.cook("veggie_medley")
+	_check(not ok, "cooking veggie_medley without pumpkin should fail")
+	_check(InventoryManager.get_count("tomato") == 1, "a failed cook should not consume any ingredients, got %d tomato" % InventoryManager.get_count("tomato"))
+
+func _test_cook_recipe_fails_unknown_recipe() -> void:
+	_reset_cooking_manager()
+	_reset_inventory_manager()
+	var ok := CookingManager.cook("nonexistent_recipe")
+	_check(not ok, "cooking an unknown recipe should fail")
+
+func _test_cook_recipe_adds_xp() -> void:
+	_reset_cooking_manager()
+	_reset_inventory_manager()
+	InventoryManager.add_item("carp", 1)
+	SkillManager._xp = {}
+	CookingManager.cook("fish_stew")
+	_check(SkillManager.get_xp("Cooking") == 8, "fish_stew should grant 8 Cooking XP, got %d" % SkillManager.get_xp("Cooking"))
+
+func _test_cook_recipe_fires_signal() -> void:
+	_reset_cooking_manager()
+	_reset_inventory_manager()
+	InventoryManager.add_item("goldfish", 1)
+	_recipe_cooked_events = []
+	CookingManager.recipe_cooked.connect(_on_recipe_cooked_for_test)
+	CookingManager.cook("goldfish_sushi")
+	CookingManager.recipe_cooked.disconnect(_on_recipe_cooked_for_test)
+	_check(_recipe_cooked_events.size() == 1 and _recipe_cooked_events[0] == ["goldfish_sushi", 60],
+		"recipe_cooked should fire once with (recipe_id, stamina_restore), got %s" % [_recipe_cooked_events])
+
+func _test_get_available_recipes_filters_correctly() -> void:
+	_reset_cooking_manager()
+	_reset_inventory_manager()
+	InventoryManager.add_item("parsnip", 1)
+	var available := CookingManager.get_available_recipes()
+	_check(available.size() == 1, "with 1 parsnip, exactly 1 recipe (parsnip_soup) should be available, got %d" % available.size())
+	_check(available[0].recipe_id == "parsnip_soup", "the available recipe should be parsnip_soup, got %s" % available[0].recipe_id)
+
+func _test_get_all_recipes_returns_defaults() -> void:
+	_reset_cooking_manager()
+	var all := CookingManager.get_all_recipes()
+	_check(all.size() == 4, "should have 4 default recipes registered, got %d" % all.size())
+
+func _test_cooking_save_round_trip() -> void:
+	_reset_cooking_manager()
+	var saved := SaveManager.build_save_data()
+	_reset_cooking_manager()
+	SaveManager.apply_save_data(saved)
+	var all := CookingManager.get_all_recipes()
+	_check(all.size() == 4, "recipes should survive a save/load round-trip (stateless, still 4 defaults), got %d" % all.size())

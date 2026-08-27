@@ -78,6 +78,7 @@ var _current_location: String = "" ## empty until the first travel_to() call, so
 var _festival_overlay: FestivalMiniGameOverlay
 var _sleep_system
 var _sleep_zone
+var _last_positions: Dictionary = {} ## session-level location -> Vector2 position persistence
 
 func _ready() -> void:
 	if not SaveManager.load_game():
@@ -129,16 +130,45 @@ func current_location() -> String:
 ## current_location()/the scene tree immediately after this call sees the
 ## swap already applied, same "callers need this gone immediately"
 ## reasoning inventory_overlay.gd's _remove_row uses.
+##
+## Session-level last-position persistence: saves the Camera2D position
+## before leaving a scene, restores it when returning to a previously
+## visited location.
 func travel_to(location: String) -> void:
 	if not LOCATION_SCENE_PATHS.has(location) or location == _current_location:
 		return
 	if _active_world_scene != null and is_instance_valid(_active_world_scene):
+		_save_scene_position(_current_location)
 		_remove_sleep_zone()
 		_active_world_scene.free()
 	_active_world_scene = load(LOCATION_SCENE_PATHS[location]).instantiate()
 	add_child(_active_world_scene)
 	_current_location = location
+	_restore_scene_position(location)
 	_add_sleep_zone()
+
+func _save_scene_position(location: String) -> void:
+	if _active_world_scene == null:
+		return
+	var camera: Camera2D = _find_camera(_active_world_scene)
+	if camera != null:
+		_last_positions[location] = camera.position
+
+func _restore_scene_position(location: String) -> void:
+	if not _last_positions.has(location):
+		return
+	var camera: Camera2D = _find_camera(_active_world_scene)
+	if camera != null:
+		camera.position = _last_positions[location]
+
+func _find_camera(node: Node) -> Camera2D:
+	if node is Camera2D:
+		return node
+	for child in node.get_children():
+		var found := _find_camera(child)
+		if found:
+			return found
+	return null
 
 func _on_festival_started(_festival_id: String) -> void:
 	if _festival_overlay != null and is_instance_valid(_festival_overlay):
