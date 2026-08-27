@@ -136,6 +136,20 @@ func register_crop(def: CropDefinition) -> void:
 func get_crop_definition(crop_id: String) -> CropDefinition:
 	return _definitions.get(crop_id)
 
+## ENG-LIST-CROP-IDS: every crop_id currently registered via
+## _register_default_content() (or any later register_crop() call) --
+## the "list every crop_id" getter ShopOverlay's own docstring (PR #125)
+## flagged as a backend follow-up, having hardcoded its CROP_IDS const in
+## the meantime. Named to match this same file's get_all_positions()
+## convention rather than get_crop_definition()'s singular-lookup shape.
+## Sorted by crop_id for a deterministic iteration order, same reasoning
+## FestivalManager.get_festival_for_date() gives for sorting its own
+## Dictionary.keys() before use.
+func get_all_crop_ids() -> Array:
+	var ids := _definitions.keys()
+	ids.sort()
+	return ids
+
 func get_plot(position: Vector2i) -> FarmPlot:
 	return _plots.get(position)
 

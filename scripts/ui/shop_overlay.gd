@@ -22,16 +22,9 @@ class_name ShopOverlay
 ## RelationshipsOverlay/InfrastructureOverlay already follow for their
 ## own gated actions.
 ##
-## FarmPlotManager has no "list every crop_id" getter (only
-## get_crop_definition(crop_id) for an already-known id) -- the same gap
-## SkillsOverlay's own docstring hit for SkillManager. CROP_IDS below
-## hardcodes the seven crop ids FarmPlotManager._register_default_content()
-## actually registers (parsnip/cauliflower/tomato/melon/pumpkin/corn/
-## frost_kale) -- reading existing content, not inventing new state, the
-## same justification SkillsOverlay's SKILL_NAMES gives for its own
-## hardcoded list. A future list_crop_ids() getter on FarmPlotManager
-## would let this drop the hardcoded list; noted as a backend follow-up
-## rather than reached around (per SQUAD-SPLIT.md's contract rule).
+## ENG-LIST-CROP-IDS: FarmPlotManager.get_all_crop_ids() now exists, so
+## the CROP_IDS hardcoded list this docstring used to justify is gone --
+## rows are primed straight off the real registered roster instead.
 ##
 ## Quantity is fixed at 1 per Buy click (no quantity stepper) -- the
 ## smallest viable purchase UI per issue #123's "simple toggle... doesn't
@@ -39,8 +32,6 @@ class_name ShopOverlay
 ## more just clicks again.
 
 signal closed
-
-const CROP_IDS := ["parsnip", "cauliflower", "tomato", "melon", "pumpkin", "corn", "frost_kale"]
 
 @onready var _list: VBoxContainer = $Root/Panel/Margin/VBox/SeedList
 @onready var _close_button: Button = $Root/Panel/Margin/VBox/Header/CloseButton
@@ -54,7 +45,7 @@ func _ready() -> void:
 	_prime_from_current_state()
 
 func _prime_from_current_state() -> void:
-	for crop_id in CROP_IDS:
+	for crop_id in FarmPlotManager.get_all_crop_ids():
 		_add_row(crop_id)
 	_refresh_gold_label()
 	_status_label.text = ""

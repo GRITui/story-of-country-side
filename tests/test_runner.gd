@@ -153,6 +153,7 @@ func _ready() -> void:
 	_test_buy_seed_fails_when_gold_insufficient()
 	_test_buy_seed_fails_for_unknown_crop()
 	_test_new_game_grants_starting_seeds()
+	_test_get_all_crop_ids_matches_registered_roster()
 
 	_test_forage_register_node_seeds_season_valid_item()
 	_test_forage_gather_credits_inventory_and_xp_and_sets_cooldown()
@@ -1707,6 +1708,25 @@ func _test_new_game_grants_starting_seeds() -> void:
 	var seed_item_id := FarmPlotManager.get_seed_item_id(FarmPlotManager.STARTING_SEED_CROP_ID)
 	_check(InventoryManager.get_count(seed_item_id) == FarmPlotManager.STARTING_SEED_QUANTITY,
 		"new_game() should grant STARTING_SEED_QUANTITY starting seeds, got %d" % InventoryManager.get_count(seed_item_id))
+
+## ENG-LIST-CROP-IDS: get_all_crop_ids() must reflect exactly what
+## _register_default_content() actually registers -- same set, same
+## count, no duplicates -- since ShopOverlay now iterates it directly
+## instead of a hand-maintained CROP_IDS list.
+func _test_get_all_crop_ids_matches_registered_roster() -> void:
+	var expected := ["parsnip", "cauliflower", "tomato", "melon", "pumpkin", "corn", "frost_kale"]
+	var ids := FarmPlotManager.get_all_crop_ids()
+	_check(ids.size() == expected.size(),
+		"get_all_crop_ids() should return %d ids, got %d" % [expected.size(), ids.size()])
+	for crop_id in expected:
+		_check(ids.has(crop_id), "get_all_crop_ids() is missing expected crop_id '%s'" % crop_id)
+	var seen := {}
+	for crop_id in ids:
+		_check(not seen.has(crop_id), "get_all_crop_ids() returned duplicate crop_id '%s'" % crop_id)
+		seen[crop_id] = true
+	for crop_id in ids:
+		_check(FarmPlotManager.get_crop_definition(crop_id) != null,
+			"get_all_crop_ids() returned '%s' with no matching CropDefinition" % crop_id)
 
 ## --- ENG-17: Foraging (ForagingManager) ---
 
@@ -5268,7 +5288,7 @@ func _test_farm_scene_b_key_toggles_shop_overlay() -> void:
 
 func _test_shop_overlay_lists_all_known_crops_on_ready() -> void:
 	var overlay := _make_shop_overlay()
-	for crop_id in ShopOverlay.CROP_IDS:
+	for crop_id in FarmPlotManager.get_all_crop_ids():
 		var def: CropDefinition = FarmPlotManager.get_crop_definition(crop_id)
 		var price_label: Label = overlay.get_node("Root/Panel/Margin/VBox/SeedList/Row_%s/PriceLabel_%s" % [crop_id, crop_id])
 		_check(price_label.text == "%s seed -- %d gold" % [def.display_name, def.seed_price],
