@@ -7,6 +7,50 @@
   <sprint_completion_percentage>100</sprint_completion_percentage>
 </squad_metadata>
 
+## Sprint 2 — CONTENT-SEED-BALANCE DONE (PR #124)
+Real balance pass on `CropDefinition.seed_price` across all 7 registered
+crops, replacing PR #122's flat "~40-55% of base_sell_price" placeholder.
+Claimed via `backlog-inbox.md`'s CONTENT-SEED-BALANCE task (Product Owner,
+Sprint 2).
+
+Rationale, grounded in each crop's real `base_sell_price`/`days_to_grow`/
+regrow behavior against the 28-day season (`TimeManager.DAYS_PER_SEASON`),
+not a re-derived formula:
+- One-time-harvest crops re-priced to ~30-35% of `base_sell_price`:
+  parsnip 15->12, cauliflower 35->28, melon 60->45, pumpkin 50->38,
+  frost_kale 30->24. Melon/pumpkin sit at the low end of that band since
+  their absolute margin is already large; parsnip/frost_kale sit slightly
+  higher since their thin absolute margin still needs to feel worthwhile.
+- Regrowable crops (tomato, corn) re-priced to roughly two-thirds of
+  `base_sell_price` since one seed pays out repeatedly per season: tomato
+  25->30 (8 harvests/season off a 5-day grow + 3-day regrow cycle), corn
+  30->38 (6 harvests/season off an 8-day grow + 4-day regrow cycle). Each
+  crop's first harvest alone barely clears its own seed cost by design
+  (tomato 45-30=15g, corn 55-38=17g) -- the higher price is justified by
+  every harvest after that, applying the "regrowable crops can rationally
+  support a higher seed price" reasoning PR #122 flagged but never
+  applied per-crop.
+
+Values/strings only per SQUAD-SPLIT.md's Content lane: touched
+`scripts/autoload/farm_plot_manager.gd`'s `_register_default_content()`
+call-site values (plus its rationale comment) and
+`scripts/farming/crop_definition.gd`'s stale `seed_price` docstring. No
+method signatures, signal definitions, or control flow touched.
+
+No `tests/test_runner.gd` assertions needed updating -- the buy_seed/plant
+tests all read prices dynamically via `FarmPlotManager.get_seed_price()`
+rather than hardcoding the old placeholder numbers, so nothing broke.
+
+Verified against Godot 4.3-stable (matches `project.godot`'s
+`config/features`), rebased on top of `e01a0a1` (PR #122, already merged
+into the default branch) so this is the live baseline, not stale:
+- Clean headless boot of `scenes/Main.tscn` (`--quit-after 60`).
+- Full `tests/TestRunner.tscn` suite: **1009/1009 checks passing**.
+
+`backlog-inbox.md` got a new `CONTENT-SEED-BALANCE` task_item appended
+with status `DONE` (the existing `IN_PROGRESS` entry left untouched,
+append-only per convention). PR: https://github.com/GRITui/story-of-country-side/pull/124
+
 ## Producer note (Epoch 32): Writer/Dialogue Designer's two flagged gaps are now unblocked
 
 Writer/Dialogue Designer's PR #78 (see squad-handshake-writer.md if it
