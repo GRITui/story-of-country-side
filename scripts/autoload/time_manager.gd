@@ -78,6 +78,35 @@ func unfreeze(reason: String) -> void:
 func is_frozen() -> bool:
 	return not _freeze_reasons.is_empty()
 
+## Squad Alpha (P0 #93): sleep / day-skip.
+## can_sleep() is the public gate — sleeping is only allowed when the
+## clock is not frozen (menus, festivals, cutscenes). sleep() and
+## sleep_until_morning() both respect this gate and return false if frozen.
+## When allowed, they force a single clean day rollover: emit day_ended,
+## reuse _advance_day() for season/year arithmetic, reset hour/minute to
+## 6:00 AM, clear _minute_accum, emit day_started. Stamina restore happens
+## reactively via StaminaManager's day_started listener (no direct
+## StaminaManager field access here — SQUAD-SPLIT contract).
+## Reference-counted freeze does not block the forced rollover once
+## can_sleep() has passed — sleep bypasses _process()'s early return and
+## drives the transition directly.
+func can_sleep() -> bool:
+	return not is_frozen()
+
+func sleep() -> bool:
+	return sleep_until_morning()
+
+func sleep_until_morning() -> bool:
+	if not can_sleep():
+		return false
+	_minute_accum = 0.0
+	day_ended.emit(day_in_season, current_season())
+	_advance_day()
+	hour = DAY_START_HOUR
+	minute = 0
+	day_started.emit(day_in_season, current_season(), current_day_of_week())
+	return true
+
 func to_save_dict() -> Dictionary:
 	return {
 		"year": year,

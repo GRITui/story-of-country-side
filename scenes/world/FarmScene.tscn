@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3 uid="uid://d8k2m4p9x1q7r"]
+[gd_scene load_steps=3 format=3 uid="uid://d8k2m4p9x1q7r"]
 
 [ext_resource type="Script" path="res://scripts/world/farm_scene.gd" id="1"]
+[ext_resource type="PackedScene" path="res://scenes/world/PlayerAvatar.tscn" id="2"]
 
 [node name="FarmScene" type="Node2D"]
 script = ExtResource("1")
@@ -11,3 +12,5 @@ script = ExtResource("1")
 position = Vector2(0, 96)
 zoom = Vector2(2, 2)
 enabled = true
+
+[node name="PlayerAvatar" parent="." instance=ExtResource("2")]

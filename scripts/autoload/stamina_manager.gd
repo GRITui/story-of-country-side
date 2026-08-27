@@ -36,6 +36,17 @@ func restore(amount: int) -> void:
 	current_stamina = mini(current_stamina + amount, max_stamina)
 	stamina_changed.emit(current_stamina, max_stamina)
 
+## Squad Alpha (P0 #93/#120): full restore on sleep.
+## Called reactively via TimeManager.day_started for normal day rollovers
+## (including sleep-driven ones), but also exposed as a public helper so
+## callers that need an explicit full restore (e.g. bed interaction before
+## the day_started signal would fire) have a single place to do it without
+## touching _passed_out_today directly.
+func restore_full() -> void:
+	_passed_out_today = false
+	current_stamina = max_stamina
+	stamina_changed.emit(current_stamina, max_stamina)
+
 func _pass_out() -> void:
 	_passed_out_today = true
 	passed_out.emit(PASS_OUT_MONEY_PENALTY)

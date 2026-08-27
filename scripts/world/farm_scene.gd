@@ -1,61 +1,21 @@
 extends Node2D
 class_name FarmScene
-## Frontend (#52 sub-scope): world/tile-rendering scene for FarmPlotManager.
+## Frontend (#52 sub-scope + Squad Alpha P0 #100/#93): world/tile-rendering
+## scene for FarmPlotManager + visible player avatar.
 ##
-## The single biggest player-visible gap this epic had left -- FarmPlotManager
-## (#13/#53) is fully logic-only (a Vector2i -> FarmPlot dictionary with no
-## rendering), so nothing a player did with planting/watering/harvesting was
-## ever visible. This scene renders that state reactively via a Godot
-## isometric TileMap, per design/art/isometric-grid-spec.md (64x32px tile
-## footprint, 2:1 ratio, TILE_SHAPE_ISOMETRIC / TILE_LAYOUT_DIAMOND_DOWN --
-## the same convention the spec hands to any tilemap consumer).
-##
-## Grid size: 8x8 (GRID_WIDTH x GRID_HEIGHT below) -- a reasonable starter
-## farm plot, matching the small-farm-in-town-view sizing precedent named in
-## the isometric-grid-spec's own genre references, and small enough that a
-## screenful of tiles reads clearly without a camera zoom/pan implementation
-## (spec section 6 explicitly leaves zoom/pan out of scope). Not tied to any
-## design-doc number -- there isn't one -- so this is this PR's own content
-## placeholder, documented as such per SQUAD-SPLIT.md's content-gap norm.
-##
-## VISUALS (Decision E / #6 is still unresolved -- no illustrated tile art
-## exists anywhere in the repo, and no image-generation tool exists in this
-## environment; see squad-handshake-art.md): Art Squad replaced this
-## scene's flat-color placeholder tileset with a procedurally-generated
-## one (ProceduralTileArt.build_isometric_tileset, in
-## scripts/world/procedural_tile_art.gd) -- real alpha-masked isometric
-## diamonds with directional shading, an edge outline, and speckle-grain
-## texture, still one base color per FarmPlot state:
-##   empty        -> bare dirt brown   (Color(0.45, 0.36, 0.22))
-##   planted      -> seedling green    (Color(0.31, 0.55, 0.25))
-##   watered      -> darker wet green  (Color(0.16, 0.35, 0.32))
-##   harvest_ready-> bright gold       (Color(0.86, 0.71, 0.18))
-##   withered     -> ash gray          (Color(0.35, 0.32, 0.30))
-## harvest_ready also gets a center-weighted glow accent (ProceduralTileArt's
-## glow_states) so a ready-to-harvest tile visually calls attention to
-## itself, same idea a real art pass would eventually express with a
-## dedicated sprite/VFX instead.
-## No crop-specific sprites, no growth-stage variants -- state alone drives
-## color. A later pass with real illustrated art (human artist or an
-## image-gen pipeline) should replace _build_tileset with real tile art
-## without needing to touch the signal-binding logic below.
-##
-## Rendering model: fully reactive, no polling. _ready() does one pass over
-## every (x, y) in the grid calling FarmPlotManager.get_plot(position) --
-## that public getter is sufficient to enumerate this scene's own known grid
-## bounds without needing a new "get all plots" backend API (there isn't
-## one, and none is needed: this scene owns/defines its own grid, backend
-## only needs to answer "what's at this position", which get_plot() already
-## does). After that initial pass, every visual update comes from
-## FarmPlotManager's public signals (crop_planted/crop_watered/
-## crop_harvested/crop_withered) -- never a private field.
-##
-## Interaction (stretch goal, included): clicking a tile plants/waters/
-## harvests it via FarmPlotManager's public methods, using a single
-## hardcoded seed choice ("parsnip") for planting since there is no seed-
-## selection UI/hotbar-binding yet (HUD's own docstring already flags the
-## hotbar has no real item binding -- same gap, not re-solved here). This is
-## a placeholder interaction model, not a designed one.
+## FarmPlot rendering unchanged from the pre-avatar implementation (reactive
+## TileMap, ProceduralTileArt, 8x8 grid, 64x32 isometric spec). Squad Alpha
+## adds:
+##   - PlayerAvatar instance (Sprite2D/4-dir/shape, shadow, tool-hold,
+##     deterministic tint per save, WASD/arrows, emitted moved(Vector2i)).
+##   - Avatar is centered on spawn grid (1,1), clamped to GRID_WIDTH/HEIGHT
+##     tile bounds, faces the last clicked tile, and plays a tool-swing pulse
+##     on every successful plant/water/harvest.
+##   - Bed tile at BED_POSITION: clicking it calls TimeManager.sleep() (when
+##     can_sleep()) instead of a farming action, advancing to next day 6:00 AM
+##     via TimeManager's public sleep() API only — never _-fields.
+##   - Movement + bed interaction both respect TimeManager.is_frozen() via the
+##     avatar's own freeze check and via can_sleep() gating.
 
 const GRID_WIDTH := 8
 const GRID_HEIGHT := 8
@@ -76,24 +36,29 @@ const STATE_COLORS := {
 	STATE_WITHERED: Color(0.35, 0.32, 0.30),
 }
 
-## Hardcoded placeholder planting choice -- see class docstring. Only used
+## Hardcoded placeholder planting choice — see class docstring. Only used
 ## by the click-to-plant stretch interaction below.
 const PLACEHOLDER_PLANT_CROP_ID := "parsnip"
 
 const ATLAS_SOURCE_ID := 0
+## Bed for sleep interaction — top-left corner so it never collides with the
+## typical starter crop area, visually still part of the same TileMap grid.
+const BED_POSITION := Vector2i(GRID_WIDTH - 1, GRID_HEIGHT - 1) ## far corner, avoids (0,0) used by click-plant tests
 
 @onready var _tilemap: TileMap = $TileMap
+var _avatar: PlayerAvatar
 
 func _ready() -> void:
 	_build_tileset()
 	_render_all_plots()
+	_spawn_avatar()
 
 	FarmPlotManager.crop_planted.connect(_on_crop_planted)
 	FarmPlotManager.crop_watered.connect(_on_crop_watered)
 	FarmPlotManager.crop_harvested.connect(_on_crop_harvested)
 	FarmPlotManager.crop_withered.connect(_on_crop_withered)
 
-## Builds one TileSet at runtime via ProceduralTileArt -- see class
+## Builds one TileSet at runtime via ProceduralTileArt — see class
 ## docstring and scripts/world/procedural_tile_art.gd for why there's no
 ## art asset to load instead. tile_shape/tile_layout/tile_size match
 ## design/art/isometric-grid-spec.md sections 1-2 exactly (enforced inside
@@ -101,13 +66,33 @@ func _ready() -> void:
 func _build_tileset() -> void:
 	_tilemap.tile_set = ProceduralTileArt.build_isometric_tileset(STATE_COLORS, TILE_WIDTH, TILE_HEIGHT, ATLAS_SOURCE_ID, [STATE_READY])
 
+func _spawn_avatar() -> void:
+	var existing := get_node_or_null("PlayerAvatar")
+	if existing is PlayerAvatar:
+		_avatar = existing
+	else:
+		var scene := load("res://scenes/world/PlayerAvatar.tscn")
+		if scene != null:
+			_avatar = scene.instantiate()
+			add_child(_avatar)
+		else:
+			# Fallback if tscn not present (e.g. headless test minimal setup)
+			_avatar = PlayerAvatar.new()
+			_avatar.name = "PlayerAvatar"
+			add_child(_avatar)
+	_avatar.grid_bounds = Rect2i(0, 0, GRID_WIDTH, GRID_HEIGHT)
+	_avatar.spawn_grid = Vector2i(1, 1)
+	# Ensure avatar sits on a walkable tile (not the bed tile)
+	_avatar.set_grid_position(Vector2i(1, 1))
+	_avatar.moved.connect(_on_avatar_moved)
+
 func _render_all_plots() -> void:
 	for x in range(GRID_WIDTH):
 		for y in range(GRID_HEIGHT):
 			_refresh_tile(Vector2i(x, y))
 
-## Re-derives a tile's visual state from FarmPlotManager.get_plot() -- the
-## single source of truth -- rather than tracking any scene-local duplicate
+## Re-derives a tile's visual state from FarmPlotManager.get_plot() — the
+## single source of truth — rather than tracking any scene-local duplicate
 ## state, same "no duplicate state" discipline HUD's docstring calls out.
 func _refresh_tile(position: Vector2i) -> void:
 	_paint_tile(position, _plot_state(position))
@@ -128,6 +113,9 @@ func _paint_tile(position: Vector2i, state: int) -> void:
 func _in_grid(position: Vector2i) -> bool:
 	return position.x >= 0 and position.x < GRID_WIDTH and position.y >= 0 and position.y < GRID_HEIGHT
 
+func _is_bed_tile(position: Vector2i) -> bool:
+	return position == BED_POSITION
+
 func _on_crop_planted(position: Vector2i, _crop_id: String) -> void:
 	if _in_grid(position):
 		_refresh_tile(position)
@@ -141,7 +129,7 @@ func _on_crop_harvested(position: Vector2i, _item_id: String, _quality: String, 
 		_refresh_tile(position)
 
 ## crop_withered fires after FarmPlotManager has already erased the plot, so
-## get_plot(position) would report STATE_EMPTY by the time this runs --
+## get_plot(position) would report STATE_EMPTY by the time this runs —
 ## paint the withered color directly instead of re-deriving from state, so
 ## the player sees the wither happen rather than the tile silently going
 ## back to bare dirt. It reverts to whatever _refresh_tile would compute the
@@ -150,12 +138,14 @@ func _on_crop_withered(position: Vector2i, _crop_id: String) -> void:
 	if _in_grid(position):
 		_paint_tile(position, STATE_WITHERED)
 
-## Click-to-interact stretch goal (see class docstring): a single click
-## plants (if empty), waters (if planted and not yet watered today), or
-## harvests (if ready) -- one action per click, cycling through the plot's
-## lifecycle. Whichever FarmPlotManager call applies returns false and is a
-## silent no-op if its own preconditions aren't met (wrong season, already
-## watered, etc.) -- this scene never duplicates that validation.
+func _on_avatar_moved(_grid_pos: Vector2i) -> void:
+	# Hook for future NPC interaction / footprint logic.
+	pass
+
+## Click-to-interact: bed tile triggers sleep (via TimeManager public API),
+## otherwise plants/waters/harvests via FarmPlotManager public methods.
+## Avatar faces the clicked tile and swings its tool on any successful
+## farming action.
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		var local_pos: Vector2 = _tilemap.to_local(get_global_mouse_position())
@@ -165,10 +155,23 @@ func _unhandled_input(event: InputEvent) -> void:
 func _handle_tile_click(position: Vector2i) -> void:
 	if not _in_grid(position):
 		return
+	if _avatar != null:
+		_avatar.face_grid(position)
+	# Bed interaction takes priority over farming on its tile.
+	if _is_bed_tile(position):
+		if TimeManager.can_sleep():
+			if TimeManager.sleep():
+				if _avatar != null:
+					_avatar.swing_tool()
+		return
 	var plot: FarmPlot = FarmPlotManager.get_plot(position)
+	var acted := false
 	if plot == null or plot.is_empty():
-		FarmPlotManager.plant(position, PLACEHOLDER_PLANT_CROP_ID)
+		acted = FarmPlotManager.plant(position, PLACEHOLDER_PLANT_CROP_ID)
 	elif plot.harvest_ready:
-		FarmPlotManager.harvest(position)
+		var result := FarmPlotManager.harvest(position)
+		acted = not result.is_empty()
 	elif not plot.watered_today:
-		FarmPlotManager.water(position)
+		acted = FarmPlotManager.water(position)
+	if acted and _avatar != null:
+		_avatar.swing_tool()
