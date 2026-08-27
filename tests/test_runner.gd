@@ -856,13 +856,16 @@ func _test_no_payout_signal_when_bin_empty() -> void:
 func _test_pass_out_penalty_deducts_gold_and_clamps_at_zero() -> void:
 	_reset_shipping_bin()
 	var sb := ShippingBinManager
+	# Softened per #120: PASS_OUT_PENALTY_RATE 5% — penalty is min(fixed, 5% of gold)
 	sb.gold = 30
 	sb._on_passed_out(100)
-	_check(sb.gold == 0, "pass-out penalty larger than current gold should clamp at 0, got %d" % sb.gold)
+	# 5% of 30 = 1 (int), so gold should be 29, not 0
+	_check(sb.gold == 29, "pass-out penalty at 5% of 30 should be 1, gold should be 29, got %d" % sb.gold)
 
 	sb.gold = 200
 	sb._on_passed_out(50)
-	_check(sb.gold == 150, "pass-out penalty should deduct normally when gold is sufficient, got %d" % sb.gold)
+	# 5% of 200 = 10, min(50,10)=10, so gold should be 190
+	_check(sb.gold == 190, "pass-out penalty should be softened to 5% (10 of 200), got %d" % sb.gold)
 
 func _test_spend_succeeds_and_fails_correctly() -> void:
 	_reset_shipping_bin()
