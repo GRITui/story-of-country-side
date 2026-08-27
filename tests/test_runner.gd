@@ -57,6 +57,7 @@ var _music_stopped_count := 0 ## member, not a local -- GDScript lambdas capture
 var _community_goal_overlay_closed_count := 0 ## same reason
 var _festival_mini_game_overlay_closed_count := 0 ## same reason
 var _fishing_overlay_closed_count := 0 ## same reason
+var _shop_overlay_closed_count := 0 ## same reason
 
 func _ready() -> void:
 	_test_minute_and_hour_wrap()
@@ -259,6 +260,11 @@ func _ready() -> void:
 	_test_farm_scene_click_plants_empty_tile()
 	_test_farm_scene_click_ignores_out_of_grid_position()
 	_test_farm_scene_renders_decorative_props()
+	_test_farm_scene_b_key_toggles_shop_overlay()
+	_test_shop_overlay_lists_all_known_crops_on_ready()
+	_test_shop_overlay_buy_button_success_updates_status_and_gold()
+	_test_shop_overlay_buy_button_insufficient_gold_shows_failure()
+	_test_shop_overlay_close_emits_closed_signal()
 	_test_ranch_scene_instantiates_without_error()
 	_test_ranch_scene_renders_empty_grid_on_ready()
 	_test_ranch_scene_renders_already_occupied_pen_on_ready()
@@ -5230,3 +5236,81 @@ func _test_saved_mid_festival_loaded_past_end_stays_expired() -> void:
 	_check(not FestivalManager.is_festival_active(), "#90: festival whose day has passed must stay expired after reload")
 	_check(_festival_started_events.is_empty(), "#90: expired festival must not emit festival_started on reload")
 	_check(tm.season_index == 1 and tm.day_in_season == 16 and tm.hour == 7, "#90: restored date/hour should match the save payload")
+
+## --- Frontend: Seed Shop overlay (#123, ENG-91/PR #122's UI-hook gap) ---
+##
+## Same discipline as the Skills/Inventory overlay blocks above: pure
+## display primed once from FarmPlotManager/CropDefinition, kept in sync
+## via seed_purchased/gold_changed, no ShopOverlay-local duplicate state.
+
+func _reset_shipping_bin_manager_gold(amount: int = ShippingBinManager.STARTING_GOLD) -> void:
+	ShippingBinManager.gold = amount
+
+func _make_shop_overlay() -> ShopOverlay:
+	var scene: PackedScene = load("res://scenes/ui/ShopOverlay.tscn")
+	var overlay: ShopOverlay = scene.instantiate()
+	add_child(overlay)
+	return overlay
+
+func _test_farm_scene_b_key_toggles_shop_overlay() -> void:
+	_reset_farm_plot_manager()
+	TimeManager.season_index = 0 # Spring
+	var farm_scene := _make_farm_scene()
+	_check(farm_scene.get_node_or_null("ShopOverlay") == null, "sanity: shop overlay should not exist until toggled")
+	var key_event := InputEventKey.new()
+	key_event.pressed = true
+	key_event.physical_keycode = KEY_B
+	farm_scene._unhandled_input(key_event)
+	_check(farm_scene.get_node_or_null("ShopOverlay") != null, "pressing B should open the ShopOverlay as a child of FarmScene")
+	farm_scene._unhandled_input(key_event)
+	_check(farm_scene.get_node_or_null("ShopOverlay") == null, "pressing B again should close the ShopOverlay")
+	farm_scene.queue_free()
+
+func _test_shop_overlay_lists_all_known_crops_on_ready() -> void:
+	var overlay := _make_shop_overlay()
+	for crop_id in ShopOverlay.CROP_IDS:
+		var def: CropDefinition = FarmPlotManager.get_crop_definition(crop_id)
+		var price_label: Label = overlay.get_node("Root/Panel/Margin/VBox/SeedList/Row_%s/PriceLabel_%s" % [crop_id, crop_id])
+		_check(price_label.text == "%s seed -- %d gold" % [def.display_name, def.seed_price],
+			"overlay should list %s with its real CropDefinition.seed_price" % crop_id)
+	overlay.queue_free()
+
+func _test_shop_overlay_buy_button_success_updates_status_and_gold() -> void:
+	_reset_inventory_manager()
+	_reset_shipping_bin_manager_gold(1000)
+	var overlay := _make_shop_overlay()
+	var parsnip_price := FarmPlotManager.get_seed_price("parsnip")
+	overlay.get_node("Root/Panel/Margin/VBox/SeedList/Row_parsnip/BuyButton_parsnip").pressed.emit()
+	_check(InventoryManager.get_count(FarmPlotManager.get_seed_item_id("parsnip")) == 1,
+		"buying should credit one seed via the real buy_seed() call")
+	_check(ShippingBinManager.gold == 1000 - parsnip_price,
+		"buying should spend seed_price gold via the real buy_seed() call")
+	_check(overlay.get_node("Root/Panel/Margin/VBox/StatusLabel").text == "Bought 1 Parsnip seed.",
+		"a successful purchase should report success back to the player")
+	_check(overlay.get_node("Root/Panel/Margin/VBox/Header/GoldLabel").text == "Gold: %d" % ShippingBinManager.gold,
+		"the gold label should update reactively via gold_changed")
+	overlay.queue_free()
+
+func _test_shop_overlay_buy_button_insufficient_gold_shows_failure() -> void:
+	_reset_inventory_manager()
+	_reset_shipping_bin_manager_gold(0)
+	var overlay := _make_shop_overlay()
+	overlay.get_node("Root/Panel/Margin/VBox/SeedList/Row_parsnip/BuyButton_parsnip").pressed.emit()
+	_check(InventoryManager.get_count(FarmPlotManager.get_seed_item_id("parsnip")) == 0,
+		"a failed purchase (insufficient gold) must not credit a seed")
+	_check(ShippingBinManager.gold == 0, "a failed purchase must not spend any gold")
+	_check(overlay.get_node("Root/Panel/Margin/VBox/StatusLabel").text == "Can't buy Parsnip seed -- not enough gold.",
+		"a failed purchase should report the failure back to the player")
+	overlay.queue_free()
+	_reset_shipping_bin_manager_gold()
+
+func _on_shop_overlay_closed_for_test() -> void:
+	_shop_overlay_closed_count += 1
+
+func _test_shop_overlay_close_emits_closed_signal() -> void:
+	_shop_overlay_closed_count = 0
+	var overlay := _make_shop_overlay()
+	overlay.closed.connect(_on_shop_overlay_closed_for_test)
+	overlay.get_node("Root/Panel/Margin/VBox/Header/CloseButton").pressed.emit()
+	_check(_shop_overlay_closed_count == 1, "pressing Close should emit the closed signal exactly once")
+	overlay.queue_free()
