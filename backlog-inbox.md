@@ -2502,3 +2502,38 @@ either, so the remote branches remain as harmless merged-and-stale refs).
     ProceduralCharacterArt layer.
   </description>
 </task_item>
+
+<task_item>
+  <id>CONTENT-SEED-BALANCE</id>
+  <status>DONE</status>
+  <priority>MEDIUM</priority>
+  <title>Real balance pass on CropDefinition.seed_price placeholder values</title>
+  <description>
+    Sprint 2, Content Squad. Replaced PR #122's flat "~40-55% of
+    base_sell_price" seed_price placeholder with a real per-crop pass
+    across all 7 registered crops, grounded in each crop's actual
+    base_sell_price, days_to_grow, and regrow behavior against the
+    28-day season (TimeManager.DAYS_PER_SEASON):
+    - One-time-harvest crops (parsnip, cauliflower, melon, pumpkin,
+      frost_kale) re-priced to ~30-35% of base_sell_price: parsnip
+      15 -> 12, cauliflower 35 -> 28, melon 60 -> 45, pumpkin 50 -> 38,
+      frost_kale 30 -> 24.
+    - Regrowable crops (tomato, corn) re-priced to ~two-thirds of
+      base_sell_price since one seed pays out across many harvests in a
+      season (tomato: 8 harvests/season -> 25 -> 30; corn: 6
+      harvests/season -> 30 -> 38), applying the "regrowable can
+      rationally support a higher seed price" reasoning PR #122 flagged
+      but never applied.
+    Values/strings only per SQUAD-SPLIT.md's Content lane -- no method
+    signatures, signal definitions, or control flow touched
+    (scripts/autoload/farm_plot_manager.gd's _register_default_content()
+    call-site values plus scripts/farming/crop_definition.gd's stale
+    docstring). No test assertions needed updating -- tests/test_runner.gd's
+    buy_seed/plant tests all read prices dynamically via
+    FarmPlotManager.get_seed_price() rather than hardcoding old numbers.
+    Verified: clean headless boot of scenes/Main.tscn and full
+    tests/TestRunner.tscn suite, 1009/1009 checks passing, against Godot
+    4.3-stable (matches project.godot's config/features). PR: see
+    squad-handshake-content.md for number/link.
+  </description>
+</task_item>
