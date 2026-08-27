@@ -2422,6 +2422,121 @@ either, so the remote branches remain as harmless merged-and-stale refs).
 </task_item>
 
 <task_item>
+  <id>PO-SPRINT-1-RETRO</id>
+  <source>PRODUCT_OWNER</source>
+  <status>DONE</status>
+  <priority>HIGH</priority>
+  <title>Sprint 1 retrospective</title>
+  <description>
+    Both squads delivered in a single parallel wave, both self-verified
+    (Godot 4.3 headless, full suite) and both PRs landed clean with no
+    review/CI blockers (repo has no CI configured, per SQUAD-SPLIT.md).
+    PR #121 (FRONTEND-100, avatar) squash-merged. PR #122 (ENG-91, seed
+    economy) squash-merged after a real-world instance of SQUAD-SPLIT.md's
+    documented append-only-conflict pattern: #121 merged first, which
+    moved the base branch out from under #122's already-pushed branch; the
+    Engineer squad's own session noticed and re-merged/re-pushed before I
+    could -- a good sign the discipline documented in SQUAD-SPLIT.md is
+    legible enough for a squad to self-serve, not just the PM. Both squads
+    correctly declined to build outside their lane (Engineer flagged the
+    missing shop UI instead of touching scenes/; Frontend flagged the
+    missing input map instead of touching input handling) rather than
+    scope-creeping to "finish" the feature themselves.
+    What went well: sizing to one clearly-scoped issue per squad kept both
+    diffs small (230 and 249 lines) and reviewable; running Backend and
+    Frontend in parallel on genuinely disjoint directories produced zero
+    code conflicts (only the shared markdown ledger conflicted, exactly as
+    predicted, and exactly as cheaply resolved).
+    What to improve: neither squad's PR description flagged the shop-UI
+    gap as a trackable issue on its own -- I had to notice it and file
+    #123 myself during retro. Sprint 2 planning should proactively check
+    "does this task's own stated follow-up gap already have an issue
+    number" before dispatching, not after.
+    Feedback into backlog: filed #123 (seed shop UI overlay, the concrete
+    gap ENG-91 left behind). #101 (input map) and #102 (NPC instantiation)
+    are now higher-value than before this sprint -- both were previously
+    "build the thing" tasks with nothing to interact with yet; #100 landing
+    gives #101 a body to move and #102 a layer to reuse
+    (PlayerAvatar/ProceduralCharacterArt), so both move up in practical
+    priority even though their GitHub labels are unchanged (P2).
+  </description>
+</task_item>
+
+<task_item>
+  <id>PO-SPRINT-2-PLANNING</id>
+  <source>PRODUCT_OWNER</source>
+  <status>DONE</status>
+  <priority>HIGH</priority>
+  <title>Sprint 2 plan: real player-driven movement, a place to spend gold, honest seed prices</title>
+  <description>
+    Sprint 2 goal: "The avatar moves under the player's own input, and the
+    new seed economy is actually playable end-to-end (buy -&gt; plant -&gt;
+    harvest -&gt; rebuy) with numbers a human chose on purpose."
+    Three squads, run in parallel -- chosen specifically for zero file
+    overlap this time (Sprint 1's retro flagged the one conflict we did
+    hit; this sprint's split avoids even the shared-ledger risk by touching
+    different sections):
+      - FRONTEND-101 (Frontend Squad): issue #101, real input map +
+        player-driven movement on the existing PlayerAvatar from #100
+        (scripts/world/player_avatar.gd + project.godot input actions).
+        Click-to-move from #100 should keep working or be cleanly
+        superseded -- squad's call, documented either way.
+      - FRONTEND-123 (Frontend Squad, second session): issue #123 (filed
+        this retro), a seed shop overlay in scenes/ui/ wired to
+        FarmPlotManager.buy_seed(). Deliberately a different directory
+        (scenes/ui/ vs scripts/world/) from FRONTEND-101 to avoid the
+        conflict pattern Sprint 1 hit.
+      - CONTENT-SEED-BALANCE (Content Squad): real balance pass on every
+        CropDefinition.seed_price value (currently a documented ratio-of-
+        sell-price placeholder per PR #122) -- values-only change per
+        SQUAD-SPLIT.md's content lane rule, update any test asserting the
+        placeholder numbers.
+    Deferred to Sprint 3 on purpose: #102 (NPC instantiation) -- shares
+    world-scene files with FRONTEND-101, running them the same sprint
+    would recreate exactly the conflict pattern retro'd above.
+  </description>
+</task_item>
+
+<task_item>
+  <id>FRONTEND-101</id>
+  <status>IN_PROGRESS</status>
+  <priority>HIGH</priority>
+  <title>Define a control scheme + input map (currently mouse-click only)</title>
+  <description>
+    Claimed for Sprint 2 by Product Owner, assigned to Frontend Squad. See
+    issue #101. Builds on #100's PlayerAvatar. Frontend lane per
+    SQUAD-SPLIT.md.
+  </description>
+</task_item>
+
+<task_item>
+  <id>FRONTEND-123</id>
+  <status>IN_PROGRESS</status>
+  <priority>HIGH</priority>
+  <title>Seed shop UI: a buyable-goods overlay hooked to buy_seed()</title>
+  <description>
+    Claimed for Sprint 2 by Product Owner, assigned to a second Frontend
+    Squad session. See issue #123 (filed this sprint's retro out of the
+    gap ENG-91/PR #122 left behind). Frontend lane, scenes/ui/** only, per
+    SQUAD-SPLIT.md.
+  </description>
+</task_item>
+
+<task_item>
+  <id>CONTENT-SEED-BALANCE</id>
+  <status>IN_PROGRESS</status>
+  <priority>MEDIUM</priority>
+  <title>Real balance pass on CropDefinition.seed_price placeholder values</title>
+  <description>
+    Claimed for Sprint 2 by Product Owner, assigned to Content Squad.
+    seed_price was shipped in PR #122 as a documented ratio-of-sell-price
+    heuristic, not a real playtested balance pass. Content lane per
+    SQUAD-SPLIT.md: values/strings only, no logic changes; update any test
+    asserting the old placeholder numbers as part of this task.
+  </description>
+</task_item>
+
+<task_item>
   <id>ENG-91</id>
   <status>IN_PROGRESS</status>
   <priority>HIGH</priority>
