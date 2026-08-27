@@ -2537,3 +2537,51 @@ either, so the remote branches remain as harmless merged-and-stale refs).
     squad-handshake-content.md for number/link.
   </description>
 </task_item>
+
+<task_item>
+  <id>FRONTEND-123</id>
+  <status>DONE</status>
+  <priority>P2</priority>
+  <title>Seed shop UI: a buyable-goods overlay hooked to buy_seed() (frontend)</title>
+  <description>
+    Sprint 2, Frontend Squad. GitHub issue #123 -- the UI-hook gap PR
+    #122 (ENG-91) flagged: FarmPlotManager.buy_seed(crop_id, quantity)
+    landed as a callable, fully-tested backend method with no scene/UI
+    hook at all.
+    Shipped: scenes/ui/ShopOverlay.tscn + scripts/ui/shop_overlay.gd, a
+    minimal full-screen Seed Shop overlay following the existing
+    InventoryOverlay/SkillsOverlay chrome/discipline -- one row per crop
+    (display_name + real CropDefinition.seed_price via
+    FarmPlotManager.get_crop_definition()), a Buy x1 button calling
+    buy_seed(crop_id, 1) directly, a status line reflecting success/
+    failure (insufficient gold) back to the player, and a gold label
+    kept in sync via ShippingBinManager.gold_changed. CROP_IDS is a
+    hardcoded 7-item list (FarmPlotManager has no "list every crop_id"
+    getter -- same gap SkillsOverlay's own SKILL_NAMES already hit for
+    SkillManager; flagged as a backend follow-up, not reached around).
+    scripts/world/farm_scene.gd: pressing "B" (raw physical keycode, not
+    a new input action -- project.godot has no [input] section yet and
+    FRONTEND-101 is landing the real input map this same sprint;
+    touching project.godot here would be a pure landing-order conflict
+    for no v1 benefit) toggles the overlay as a child of FarmScene. No
+    dedicated shopkeeper NPC/building -- explicitly out of scope for v1
+    per the issue.
+    Frontend-only (scenes/ui/**, scripts/world/farm_scene.gd) per
+    SQUAD-SPLIT.md -- no scripts/autoload/** changes; buy_seed() consumed
+    exactly as-is via its public method/signal.
+    +18 headless tests (row listing with real seed_price, buy success/
+    failure paths incl. status text and reactive gold label, close
+    signal, FarmScene's B-key open/close toggle).
+    Verification: re-verified the live baseline on the fresh base branch
+    first (1009/1009 checks passing, before this PR's own changes) since
+    CONTENT-SEED-BALANCE (#124) was landing concurrently this sprint;
+    merged that in cleanly (pure value/docstring changes, no signature
+    conflicts) and re-ran -- 1030/1030 checks passing. Clean headless
+    boot of scenes/Main.tscn. Godot 4.3-stable (matches project.godot's
+    config/features).
+    Follow-up gaps: no quantity stepper (fixed Buy x1 per click, matching
+    the issue's "simple toggle" v1 framing); FarmPlotManager could use a
+    list_crop_ids() getter so this overlay stops hardcoding its crop
+    roster. PR: see squad-handshake-frontend.md for number/link.
+  </description>
+</task_item>
