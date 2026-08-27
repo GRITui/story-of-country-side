@@ -2585,3 +2585,45 @@ either, so the remote branches remain as harmless merged-and-stale refs).
     roster. PR: see squad-handshake-frontend.md for number/link.
   </description>
 </task_item>
+
+<task_item>
+  <id>FRONTEND-101</id>
+  <status>DONE</status>
+  <priority>HIGH</priority>
+  <title>Define a control scheme + input map (currently mouse-click only)</title>
+  <description>
+    Shipped as PR #127 against claude/farming-game-pm-requirements-w9ugtk.
+    Registered project.godot's [input] section (move_up/down/left/right,
+    interact, advance_dialog, hotbar_1..5) and gave PlayerAvatar direct,
+    input-driven movement (move_by_input()) additive alongside #100's
+    click-to-move stand-in -- keyboard input takes precedence over an
+    in-flight click target when pressed. Every world scene now polls
+    movement in _process() and wires `interact` to re-run its existing
+    _handle_tile_click against the tile ahead of the avatar's facing
+    direction; mouse-tile-click remains the primary targeting input per
+    the issue's own scope guard. IntroSequence now advances on the named
+    advance_dialog action instead of the built-in ui_accept. Documented in
+    design/ui-flows/menu-hud-flow-spec.md's new Controls section (#5).
+    Frontend-only (scenes/**, scripts/story/**, scripts/world/** and
+    project.godot's [input] section) per SQUAD-SPLIT.md -- no
+    scripts/autoload/** changes.
+    Ran in parallel with FRONTEND-123 this sprint; hit one expected merge
+    conflict in scripts/world/farm_scene.gd's _unhandled_input (FRONTEND-
+    123's raw "B" shop-toggle keycode vs. this task's new `interact`
+    action branch) -- resolved by keeping both, no logic overlap, per
+    SQUAD-SPLIT.md's documented merge pattern.
+    Verification: headless boot of scenes/Main.tscn clean before and after
+    merging the base branch forward. Full tests/TestRunner.tscn suite
+    passing throughout (1009-1012 checks before the merge, matching the
+    live baseline's own pre-existing count nondeterminism; 1027-1030 after
+    folding in FRONTEND-123/CONTENT-SEED-BALANCE's own additions) -- no
+    FAILED ever observed. No dedicated PlayerAvatar/input unit tests added
+    (no unit-test precedent for this repo's presentation-node scenes).
+    Follow-up gaps: hotbar_1..5 actions registered but unconsumed until
+    #94 lands; keyboard movement is continuous screen-space, not
+    grid-snapped, so the interact action's "facing tile" is an
+    isometric-correct approximation of adjacency rather than a strict
+    4-neighbor lookup. Full detail: see squad-handshake-frontend.md's
+    "Sprint 2 -- FRONTEND-101 DONE" entry.
+  </description>
+</task_item>
