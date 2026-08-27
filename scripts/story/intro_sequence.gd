@@ -88,10 +88,15 @@ func _finish() -> void:
 		TimeManager.unfreeze(FREEZE_REASON)
 	finished.emit()
 
+## #101: advances on the named `advance_dialog` action (bound to
+## Space/Enter, project.godot's [input] section) rather than the built-in
+## `ui_accept` -- same physical keys by default, but now a named, remappable
+## action per the issue's own ask ("wire advance_dialog into IntroSequence").
+## Mouse click / touch remain equally valid advance inputs, unchanged.
 func _unhandled_input(event: InputEvent) -> void:
 	if not _active:
 		return
-	var advances: bool = event.is_action_pressed("ui_accept") \
+	var advances: bool = event.is_action_pressed("advance_dialog") \
 		or (event is InputEventMouseButton and event.pressed) \
 		or (event is InputEventScreenTouch and event.pressed)
 	if advances:

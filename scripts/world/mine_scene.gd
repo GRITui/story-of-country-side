@@ -186,13 +186,27 @@ func _on_rock_broken(tile: Vector2i, _item_id: String, _quantity: int) -> void:
 func _on_floor_descended(_new_floor_index: int) -> void:
 	_render_all_tiles()
 
+## #101: direct keyboard movement -- mirrors farm_scene.gd's _process
+## exactly, see that file for the precedence-rule docstring.
+func _process(delta: float) -> void:
+	var direction := Input.get_vector("move_left", "move_right", "move_up", "move_down")
+	_player_avatar.move_by_input(direction, delta)
+
+## Resolves the interact-action target tile -- mirrors farm_scene.gd's
+## _facing_tile() exactly.
+func _facing_tile() -> Vector2i:
+	return _tilemap.local_to_map(_player_avatar.position + _player_avatar.facing * TILE_HEIGHT)
+
 ## Click-to-interact (see class docstring): mirrors every prior world
-## scene's _unhandled_input pattern exactly.
+## scene's _unhandled_input pattern exactly, plus the `interact` action
+## (#101) driving _handle_tile_click against _facing_tile().
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		var local_pos: Vector2 = _tilemap.to_local(get_global_mouse_position())
 		var cell: Vector2i = _tilemap.local_to_map(local_pos)
 		_handle_tile_click(cell)
+	elif event.is_action_pressed("interact"):
+		_handle_tile_click(_facing_tile())
 
 func _handle_tile_click(tile: Vector2i) -> void:
 	if not _in_grid(tile):

@@ -31,12 +31,15 @@ class_name PlayerAvatar
 ##
 ## Explicitly NOT built here, per the issue's own "out of scope v1" list:
 ## collision physics, a free camera, a clothing system, or animation sets
-## beyond facing+swing. This also introduces no control scheme (#101 is a
-## separate, later issue) -- world scenes already drive movement by
-## calling move_to() with whatever position their own existing
-## click-to-interact handler resolved, so no new input handling is added
-## by this node itself; the interaction model stays click-to-act, this
-## just gives the click somewhere visible to send a body.
+## beyond facing+swing.
+##
+## #101 update: this node now also supports direct, input-driven movement
+## (move_by_input()) alongside the original click-to-move (move_to()) --
+## see this file's own docstring on move_by_input() for the precedence
+## rule between the two. Each world scene decides when to call which;
+## this node still has no opinion on where its target/direction inputs
+## come from, keeping it agnostic to any particular grid shape or input
+## binding scheme.
 
 signal arrived()
 
@@ -55,6 +58,14 @@ const SWING_PULSE_COLOR := Color(1.5, 1.5, 1.15)
 var _target_position: Vector2
 var _has_target := false
 var _sprite: Sprite2D
+
+## Last non-zero movement direction, in this node's local screen-space
+## (not grid space) -- updated by both move_by_input() and the click-to-
+## move step in _process(). Defaults to "facing down" (toward the viewer),
+## a reasonable idle default before the avatar has ever moved. World
+## scenes read this to resolve an "adjacent tile" for the interact action
+## (#101) without this node needing any grid/TileMap awareness itself.
+var facing: Vector2 = Vector2.DOWN
 
 func _ready() -> void:
 	_sprite = _build_sprite()
@@ -79,6 +90,30 @@ func move_to(target: Vector2) -> void:
 	_target_position = target
 	_has_target = true
 
+## Direct, input-driven movement (#101): moves this node immediately, this
+## frame, in `direction` (expected pre-normalized, e.g. from
+## Input.get_vector) at move_speed_px_per_sec. A zero direction is a no-op
+## -- callers should simply not call this when nothing is pressed, rather
+## than passing Vector2.ZERO, so an idle avatar just holds position.
+##
+## Precedence rule vs. move_to(): any non-zero direction here immediately
+## cancels a pending click-to-move target (_has_target = false), so
+## keyboard input always wins over an in-flight click move -- pressing a
+## movement key interrupts walking toward a stale click target rather than
+## fighting it every frame. Releasing all movement keys does not resume
+## the click target; the avatar simply stops. This is a documented product
+## decision, not an oversight: re-clicking (or pressing a key again) is a
+## simpler mental model than a walk that silently resumes toward an old
+## click the player may no longer want.
+func move_by_input(direction: Vector2, delta: float) -> void:
+	if direction == Vector2.ZERO:
+		return
+	_has_target = false
+	facing = direction.normalized()
+	if absf(facing.x) > 0.01:
+		_sprite.flip_h = facing.x < 0.0
+	position += facing * move_speed_px_per_sec * delta
+
 func _process(delta: float) -> void:
 	if not _has_target:
 		return
@@ -91,12 +126,13 @@ func _process(delta: float) -> void:
 		return
 	if absf(to_target.x) > 0.5:
 		_sprite.flip_h = to_target.x < 0.0
+	facing = to_target.normalized()
 	var step := move_speed_px_per_sec * delta
 	if step >= dist:
 		position = _target_position
 		arrived.emit()
 	else:
-		position += to_target.normalized() * step
+		position += facing * step
 
 ## Tool-use feedback (#100 ask item 3): a brief tint pulse on the sprite.
 ## Call this right after a world scene's own tool-action call succeeds
