@@ -2627,3 +2627,59 @@ either, so the remote branches remain as harmless merged-and-stale refs).
     "Sprint 2 -- FRONTEND-101 DONE" entry.
   </description>
 </task_item>
+
+<task_item>
+  <id>FRONTEND-102</id>
+  <status>DONE</status>
+  <priority>P2</priority>
+  <title>Instantiate NPCs in world scenes: shipped schedules/social systems are completely invisible in play (frontend)</title>
+  <description>
+    Sprint 3, Frontend Squad. GitHub issue #102 -- the NPC-schedule/
+    relationship backend (NPCController/NPCSchedule, RelationshipManager,
+    MarriageManager) was fully shipped but had zero scene presence: six
+    villagers existed only as names in a relationship/gift menu, and the
+    time-of-day schedule feature could never be observed in play.
+    Shipped: scripts/npc/npc_roster.gd (new, Frontend-owned placeholder
+    content -- npc_schedule.gd/npc_schedule_entry.gd's data-model classes
+    stay backend-owned and untouched, this file only builds instances of
+    them) assigns each of the six MarriageManager.MARRIAGEABLE_NPCS
+    villagers a "home" world scene matching their existing gift-preference-
+    dialogue archetype (Colton/Tobias -> Mine, Elena/Priya -> Farm,
+    Sana -> Ranch, Marcus -> Forage -- no dock/fishing scene exists yet)
+    and three grid-position/time-of-day stops per day, converted to pixel
+    space through that scene's own TileMap.map_to_local() so the roster
+    stays grid-size-agnostic. Farm/Ranch/Mine/Forage scenes each
+    instantiate one NPCController per home villager (reusing #100's
+    existing ProceduralCharacterArt silhouette sprites, no new art) under
+    a new YSort-enabled DynamicLayer node (player avatar moved under it
+    too) per design/art/isometric-grid-spec.md section 4's depth-sorting
+    convention. Clicking a villager's sprite opens the existing
+    RelationshipsOverlay instead of acting on the tile behind them -- no
+    new dialog system, per the issue's own "smallest possible interaction"
+    scope guard.
+    Frontend-only (scenes/** via each world scene's script, plus the new
+    scripts/npc/npc_roster.gd) per SQUAD-SPLIT.md -- no scripts/autoload/**
+    changes, no edit to npc_schedule.gd/npc_schedule_entry.gd.
+    +21 headless tests: NPCRoster pure data/logic (every villager placed
+    in exactly one scene, grid->pixel conversion through a given TileMap,
+    unknown-npc-name safety) plus FarmScene-level coverage of villager
+    instantiation under DynamicLayer and click-to-open-RelationshipsOverlay
+    (representative case -- Ranch/Mine/Forage mirror the identical pattern,
+    verified via headless scene boots rather than duplicating near-
+    identical tests four times).
+    Verification: branch cut fresh from the base branch (already includes
+    PR #129/ENG-LIST-CROP-IDS). Godot 4.3-stable headless: clean boot of
+    scenes/Main.tscn and each of the four world scenes individually. Full
+    tests/TestRunner.tscn suite passing across repeated runs -- 1076
+    checks (base branch's own pre-existing nondeterministic baseline was
+    1049-1052 before this PR's own +21 tests).
+    Follow-up gaps: schedule content is placeholder, not designed (three
+    fixed daily stops, "Any"/"Any" season/weather); a villager is only
+    ever visible in its one home scene (no cross-scene movement -- richer
+    schedules could add that with zero code change, just more
+    NPCScheduleEntry content); villager click opens the full
+    RelationshipsOverlay rather than a focused/scrolled view of just that
+    NPC; Marcus (angler) has no real dock/fishing scene to call home.
+    PR: see squad-handshake-frontend.md for number/link.
+  </description>
+</task_item>

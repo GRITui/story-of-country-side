@@ -653,3 +653,130 @@ Follow-up gaps (not built here):
 `backlog-inbox.md`'s FRONTEND-101 task_item updated to `DONE` the
 append-only way (new block referencing the same id, prior
 `IN_PROGRESS` block left untouched).
+
+## Sprint 3 -- FRONTEND-102 DONE
+
+Claimed FRONTEND-102 (issue #102: instantiate NPCs in world scenes -- the
+shipped NPC-schedule/relationship backend, NPCController/NPCSchedule,
+RelationshipManager, MarriageManager, had zero scene presence anywhere in
+the repo; six villagers existed only as names in a relationship/gift
+menu, and the daily-schedule feature could never be observed in play).
+Read the issue text via GitHub MCP rather than guessing from the title
+per this task's own instruction; also read npc_controller.gd, npc_
+schedule.gd/npc_schedule_entry.gd, and player_avatar.gd's
+ProceduralCharacterArt sharing before drafting anything.
+
+Backend gap check first: RelationshipManager.GIFT_PREFERENCE_PATHS /
+MarriageManager.MARRIAGEABLE_NPCS both list exactly the same six names
+(Elena, Marcus, Priya, Tobias, Sana, Colton) -- that's the real villager
+count this task placed, not an arbitrary number. No NPCSchedule .tres
+resource existed anywhere in the repo (grepped for it) -- schedule
+*content* (which grid stops, which hours) was a pure content gap nobody
+had filled, same as FarmScene's own hardcoded PLACEHOLDER_PLANT_CROP_ID
+precedent, so this task filled it as Frontend's own placeholder rather
+than blocking on Content/Writer lane.
+
+Shipped `scripts/npc/npc_roster.gd` (new file): maps each of the six
+villagers to a "home" world scene loosely matching their existing
+gift-preference-dialogue archetype (relationship_manager.gd's own heart-
+event text already establishes Colton=miner, Elena=gardener, Priya=
+farmer, Sana=rancher, Marcus=angler, Tobias=treasure hunter) --
+Colton/Tobias -> Mine, Elena/Priya -> Farm, Sana -> Ranch, Marcus ->
+Forage (no dock/fishing world scene exists yet, so Marcus's placeholder
+home is the closest outdoor scene, documented as such). Three grid-
+position/time-of-day stops per villager per day; `build_schedule()`
+converts each stop's Vector2i grid cell through *the calling scene's own*
+TileMap.map_to_local(), so the roster file itself never hardcodes pixel
+coordinates or assumes any particular grid size -- same coordinate
+transform every world scene's own click-to-move/interact code already
+uses. This stays inside npc_controller.gd's existing "Frontend consumes
+NPCSchedule, doesn't own the data-model class" split per SQUAD-SPLIT.md:
+npc_schedule.gd/npc_schedule_entry.gd (the class definitions) are
+untouched, npc_roster.gd only builds instances of them, exactly the kind
+of instantiation any scene is already free to do.
+
+Farm/Ranch/Mine/Forage scenes: each now calls a new `_add_villagers()` in
+`_ready()`, instantiating one NPCController per NPCRoster.npcs_for_scene()
+match, reusing #100's ProceduralCharacterArt silhouette sprites (no new
+art, per the issue's own scope guard). Added a `_add_dynamic_layer()` --
+a runtime-created YSort-enabled Node2D -- and reparented the player
+avatar plus every villager under it, per design/art/isometric-grid-spec.md
+section 4's depth-sorting convention (that doc already named
+NPCController explicitly as a consumer, "no change needed" on
+NPCController's own side -- the gap was scenes never having a YSort
+container at all). Decorative props stay direct scene children: static
+border dressing outside the playable grid, not something that needs
+draw-order resolution against a moving entity.
+
+Optional smallest-possible interaction (issue ask #4): clicking a
+villager's sprite (hit-tested via `_npc_at_local_point()` against each
+NPCController's bottom-anchored sprite bounding box -- no Area2D/
+collision shapes added) opens the pre-existing RelationshipsOverlay (same
+overlay the pause menu's "Relationships" button already opens) instead of
+acting on the tile behind them. No new dialog/conversation system, no
+schedule editor -- both explicitly out of scope per the issue, and the
+overlay isn't scrolled/focused to just the clicked villager (lists all
+six, same as it always has) since building that would be more than the
+"smallest possible interaction" the issue actually asked for.
+
++21 headless tests: NPCRoster pure data/logic (every MARRIAGEABLE_NPCS
+villager placed in exactly one scene -- no duplicates, no omissions --
+grid->pixel conversion through a given TileMap matches map_to_local()
+exactly, an unrecognized npc_name builds an empty schedule rather than
+crashing) plus FarmScene-level coverage of villager instantiation under
+the new DynamicLayer (right names, right YSort flag) and click-to-open-
+RelationshipsOverlay (a click at a villager's own anchor position hits;
+a point far from every villager doesn't). FarmScene got full test
+coverage as the representative case; Ranch/Mine/Forage mirror the exact
+same `_add_dynamic_layer`/`_add_villagers`/`_npc_at_local_point`/
+`_open_relationships_for` pattern (confirmed via each file's own diff)
+and were verified via individual headless scene boots instead of
+duplicating near-identical tests four times over -- same "one scene gets
+full coverage, the rest mirror it" precedent every prior world-scene test
+block in this file already follows.
+
+Verification: this session's environment already had a Godot 4.3-stable
+binary from a prior session in the scratchpad directory (matches
+project.godot's config/features) -- no fresh install needed, just an
+`--import` pass since this worktree had no `.godot/` cache yet. Branch
+cut fresh from the live base branch (`claude/farming-game-pm-requirements-
+w9ugtk`, already includes PR #129/ENG-LIST-CROP-IDS landed since Sprint
+2's PRs -- fetched and rebased onto it before writing any code, per this
+task's own instruction to check for concurrent landings first). Clean
+headless boot of scenes/Main.tscn, and each of the four world scenes
+individually (confirms villager instantiation doesn't throw at _ready()
+in any of them). Full tests/TestRunner.tscn suite passing across repeated
+runs both before this PR's own test additions (1049-1052 checks, matching
+the documented pre-existing count nondeterminism) and after (**1076
+checks**, no FAILED ever observed).
+
+No merge-collision hit with the parallel Backend (farm_plot_manager.gd)
+or QA (test_runner.gd check-count investigation) squads this sprint --
+disjoint files as SQUAD-SPLIT.md's cross-squad note anticipated; the only
+shared file (tests/test_runner.gd) only had QA reading it, not editing it
+concurrently as far as this session could see.
+
+Shipped as PR #130 against `claude/farming-game-pm-requirements-w9ugtk`.
+
+Follow-up gaps (not built here):
+- Schedule content (NPC_DAILY_STOPS) is this PR's own placeholder, not
+  designed content -- three fixed stops/day, "Any"/"Any" season/weather
+  on every entry. A real Content/Writer-lane pass could author richer,
+  season-varying routines without touching any code here.
+- A villager is only ever visible in its one assigned home scene -- no
+  cross-scene schedule (e.g. walking from Farm to Ranch over the day).
+  NPCSchedule/NPCScheduleEntry already support arbitrary positions and
+  location_name values, so this is purely a content gap, not a code one.
+- Clicking a villager opens the full RelationshipsOverlay (all six
+  villagers) rather than a version scrolled/focused to just the one
+  clicked -- ruled out for v1 by the issue's own "smallest possible
+  interaction" scope guard.
+- Marcus (angler) has no dock/fishing world scene to call home -- placed
+  in ForageScene as the closest existing outdoor scene; a real
+  fishing-spot scene (if #15's mini-game half is ever un-boxed from
+  FishingOverlay) would be a more natural fit.
+
+`backlog-inbox.md`'s FRONTEND-102 task_item added the append-only way
+(new block; no prior IN_PROGRESS block existed for this id to leave
+untouched -- the issue was claimed directly from GitHub, not pre-staged
+in backlog-inbox.md).
