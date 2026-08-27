@@ -493,3 +493,69 @@ its own instructions, but that session's ID format wasn't accepted by
 this environment's trigger tool ("unsupported version") -- routed the
 reply through STANDUP.md instead (2026-08-25T00:40Z entry), the
 established cross-squad fallback channel.
+
+## Sprint 2 -- FRONTEND-123 DONE
+
+Claimed FRONTEND-123 (issue #123: Seed shop UI hooked to
+FarmPlotManager.buy_seed(), the UI-hook gap PR #122/ENG-91 flagged --
+buy_seed() landed as a fully-tested, callable backend method with no
+scene/UI hook at all).
+
+Shipped: `scenes/ui/ShopOverlay.tscn` + `scripts/ui/shop_overlay.gd`, a
+minimal full-screen Seed Shop overlay -- same chrome/discipline as
+InventoryOverlay/SkillsOverlay (title top-left, close top-right, pure
+display primed from `FarmPlotManager.get_crop_definition()` and kept in
+sync via `seed_purchased`/`gold_changed`, no local price/gold
+duplicate). One row per crop_id in a hardcoded `CROP_IDS` list --
+`FarmPlotManager` has no "list every crop_id" getter, same gap
+SkillsOverlay's own `SKILL_NAMES` already hit for `SkillManager`;
+flagged below as a backend follow-up rather than reached around. Each
+row shows `display_name` + real `seed_price` and a `Buy x1` button
+calling `buy_seed(crop_id, 1)` directly; a status line reflects
+success/failure (insufficient gold) back to the player.
+
+`scripts/world/farm_scene.gd`: pressing "B" toggles the overlay as a
+child of FarmScene -- the "simple toggle, no dedicated NPC/building
+needed for v1" surface the issue asked for. Checked as a raw physical
+keycode, not a new input action: `project.godot` has no `[input]`
+section yet (`PauseMenu` already reuses the built-in `ui_cancel` action
+for the same reason), and FRONTEND-101 is landing the real input map +
+player movement this same sprint in parallel -- touching
+`project.godot`'s `[input]` block here would be a pure landing-order
+conflict with that work for no v1 benefit. Disjoint files from
+FRONTEND-101 as expected (scenes/ui/**, scripts/world/farm_scene.gd vs.
+scripts/world/player_avatar.gd + project.godot's `[input]` section) --
+no overlap hit.
+
++18 headless tests: shop row listing (real seed_price per crop), buy
+success (seed credited, gold spent, status text, gold label updates
+reactively) and failure (insufficient gold -- no seed credited, no gold
+spent, failure status text) paths, close-button signal, and FarmScene's
+B-key open/close toggle.
+
+Verification: re-verified the live baseline on the fresh base branch
+myself before making any change (1009/1009 checks passing) since
+CONTENT-SEED-BALANCE (#124, a real balance pass on `seed_price` values)
+was landing concurrently this sprint -- merged it into the feature
+branch (pure value/docstring changes, no signature conflicts, per
+SQUAD-SPLIT.md's documented merge pattern) and re-ran: **1030/1030
+checks pass**. Clean headless boot of `scenes/Main.tscn`. Godot
+4.3-stable (binary already present in this session's environment from a
+prior run, matching `project.godot`'s `config/features`).
+
+Shipped as PR #125 against `claude/farming-game-pm-requirements-w9ugtk`.
+
+Follow-up gaps (not built here):
+- No quantity stepper -- fixed `Buy x1` per click, matching issue
+  #123's "simple toggle" v1 framing; a player who wants more just
+  clicks again.
+- No dedicated shopkeeper NPC/building -- explicitly out of scope for
+  v1 per the issue.
+- To Backend squad: `FarmPlotManager` has no `list_crop_ids()` getter
+  to enumerate registered crop ids (only `get_crop_definition(crop_id)`
+  for an already-known id) -- ShopOverlay's `CROP_IDS` is a hardcoded
+  copy of the seven ids `_register_default_content()` currently
+  registers, same shape as the SkillsOverlay/SkillManager gap already
+  logged above. A `list_crop_ids()` getter would let this overlay read
+  the real roster instead of hardcoding it, and would stop silently
+  drifting stale if Content lane adds/removes a crop.
