@@ -126,6 +126,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	if _hint_visible and _index == lines.size() - 1:
 		_hide_hint()
 	var advances: bool = event.is_action_pressed("ui_accept") \
+func _unhandled_input(event: InputEvent) -> void:
+	if not _active:
+		return
+	var advances: bool = event.is_action_pressed("advance_dialog") \
 		or (event is InputEventMouseButton and event.pressed) \
 		or (event is InputEventScreenTouch and event.pressed)
 	if advances:

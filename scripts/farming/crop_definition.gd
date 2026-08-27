@@ -33,3 +33,13 @@ extends Resource
 
 ## Farming XP awarded per harvest via SkillManager.add_xp("Farming", ...).
 @export var xp_reward: int = 4
+
+## Gold cost per seed via FarmPlotManager.buy_seed() (#91: seed economy --
+## planting used to be free/infinite). CONTENT-SEED-BALANCE (Sprint 2)
+## replaced the original flat "~40-55% of base_sell_price" placeholder
+## with a real per-crop pass -- see the rationale comment on
+## FarmPlotManager._register_default_content(). One-time-harvest crops
+## sit around 30-35% of base_sell_price; regrowable crops (tomato/corn)
+## sit much higher (roughly two-thirds) since one seed pays out across
+## many harvests in a season, not just one.
+@export var seed_price: int = 5

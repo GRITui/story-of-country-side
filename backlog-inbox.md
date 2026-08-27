@@ -2409,6 +2409,36 @@ suite still passes (1081/1081). Scene wiring NOT done from this lane --
 `scenes/**`/`scripts/story|ui/**` are Frontend-owned per SQUAD-SPLIT.md;
 manifest gives Frontend the anchor/frame-layout conventions to apply the
 assets as a drop-in. Coordinate handoff via squad-handshake-art.md epoch 7.
+<task_item>
+  <id>PO-SPRINT-1-PLANNING</id>
+  <source>PRODUCT_OWNER</source>
+  <status>DONE</status>
+  <priority>HIGH</priority>
+  <title>Sprint 1 plan: close the one real economy bug, start the embodiment epic</title>
+  <description>
+    Product Owner sprint planning pass. Reviewed open GitHub issues (#91-120)
+    and backlog-inbox status. Two findings stood out over everything else
+    labeled P2/P3: (1) #91 is the only open issue that is an actual economic
+    bug, not a scope gap -- planting is currently free and infinite, which
+    undermines every other economy system already shipped (shipping bin,
+    price registry, seed-destruction guard from #97). (2) Super User's own
+    embodiment triage (#100/#101/#102) found the game currently has no
+    visible player character, no registered input map, and no NPCs
+    instantiated in any scene -- the "five activities + economy + social"
+    backend is complete but literally invisible in play. Both are P0-in-
+    substance even though labeled P1/P2.
+    Sprint 1 goal: "A player can see themselves, and seeds cost money."
+    Scope (sized to land inside one 30-120 min squad execution window each,
+    run in parallel since they touch disjoint lanes per SQUAD-SPLIT.md):
+      - ENG-91 (Backend/Engineer Squad): seeds as items + starting grant +
+        purchase path, per issue #91.
+      - FRONTEND-100 (Frontend Squad): visible player avatar in world
+        scenes, per issue #100. Deliberately NOT bundling #101 (input map)
+        or #102 (NPC instantiation) into this sprint -- keep the diff
+        reviewable, they're natural Sprint 2 follow-ons once the avatar
+        exists to control.
+    Explicitly out of scope this sprint: #93, #96, #105-119 (queued,
+    unaffected by this sprint's outcome).
   </description>
 </task_item>
 
@@ -2425,5 +2455,264 @@ synthesized cheerful BGM (marketing/presenter/gen_music.py -> bgm.wav, NumPy,
 no licensed samples). Verified: duration/size/streams probe OK, sampled frames
 populated, audio mean -18dB / max -2.4dB. Reproducible via
 marketing/presenter/README.md. Reuses existing farm asset set; no scene wiring.
+  <id>ENG-91</id>
+  <status>IN_PROGRESS</status>
+  <priority>HIGH</priority>
+  <title>Seed economy: seeds as items + starting grant + purchase path</title>
+  <description>
+    Claimed for Sprint 1 by Product Owner, assigned to Engineer/Backend
+    Squad. See issue #91 for full spec. Backend lane per SQUAD-SPLIT.md
+    (scripts/autoload/**, scripts/economy/**, scripts/farming/**).
+  </description>
+</task_item>
+
+<task_item>
+  <id>FRONTEND-100</id>
+  <status>IN_PROGRESS</status>
+  <priority>HIGH</priority>
+  <title>Player avatar: a visible main character in world scenes</title>
+  <description>
+    Claimed for Sprint 1 by Product Owner, assigned to Frontend Squad. See
+    issue #100 for full spec. Frontend lane per SQUAD-SPLIT.md
+    (scenes/**, scripts/story/**, scripts/npc/npc_controller.gd). Must not
+    touch backend autoloads except through existing public methods/signals.
+  </description>
+</task_item>
+
+<task_item>
+  <id>ENG-91</id>
+  <status>DONE</status>
+  <priority>HIGH</priority>
+  <title>Seed economy: seeds as items + starting grant + purchase path</title>
+  <description>
+    Shipped by Engineer/Backend Squad: PR gritui/story-of-country-side#122
+    (branch feature/eng-91-seed-economy). CropDefinition.seed_price;
+    FarmPlotManager.plant() now requires/consumes a real "&lt;crop_id&gt;_seed"
+    InventoryManager item; FarmPlotManager.buy_seed() purchase path via
+    ShippingBinManager.spend(); SaveManager.new_game() grants 8 starting
+    parsnip seeds via FarmPlotManager.grant_starting_seeds(). 1009/1009
+    tests pass (+17 new), verified headless Godot 4.3-stable. See
+    squad-handshake-engineer.md's "Sprint 1 — ENG-91 DONE" entry for the
+    full trail. Follow-up gaps (not built here): no shop/purchase UI hook
+    yet (Frontend/UI task), seed_price values are a placeholder heuristic
+    pending Content lane's real balance pass.
+  </description>
+</task_item>
+
+<task_item>
+  <id>FRONTEND-100</id>
+  <status>DONE</status>
+  <priority>HIGH</priority>
+  <title>Player avatar: a visible main character in world scenes</title>
+  <description>
+    Shipped via PR #121 (frontend/player-avatar branch, not yet merged as
+    of this entry). Adds scripts/world/player_avatar.gd (PlayerAvatar,
+    Node2D) -- a bottom-anchored placeholder sprite via the existing
+    ProceduralCharacterArt generator NPCController already uses, tinted a
+    fixed color distinct from any NPC's name-hashed tint. Wired into
+    FarmScene/RanchScene/MineScene/ForageScene: placed at each grid's
+    center anchor on _ready(), moved toward the clicked tile on every
+    _handle_tile_click, and a brief tint pulse plays when that click's
+    manager call actually succeeds. Meets issue #100's ask list (sprite,
+    pseudo-move toward last click with 4-dir facing, tool-use tint pulse,
+    position persists within a scene visit / resets on scene swap --
+    explicitly accepted as fine for v1 per the issue's own text). No
+    backend surface touched -- pure presentation via each manager's
+    existing public methods only, same tier as npc_controller.gd; no new
+    autoload/save-data needed since position stays scene-local per #100's
+    own v1 acceptance.
+    Verification: headless boot of scenes/Main.tscn via Godot 4.3.stable
+    (matches project.godot's config/features) -- clean, no errors -- and
+    the full tests/TestRunner.tscn suite: 992/992 checks passing. No
+    dedicated PlayerAvatar unit tests added (existing scene-level tests
+    already exercise every _handle_tile_click path this reuses; this
+    repo's test suite has historically focused on backend autoloads and
+    scene-state rendering, and NPCController -- the closest precedent --
+    also has no dedicated tests).
+    Follow-up gaps noted in PR: depends on #101 (real input map) for any
+    actual player-driven movement beyond this click-to-pseudo-move
+    stand-in; #102 (visible NPCs) can reuse this same PlayerAvatar/
+    ProceduralCharacterArt layer.
+  </description>
+</task_item>
+
+<task_item>
+  <id>CONTENT-SEED-BALANCE</id>
+  <status>DONE</status>
+  <priority>MEDIUM</priority>
+  <title>Real balance pass on CropDefinition.seed_price placeholder values</title>
+  <description>
+    Sprint 2, Content Squad. Replaced PR #122's flat "~40-55% of
+    base_sell_price" seed_price placeholder with a real per-crop pass
+    across all 7 registered crops, grounded in each crop's actual
+    base_sell_price, days_to_grow, and regrow behavior against the
+    28-day season (TimeManager.DAYS_PER_SEASON):
+    - One-time-harvest crops (parsnip, cauliflower, melon, pumpkin,
+      frost_kale) re-priced to ~30-35% of base_sell_price: parsnip
+      15 -> 12, cauliflower 35 -> 28, melon 60 -> 45, pumpkin 50 -> 38,
+      frost_kale 30 -> 24.
+    - Regrowable crops (tomato, corn) re-priced to ~two-thirds of
+      base_sell_price since one seed pays out across many harvests in a
+      season (tomato: 8 harvests/season -> 25 -> 30; corn: 6
+      harvests/season -> 30 -> 38), applying the "regrowable can
+      rationally support a higher seed price" reasoning PR #122 flagged
+      but never applied.
+    Values/strings only per SQUAD-SPLIT.md's Content lane -- no method
+    signatures, signal definitions, or control flow touched
+    (scripts/autoload/farm_plot_manager.gd's _register_default_content()
+    call-site values plus scripts/farming/crop_definition.gd's stale
+    docstring). No test assertions needed updating -- tests/test_runner.gd's
+    buy_seed/plant tests all read prices dynamically via
+    FarmPlotManager.get_seed_price() rather than hardcoding old numbers.
+    Verified: clean headless boot of scenes/Main.tscn and full
+    tests/TestRunner.tscn suite, 1009/1009 checks passing, against Godot
+    4.3-stable (matches project.godot's config/features). PR: see
+    squad-handshake-content.md for number/link.
+  </description>
+</task_item>
+
+<task_item>
+  <id>FRONTEND-123</id>
+  <status>DONE</status>
+  <priority>P2</priority>
+  <title>Seed shop UI: a buyable-goods overlay hooked to buy_seed() (frontend)</title>
+  <description>
+    Sprint 2, Frontend Squad. GitHub issue #123 -- the UI-hook gap PR
+    #122 (ENG-91) flagged: FarmPlotManager.buy_seed(crop_id, quantity)
+    landed as a callable, fully-tested backend method with no scene/UI
+    hook at all.
+    Shipped: scenes/ui/ShopOverlay.tscn + scripts/ui/shop_overlay.gd, a
+    minimal full-screen Seed Shop overlay following the existing
+    InventoryOverlay/SkillsOverlay chrome/discipline -- one row per crop
+    (display_name + real CropDefinition.seed_price via
+    FarmPlotManager.get_crop_definition()), a Buy x1 button calling
+    buy_seed(crop_id, 1) directly, a status line reflecting success/
+    failure (insufficient gold) back to the player, and a gold label
+    kept in sync via ShippingBinManager.gold_changed. CROP_IDS is a
+    hardcoded 7-item list (FarmPlotManager has no "list every crop_id"
+    getter -- same gap SkillsOverlay's own SKILL_NAMES already hit for
+    SkillManager; flagged as a backend follow-up, not reached around).
+    scripts/world/farm_scene.gd: pressing "B" (raw physical keycode, not
+    a new input action -- project.godot has no [input] section yet and
+    FRONTEND-101 is landing the real input map this same sprint;
+    touching project.godot here would be a pure landing-order conflict
+    for no v1 benefit) toggles the overlay as a child of FarmScene. No
+    dedicated shopkeeper NPC/building -- explicitly out of scope for v1
+    per the issue.
+    Frontend-only (scenes/ui/**, scripts/world/farm_scene.gd) per
+    SQUAD-SPLIT.md -- no scripts/autoload/** changes; buy_seed() consumed
+    exactly as-is via its public method/signal.
+    +18 headless tests (row listing with real seed_price, buy success/
+    failure paths incl. status text and reactive gold label, close
+    signal, FarmScene's B-key open/close toggle).
+    Verification: re-verified the live baseline on the fresh base branch
+    first (1009/1009 checks passing, before this PR's own changes) since
+    CONTENT-SEED-BALANCE (#124) was landing concurrently this sprint;
+    merged that in cleanly (pure value/docstring changes, no signature
+    conflicts) and re-ran -- 1030/1030 checks passing. Clean headless
+    boot of scenes/Main.tscn. Godot 4.3-stable (matches project.godot's
+    config/features).
+    Follow-up gaps: no quantity stepper (fixed Buy x1 per click, matching
+    the issue's "simple toggle" v1 framing); FarmPlotManager could use a
+    list_crop_ids() getter so this overlay stops hardcoding its crop
+    roster. PR: see squad-handshake-frontend.md for number/link.
+  </description>
+</task_item>
+
+<task_item>
+  <id>FRONTEND-101</id>
+  <status>DONE</status>
+  <priority>HIGH</priority>
+  <title>Define a control scheme + input map (currently mouse-click only)</title>
+  <description>
+    Shipped as PR #127 against claude/farming-game-pm-requirements-w9ugtk.
+    Registered project.godot's [input] section (move_up/down/left/right,
+    interact, advance_dialog, hotbar_1..5) and gave PlayerAvatar direct,
+    input-driven movement (move_by_input()) additive alongside #100's
+    click-to-move stand-in -- keyboard input takes precedence over an
+    in-flight click target when pressed. Every world scene now polls
+    movement in _process() and wires `interact` to re-run its existing
+    _handle_tile_click against the tile ahead of the avatar's facing
+    direction; mouse-tile-click remains the primary targeting input per
+    the issue's own scope guard. IntroSequence now advances on the named
+    advance_dialog action instead of the built-in ui_accept. Documented in
+    design/ui-flows/menu-hud-flow-spec.md's new Controls section (#5).
+    Frontend-only (scenes/**, scripts/story/**, scripts/world/** and
+    project.godot's [input] section) per SQUAD-SPLIT.md -- no
+    scripts/autoload/** changes.
+    Ran in parallel with FRONTEND-123 this sprint; hit one expected merge
+    conflict in scripts/world/farm_scene.gd's _unhandled_input (FRONTEND-
+    123's raw "B" shop-toggle keycode vs. this task's new `interact`
+    action branch) -- resolved by keeping both, no logic overlap, per
+    SQUAD-SPLIT.md's documented merge pattern.
+    Verification: headless boot of scenes/Main.tscn clean before and after
+    merging the base branch forward. Full tests/TestRunner.tscn suite
+    passing throughout (1009-1012 checks before the merge, matching the
+    live baseline's own pre-existing count nondeterminism; 1027-1030 after
+    folding in FRONTEND-123/CONTENT-SEED-BALANCE's own additions) -- no
+    FAILED ever observed. No dedicated PlayerAvatar/input unit tests added
+    (no unit-test precedent for this repo's presentation-node scenes).
+    Follow-up gaps: hotbar_1..5 actions registered but unconsumed until
+    #94 lands; keyboard movement is continuous screen-space, not
+    grid-snapped, so the interact action's "facing tile" is an
+    isometric-correct approximation of adjacency rather than a strict
+    4-neighbor lookup. Full detail: see squad-handshake-frontend.md's
+    "Sprint 2 -- FRONTEND-101 DONE" entry.
+  </description>
+</task_item>
+
+<task_item>
+  <id>FRONTEND-102</id>
+  <status>DONE</status>
+  <priority>P2</priority>
+  <title>Instantiate NPCs in world scenes: shipped schedules/social systems are completely invisible in play (frontend)</title>
+  <description>
+    Sprint 3, Frontend Squad. GitHub issue #102 -- the NPC-schedule/
+    relationship backend (NPCController/NPCSchedule, RelationshipManager,
+    MarriageManager) was fully shipped but had zero scene presence: six
+    villagers existed only as names in a relationship/gift menu, and the
+    time-of-day schedule feature could never be observed in play.
+    Shipped: scripts/npc/npc_roster.gd (new, Frontend-owned placeholder
+    content -- npc_schedule.gd/npc_schedule_entry.gd's data-model classes
+    stay backend-owned and untouched, this file only builds instances of
+    them) assigns each of the six MarriageManager.MARRIAGEABLE_NPCS
+    villagers a "home" world scene matching their existing gift-preference-
+    dialogue archetype (Colton/Tobias -> Mine, Elena/Priya -> Farm,
+    Sana -> Ranch, Marcus -> Forage -- no dock/fishing scene exists yet)
+    and three grid-position/time-of-day stops per day, converted to pixel
+    space through that scene's own TileMap.map_to_local() so the roster
+    stays grid-size-agnostic. Farm/Ranch/Mine/Forage scenes each
+    instantiate one NPCController per home villager (reusing #100's
+    existing ProceduralCharacterArt silhouette sprites, no new art) under
+    a new YSort-enabled DynamicLayer node (player avatar moved under it
+    too) per design/art/isometric-grid-spec.md section 4's depth-sorting
+    convention. Clicking a villager's sprite opens the existing
+    RelationshipsOverlay instead of acting on the tile behind them -- no
+    new dialog system, per the issue's own "smallest possible interaction"
+    scope guard.
+    Frontend-only (scenes/** via each world scene's script, plus the new
+    scripts/npc/npc_roster.gd) per SQUAD-SPLIT.md -- no scripts/autoload/**
+    changes, no edit to npc_schedule.gd/npc_schedule_entry.gd.
+    +21 headless tests: NPCRoster pure data/logic (every villager placed
+    in exactly one scene, grid->pixel conversion through a given TileMap,
+    unknown-npc-name safety) plus FarmScene-level coverage of villager
+    instantiation under DynamicLayer and click-to-open-RelationshipsOverlay
+    (representative case -- Ranch/Mine/Forage mirror the identical pattern,
+    verified via headless scene boots rather than duplicating near-
+    identical tests four times).
+    Verification: branch cut fresh from the base branch (already includes
+    PR #129/ENG-LIST-CROP-IDS). Godot 4.3-stable headless: clean boot of
+    scenes/Main.tscn and each of the four world scenes individually. Full
+    tests/TestRunner.tscn suite passing across repeated runs -- 1076
+    checks (base branch's own pre-existing nondeterministic baseline was
+    1049-1052 before this PR's own +21 tests).
+    Follow-up gaps: schedule content is placeholder, not designed (three
+    fixed daily stops, "Any"/"Any" season/weather); a villager is only
+    ever visible in its one home scene (no cross-scene movement -- richer
+    schedules could add that with zero code change, just more
+    NPCScheduleEntry content); villager click opens the full
+    RelationshipsOverlay rather than a focused/scrolled view of just that
+    NPC; Marcus (angler) has no real dock/fishing scene to call home.
+    PR: see squad-handshake-frontend.md for number/link.
   </description>
 </task_item>

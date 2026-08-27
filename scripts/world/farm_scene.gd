@@ -69,6 +69,29 @@ class_name FarmScene
 ## selection UI/hotbar-binding yet (HUD's own docstring already flags the
 ## hotbar has no real item binding -- same gap, not re-solved here). This is
 ## a placeholder interaction model, not a designed one.
+##
+## Seed Shop (#123): pressing "B" toggles scenes/ui/ShopOverlay.tscn, a
+## minimal restock UI for FarmPlotManager.buy_seed() -- see
+## scripts/ui/shop_overlay.gd's own docstring and _toggle_shop() below.
+##
+## Villagers (#102): the shipped NPC-schedule/relationship backend
+## (NPCController/NPCSchedule, RelationshipManager, MarriageManager) had no
+## scene presence anywhere in the repo -- six villagers existed only as
+## names in a gift/relationship menu. Elena and Priya (see
+## npc_roster.gd's own docstring for the archetype-to-scene mapping) are
+## instantiated here per NPCRoster's placeholder daily schedule, walking
+## between grid positions across the day exactly like the player avatar
+## does, just driven by NPCSchedule instead of input/clicks. Dynamic
+## entities (player + villagers) now sit under a YSort-enabled
+## `_dynamic_layer` node per design/art/isometric-grid-spec.md section 4's
+## depth-sorting convention -- decorative props stay direct scene children
+## since they're static border dressing outside the playable grid, not
+## something that needs draw-order resolution against a moving entity.
+## Clicking a villager's sprite opens RelationshipsOverlay (the existing
+## gift/relationship UI, already reachable from the pause menu) instead of
+## acting on whatever tile is behind them -- #102's own "smallest possible
+## interaction" scope guard: no new dialog system, just a shortcut to UI
+## that already exists.
 
 const GRID_WIDTH := 8
 const GRID_HEIGHT := 8
@@ -95,6 +118,9 @@ const PLACEHOLDER_PLANT_CROP_ID := "parsnip"
 
 const ATLAS_SOURCE_ID := 0
 
+## Matches NPCRoster.NPC_HOME_SCENE's "Farm" value -- see npc_roster.gd.
+const HOME_SCENE_NAME := "Farm"
+
 ## Real illustrated CC0 decorative props (see class docstring). grid_pos is
 ## deliberately outside the 0..GRID_WIDTH/HEIGHT-1 playable range -- border
 ## set dressing, never on top of an interactive plot.
@@ -106,12 +132,19 @@ const DECORATIVE_PROPS := [
 ]
 
 @onready var _tilemap: TileMap = $TileMap
+var _player_avatar: PlayerAvatar
+var _shop_overlay: ShopOverlay
+var _relationships_overlay: RelationshipsOverlay
+var _dynamic_layer: Node2D
+var _npcs: Array[NPCController] = []
 
 func _ready() -> void:
 	_build_tileset()
 	_render_all_plots()
 	_add_decorative_props()
-	_spawn_player_avatar()
+	_add_dynamic_layer()
+	_add_player_avatar()
+	_add_villagers()
 
 	FarmPlotManager.crop_planted.connect(_on_crop_planted)
 	FarmPlotManager.crop_watered.connect(_on_crop_watered)
@@ -146,6 +179,75 @@ func _add_decorative_props() -> void:
 		sprite.offset = Vector2(-texture.get_width() / 2.0, -texture.get_height())
 		sprite.position = _tilemap.map_to_local(prop["grid_pos"])
 		add_child(sprite)
+
+## Player avatar (#100): places a PlayerAvatar at the grid's center anchor
+## on scene entry -- see player_avatar.gd's own docstring for why a scene-
+## local reset-per-entry is acceptable v1. Every subsequent tile click
+## moves it toward the clicked cell (see _handle_tile_click).
+func _add_player_avatar() -> void:
+	_player_avatar = PlayerAvatar.new()
+	_player_avatar.position = _tilemap.map_to_local(Vector2i(GRID_WIDTH / 2, GRID_HEIGHT / 2))
+	_dynamic_layer.add_child(_player_avatar)
+
+## Depth-sort container (#102, design/art/isometric-grid-spec.md section 4):
+## a single YSort-enabled Node2D parent for every dynamic entity (player +
+## villagers) so draw order falls out of screen-Y automatically instead of
+## being hand-maintained. Created at runtime rather than in the .tscn --
+## same "no scene-file edit needed" approach every other scene-local node
+## here already uses (props, avatar).
+func _add_dynamic_layer() -> void:
+	_dynamic_layer = Node2D.new()
+	_dynamic_layer.name = "DynamicLayer"
+	_dynamic_layer.y_sort_enabled = true
+	add_child(_dynamic_layer)
+
+## Villagers (#102): one NPCController per villager whose NPCRoster home
+## scene is this one -- see npc_roster.gd's own docstring for the
+## archetype-to-scene mapping and placeholder-schedule disclosure. Schedule
+## positions are converted through this scene's own TileMap so they land on
+## the same grid the player avatar and click-to-interact tiles already use.
+func _add_villagers() -> void:
+	for npc_name in NPCRoster.npcs_for_scene(HOME_SCENE_NAME):
+		var npc := NPCController.new()
+		npc.npc_name = npc_name
+		npc.schedule = NPCRoster.build_schedule(npc_name, _tilemap)
+		_dynamic_layer.add_child(npc)
+		_npcs.append(npc)
+
+## Hit-tests a scene-local point (same coordinate space as _tilemap and
+## _player_avatar.position, e.g. from _tilemap.to_local(mouse_pos)) against
+## each villager's bottom-anchored sprite bounding box (see
+## procedural_character_art.gd: SPRITE_HEIGHT_PX tall, ~0.6x as wide,
+## anchored bottom-center at the NPCController's own position). A small
+## padding keeps a near-miss click still registering as an NPC click,
+## matching how forgiving a real click target should feel at this sprite
+## size. Returns null if no villager's box contains the point.
+func _npc_at_local_point(local_pos: Vector2) -> NPCController:
+	const HALF_WIDTH := 20.0
+	const HEIGHT := 54.0
+	for npc in _npcs:
+		if local_pos.x >= npc.position.x - HALF_WIDTH and local_pos.x <= npc.position.x + HALF_WIDTH \
+				and local_pos.y <= npc.position.y and local_pos.y >= npc.position.y - HEIGHT:
+			return npc
+	return null
+
+## Villager click (#102 ask #4): opens the existing RelationshipsOverlay --
+## same overlay the pause menu's "Relationships" button already opens, no
+## new dialog/UI. `_npc_name` isn't threaded into the overlay (it lists
+## every villager, not just the clicked one) -- the "smallest possible
+## interaction" scope guard explicitly rules out a new focused/scrolled
+## variant for v1.
+func _open_relationships_for(_npc_name: String) -> void:
+	if _relationships_overlay != null and is_instance_valid(_relationships_overlay):
+		return
+	_relationships_overlay = load("res://scenes/ui/RelationshipsOverlay.tscn").instantiate()
+	add_child(_relationships_overlay)
+	_relationships_overlay.closed.connect(_close_relationships)
+
+func _close_relationships() -> void:
+	if _relationships_overlay != null and is_instance_valid(_relationships_overlay):
+		_relationships_overlay.free()
+	_relationships_overlay = null
 
 ## Re-derives a tile's visual state from FarmPlotManager.get_plot() -- the
 ## single source of truth -- rather than tracking any scene-local duplicate
@@ -191,36 +293,92 @@ func _on_crop_withered(position: Vector2i, _crop_id: String) -> void:
 	if _in_grid(position):
 		_paint_tile(position, STATE_WITHERED)
 
+## #101: direct keyboard movement, additive alongside the click-to-move
+## stand-in below -- see player_avatar.gd's move_by_input() docstring for
+## the precedence rule (a movement key press cancels any in-flight click
+## move). Input.get_vector already zeroes out when nothing is pressed, so
+## the no-call-when-idle contract move_by_input() documents is satisfied
+## by just always calling it here.
+func _process(delta: float) -> void:
+	var direction := Input.get_vector("move_left", "move_right", "move_up", "move_down")
+	_player_avatar.move_by_input(direction, delta)
+
+## Resolves the tile the interact action (#101) should act on: one nominal
+## tile-step in front of the avatar, in whatever direction it last faced
+## (see player_avatar.gd's `facing`). Reuses the same tilemap.local_to_map()
+## transform the mouse-click path already uses (both _player_avatar.position
+## and the tilemap share this scene's local coordinate space), so this
+## stays correct under the isometric projection without any separate
+## grid-direction math.
+func _facing_tile() -> Vector2i:
+	return _tilemap.local_to_map(_player_avatar.position + _player_avatar.facing * TILE_HEIGHT)
+
 ## Click-to-interact stretch goal (see class docstring): a single click
 ## plants (if empty), waters (if planted and not yet watered today), or
 ## harvests (if ready) -- one action per click, cycling through the plot's
 ## lifecycle. Whichever FarmPlotManager call applies returns false and is a
 ## silent no-op if its own preconditions aren't met (wrong season, already
 ## watered, etc.) -- this scene never duplicates that validation.
+##
+## #101: the `interact` action runs the identical cycle against
+## _facing_tile() instead of a clicked cell -- one shared _handle_tile_click
+## body, two ways to trigger it, per the issue's own ask ("wire interact to
+## whatever the avatar is adjacent to"). Mouse click remains the primary
+## targeting input, per the issue's scope guard.
+##
+## Seed Shop toggle (#123: buy_seed() had no UI hook -- see
+## scripts/ui/shop_overlay.gd's own docstring for the overlay itself).
+## "B" is still checked as a raw physical keycode rather than a named
+## input action -- #101 (landed the same sprint, in parallel) registered
+## project.godot's [input] section for movement/interact/dialog, but no
+## shop-toggle action was part of that spec, and no dedicated shopkeeper
+## NPC/building exists yet either (out of scope for #123's v1), so a raw
+## key check remains the simplest toggle that doesn't require either.
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		var local_pos: Vector2 = _tilemap.to_local(get_global_mouse_position())
+		var clicked_npc := _npc_at_local_point(local_pos)
+		if clicked_npc != null:
+			_open_relationships_for(clicked_npc.npc_name)
+			return
 		var cell: Vector2i = _tilemap.local_to_map(local_pos)
 		_handle_tile_click(cell)
+	elif event.is_action_pressed("interact"):
+		_handle_tile_click(_facing_tile())
+	elif event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_B:
+		_toggle_shop()
+
+func _toggle_shop() -> void:
+	if _shop_overlay != null and is_instance_valid(_shop_overlay):
+		_close_shop()
+	else:
+		_open_shop()
+
+func _open_shop() -> void:
+	_shop_overlay = load("res://scenes/ui/ShopOverlay.tscn").instantiate()
+	add_child(_shop_overlay)
+	_shop_overlay.closed.connect(_close_shop)
+
+func _close_shop() -> void:
+	if _shop_overlay != null and is_instance_valid(_shop_overlay):
+		# free(), not queue_free() -- a re-press of "B" in the same frame
+		# (or a headless test asserting the overlay is gone right after
+		# closing) needs the node actually out of the tree immediately,
+		# same precedent InventoryOverlay's row-removal already documents.
+		_shop_overlay.free()
+	_shop_overlay = null
 
 func _handle_tile_click(position: Vector2i) -> void:
 	if not _in_grid(position):
 		return
+	_player_avatar.move_to(_tilemap.map_to_local(position))
 	var plot: FarmPlot = FarmPlotManager.get_plot(position)
+	var acted := false
 	if plot == null or plot.is_empty():
-		FarmPlotManager.plant(position, PLACEHOLDER_PLANT_CROP_ID)
+		acted = FarmPlotManager.plant(position, PLACEHOLDER_PLANT_CROP_ID)
 	elif plot.harvest_ready:
-		FarmPlotManager.harvest(position)
+		acted = not FarmPlotManager.harvest(position).is_empty()
 	elif not plot.watered_today:
-		FarmPlotManager.water(position)
-
-func _spawn_player_avatar() -> void:
-	var avatar: PlayerAvatar = load("res://scenes/world/player_avatar.tscn").instantiate()
-	avatar.position = _tilemap.map_to_local(Vector2i(GRID_WIDTH / 2, GRID_HEIGHT / 2))
-	add_child(avatar)
-	var cam: Camera2D = $Camera2D
-	if cam:
-		var cam_offset := cam.position
-		cam.reparent(avatar)
-		cam.position = cam_offset
-		cam.make_current()
+		acted = FarmPlotManager.water(position)
+	if acted:
+		_player_avatar.pulse_tool_use()

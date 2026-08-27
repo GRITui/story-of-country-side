@@ -63,6 +63,11 @@ class_name RanchScene
 ## today), else collects its product (if ready) -- one action per click,
 ## cycling through the daily loop. This is a placeholder interaction model,
 ## not a designed one, same disclosure FarmScene's docstring makes.
+##
+## Villagers (#102): Sana is instantiated here per NPCRoster's placeholder
+## daily schedule (see farm_scene.gd's own docstring for the full rationale
+## -- dynamic entities under a YSort `_dynamic_layer`, clicking a villager
+## opens RelationshipsOverlay instead of acting on the pen behind them).
 
 const GRID_WIDTH := 5
 const GRID_HEIGHT := 4
@@ -87,12 +92,21 @@ const PLACEHOLDER_SPECIES_ID := "chicken"
 
 const ATLAS_SOURCE_ID := 0
 
+## Matches NPCRoster.NPC_HOME_SCENE's "Ranch" value -- see npc_roster.gd.
+const HOME_SCENE_NAME := "Ranch"
+
 @onready var _tilemap: TileMap = $TileMap
+var _player_avatar: PlayerAvatar
+var _relationships_overlay: RelationshipsOverlay
+var _dynamic_layer: Node2D
+var _npcs: Array[NPCController] = []
 
 func _ready() -> void:
 	_build_tileset()
 	_render_all_pens()
-	_spawn_player_avatar()
+	_add_dynamic_layer()
+	_add_player_avatar()
+	_add_villagers()
 
 	AnimalManager.animal_added.connect(_on_animal_added)
 	AnimalManager.animal_fed.connect(_on_animal_changed)
@@ -108,6 +122,56 @@ func _render_all_pens() -> void:
 	for x in range(GRID_WIDTH):
 		for y in range(GRID_HEIGHT):
 			_refresh_tile(Vector2i(x, y))
+
+## Player avatar (#100): mirrors farm_scene.gd's _add_player_avatar --
+## placed at the pen grid's center anchor on scene entry, moved toward each
+## clicked pen thereafter.
+func _add_player_avatar() -> void:
+	_player_avatar = PlayerAvatar.new()
+	_player_avatar.position = _tilemap.map_to_local(Vector2i(GRID_WIDTH / 2, GRID_HEIGHT / 2))
+	_dynamic_layer.add_child(_player_avatar)
+
+## Depth-sort container (#102) -- mirrors farm_scene.gd's
+## _add_dynamic_layer() exactly, see that file for the docstring.
+func _add_dynamic_layer() -> void:
+	_dynamic_layer = Node2D.new()
+	_dynamic_layer.name = "DynamicLayer"
+	_dynamic_layer.y_sort_enabled = true
+	add_child(_dynamic_layer)
+
+## Villagers (#102) -- mirrors farm_scene.gd's _add_villagers() exactly,
+## see that file's and npc_roster.gd's own docstrings.
+func _add_villagers() -> void:
+	for npc_name in NPCRoster.npcs_for_scene(HOME_SCENE_NAME):
+		var npc := NPCController.new()
+		npc.npc_name = npc_name
+		npc.schedule = NPCRoster.build_schedule(npc_name, _tilemap)
+		_dynamic_layer.add_child(npc)
+		_npcs.append(npc)
+
+## Mirrors farm_scene.gd's _npc_at_local_point() exactly.
+func _npc_at_local_point(local_pos: Vector2) -> NPCController:
+	const HALF_WIDTH := 20.0
+	const HEIGHT := 54.0
+	for npc in _npcs:
+		if local_pos.x >= npc.position.x - HALF_WIDTH and local_pos.x <= npc.position.x + HALF_WIDTH \
+				and local_pos.y <= npc.position.y and local_pos.y >= npc.position.y - HEIGHT:
+			return npc
+	return null
+
+## Mirrors farm_scene.gd's _open_relationships_for()/_close_relationships()
+## exactly -- see that file's docstring.
+func _open_relationships_for(_npc_name: String) -> void:
+	if _relationships_overlay != null and is_instance_valid(_relationships_overlay):
+		return
+	_relationships_overlay = load("res://scenes/ui/RelationshipsOverlay.tscn").instantiate()
+	add_child(_relationships_overlay)
+	_relationships_overlay.closed.connect(_close_relationships)
+
+func _close_relationships() -> void:
+	if _relationships_overlay != null and is_instance_valid(_relationships_overlay):
+		_relationships_overlay.free()
+	_relationships_overlay = null
 
 ## Deterministic position <-> animal_id mapping -- see class docstring for
 ## why this scene derives ids from position rather than tracking a separate
@@ -162,35 +226,46 @@ func _on_product_collected(animal_id: String, _item_id: String, _quality: String
 	if _in_grid(position):
 		_refresh_tile(position)
 
+## #101: direct keyboard movement -- mirrors farm_scene.gd's _process
+## exactly, see that file for the precedence-rule docstring.
+func _process(delta: float) -> void:
+	var direction := Input.get_vector("move_left", "move_right", "move_up", "move_down")
+	_player_avatar.move_by_input(direction, delta)
+
+## Resolves the interact-action target tile -- mirrors farm_scene.gd's
+## _facing_tile() exactly.
+func _facing_tile() -> Vector2i:
+	return _tilemap.local_to_map(_player_avatar.position + _player_avatar.facing * TILE_HEIGHT)
+
 ## Click-to-interact stretch goal (see class docstring): mirrors FarmScene's
-## _unhandled_input/_handle_tile_click pattern exactly.
+## _unhandled_input/_handle_tile_click pattern exactly, plus the `interact`
+## action (#101) driving the same _handle_tile_click against _facing_tile().
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		var local_pos: Vector2 = _tilemap.to_local(get_global_mouse_position())
+		var clicked_npc := _npc_at_local_point(local_pos)
+		if clicked_npc != null:
+			_open_relationships_for(clicked_npc.npc_name)
+			return
 		var cell: Vector2i = _tilemap.local_to_map(local_pos)
 		_handle_tile_click(cell)
+	elif event.is_action_pressed("interact"):
+		_handle_tile_click(_facing_tile())
 
 func _handle_tile_click(position: Vector2i) -> void:
 	if not _in_grid(position):
 		return
+	_player_avatar.move_to(_tilemap.map_to_local(position))
 	var animal_id := _animal_id_for_position(position)
 	var animal: Animal = AnimalManager.get_animal(animal_id)
+	var acted := false
 	if animal == null:
-		AnimalManager.add_animal(animal_id, PLACEHOLDER_SPECIES_ID)
+		acted = AnimalManager.add_animal(animal_id, PLACEHOLDER_SPECIES_ID)
 	elif not animal.fed_today:
-		AnimalManager.feed(animal_id)
+		acted = AnimalManager.feed(animal_id)
 	elif not animal.brushed_today:
-		AnimalManager.brush(animal_id)
+		acted = AnimalManager.brush(animal_id)
 	elif animal.product_ready:
-		AnimalManager.collect_product(animal_id)
-
-func _spawn_player_avatar() -> void:
-	var avatar: PlayerAvatar = load("res://scenes/world/player_avatar.tscn").instantiate()
-	avatar.position = _tilemap.map_to_local(Vector2i(GRID_WIDTH / 2, GRID_HEIGHT / 2))
-	add_child(avatar)
-	var cam: Camera2D = $Camera2D
-	if cam:
-		var cam_offset := cam.position
-		cam.reparent(avatar)
-		cam.position = cam_offset
-		cam.make_current()
+		acted = not AnimalManager.collect_product(animal_id).is_empty()
+	if acted:
+		_player_avatar.pulse_tool_use()

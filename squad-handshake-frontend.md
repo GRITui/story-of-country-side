@@ -7,6 +7,85 @@
   <sprint_completion_percentage>100</sprint_completion_percentage>
 </squad_metadata>
 
+## Sprint 1 — FRONTEND-100 DONE
+Shipped a visible player avatar in every world scene, via PR #121
+(frontend/player-avatar branch), against issue #100's own ask list
+("Player avatar: a visible main character in world scenes (you are
+currently a disembodied cursor)"). Claimed for Sprint 1 by the Product
+Owner (backlog-inbox.md).
+
+Adds `scripts/world/player_avatar.gd` (`PlayerAvatar`, a `Node2D`) --
+reuses `ProceduralCharacterArt.build_silhouette_texture` (the same
+generator `NPCController` already uses, see that file's own docstring)
+for a bottom-anchored placeholder sprite, tinted a fixed warm-red
+(`Color(0.82, 0.28, 0.24)`) deliberately outside NPCController's own
+name-hashed hue/sat/val band so the player never coincidentally matches
+an NPC. Wired into all four existing world scenes (Farm/Ranch/Mine/
+Forage): one `PlayerAvatar` placed at the grid's center anchor in
+`_ready()`, `move_to()` called with `_tilemap.map_to_local(cell)` on
+every click in each scene's existing `_handle_tile_click` (no new input
+handling -- click-to-interact stays exactly as it was), and
+`pulse_tool_use()` (a brief sprite tint pulse) fires only when that
+click's underlying manager call actually succeeded, checked via each
+public method's own `bool`/`Dictionary` return value.
+
+Meets #100's ask list: (1) one placeholder sprite per scene: done; (2)
+pseudo-moves toward the last tile clicked with 4-dir facing via
+`flip_h`, no full walk-cycle (explicitly not required v1): done; (3)
+tool-use tint-pulse feedback: done; (4) position persists across actions
+within the same scene visit (ordinary child node, never recreated on
+click), resets on scene swap (`main_controller.travel_to()` frees the
+whole scene) -- explicitly accepted as fine for v1 per the issue's own
+text.
+
+Deliberately did NOT build, per the issue's own out-of-scope list:
+collision physics, a free camera, a clothing system, animation sets
+beyond facing+swing, or any control scheme -- #101 (real input map) is a
+separate, later issue; this PR introduces no new player input, only
+reuses each scene's pre-existing click handler.
+
+Contract compliance: pure presentation, same tier as
+`npc_controller.gd` -- no backend autoload touched beyond calling
+existing public methods and reading their existing return values
+(`FarmPlotManager.plant()`/`.water()`/`.harvest()`,
+`AnimalManager.add_animal()`/`.feed()`/`.brush()`/`.collect_product()`,
+`MiningManager.break_rock()`/`.descend_ladder()`,
+`ForagingManager.gather()`). No new backend state added or requested --
+position stays scene-local per #100's own v1 acceptance of
+reset-on-scene-swap, so this didn't need to file a backend follow-up the
+way prior epochs' getter requests did.
+
+Verification: no Godot binary existed in this environment -- downloaded
+Godot 4.3-stable linux x86_64 (matching `project.godot`'s
+`config/features`) via the pre-configured proxy, ran one `--headless
+--editor --quit-after` pass first to generate the resource-import cache
+and the global script-class cache (both empty at repo checkout, a
+pre-existing gap unrelated to this change -- confirmed by booting a
+clean `git stash`-ed checkout first and seeing the identical missing-
+import/missing-class errors before this PR's changes were even applied).
+After that one-time import pass: headless boot of `scenes/Main.tscn` --
+clean, no errors. Full `tests/TestRunner.tscn` suite: **992/992 checks
+passing**. No dedicated `PlayerAvatar` unit tests added -- this repo's
+existing per-scene test suites already exercise every
+`_handle_tile_click` code path this PR's `move_to()`/`pulse_tool_use()`
+calls sit inside, and the closest existing precedent (`NPCController`,
+also a bare presentation `Node2D` reading backend data) has no dedicated
+tests of its own either; noted here rather than silently skipped, per
+the task's own instruction that this repo's suite has historically
+focused on backend autoloads.
+
+Follow-up gaps (not this task's scope, noted in the PR body too):
+- Depends on #101 (real input map) for any actual player-driven movement
+  scheme beyond this click-to-pseudo-move stand-in -- the avatar today
+  only ever moves in response to the same clicks that already drove
+  plant/water/harvest etc., not free movement.
+- #102 (visible NPCs) can reuse this same `PlayerAvatar`/
+  `ProceduralCharacterArt` layer, per issue #100's own text.
+
+`backlog-inbox.md`'s FRONTEND-100 task_item updated to `DONE` the
+append-only way (new block referencing the same id, prior `IN_PROGRESS`
+block left untouched).
+
 ## Epoch 24 update
 Shipped a small, self-contained sub-scope: HUD weather display, via PR #63
 (squash-merged). `WeatherManager` (backend, PR #62 this same epoch) had a
@@ -414,3 +493,290 @@ its own instructions, but that session's ID format wasn't accepted by
 this environment's trigger tool ("unsupported version") -- routed the
 reply through STANDUP.md instead (2026-08-25T00:40Z entry), the
 established cross-squad fallback channel.
+
+## Sprint 2 -- FRONTEND-123 DONE
+
+Claimed FRONTEND-123 (issue #123: Seed shop UI hooked to
+FarmPlotManager.buy_seed(), the UI-hook gap PR #122/ENG-91 flagged --
+buy_seed() landed as a fully-tested, callable backend method with no
+scene/UI hook at all).
+
+Shipped: `scenes/ui/ShopOverlay.tscn` + `scripts/ui/shop_overlay.gd`, a
+minimal full-screen Seed Shop overlay -- same chrome/discipline as
+InventoryOverlay/SkillsOverlay (title top-left, close top-right, pure
+display primed from `FarmPlotManager.get_crop_definition()` and kept in
+sync via `seed_purchased`/`gold_changed`, no local price/gold
+duplicate). One row per crop_id in a hardcoded `CROP_IDS` list --
+`FarmPlotManager` has no "list every crop_id" getter, same gap
+SkillsOverlay's own `SKILL_NAMES` already hit for `SkillManager`;
+flagged below as a backend follow-up rather than reached around. Each
+row shows `display_name` + real `seed_price` and a `Buy x1` button
+calling `buy_seed(crop_id, 1)` directly; a status line reflects
+success/failure (insufficient gold) back to the player.
+
+`scripts/world/farm_scene.gd`: pressing "B" toggles the overlay as a
+child of FarmScene -- the "simple toggle, no dedicated NPC/building
+needed for v1" surface the issue asked for. Checked as a raw physical
+keycode, not a new input action: `project.godot` has no `[input]`
+section yet (`PauseMenu` already reuses the built-in `ui_cancel` action
+for the same reason), and FRONTEND-101 is landing the real input map +
+player movement this same sprint in parallel -- touching
+`project.godot`'s `[input]` block here would be a pure landing-order
+conflict with that work for no v1 benefit. Disjoint files from
+FRONTEND-101 as expected (scenes/ui/**, scripts/world/farm_scene.gd vs.
+scripts/world/player_avatar.gd + project.godot's `[input]` section) --
+no overlap hit.
+
++18 headless tests: shop row listing (real seed_price per crop), buy
+success (seed credited, gold spent, status text, gold label updates
+reactively) and failure (insufficient gold -- no seed credited, no gold
+spent, failure status text) paths, close-button signal, and FarmScene's
+B-key open/close toggle.
+
+Verification: re-verified the live baseline on the fresh base branch
+myself before making any change (1009/1009 checks passing) since
+CONTENT-SEED-BALANCE (#124, a real balance pass on `seed_price` values)
+was landing concurrently this sprint -- merged it into the feature
+branch (pure value/docstring changes, no signature conflicts, per
+SQUAD-SPLIT.md's documented merge pattern) and re-ran: **1030/1030
+checks pass**. Clean headless boot of `scenes/Main.tscn`. Godot
+4.3-stable (binary already present in this session's environment from a
+prior run, matching `project.godot`'s `config/features`).
+
+Shipped as PR #125 against `claude/farming-game-pm-requirements-w9ugtk`.
+
+Follow-up gaps (not built here):
+- No quantity stepper -- fixed `Buy x1` per click, matching issue
+  #123's "simple toggle" v1 framing; a player who wants more just
+  clicks again.
+- No dedicated shopkeeper NPC/building -- explicitly out of scope for
+  v1 per the issue.
+- To Backend squad: `FarmPlotManager` has no `list_crop_ids()` getter
+  to enumerate registered crop ids (only `get_crop_definition(crop_id)`
+  for an already-known id) -- ShopOverlay's `CROP_IDS` is a hardcoded
+  copy of the seven ids `_register_default_content()` currently
+  registers, same shape as the SkillsOverlay/SkillManager gap already
+  logged above. A `list_crop_ids()` getter would let this overlay read
+  the real roster instead of hardcoding it, and would stop silently
+  drifting stale if Content lane adds/removes a crop.
+
+## Sprint 2 -- FRONTEND-101 DONE
+
+Claimed FRONTEND-101 (issue #101: real input map + control scheme,
+replacing the mouse-click-only stand-in #100's `PlayerAvatar` moved
+under). Second Frontend squad session this sprint, running in parallel
+with FRONTEND-123 above -- different files by design (`scenes/world/**`
+world-scene code + `player_avatar.gd` + `project.godot`'s `[input]`
+section, vs. FRONTEND-123's `scenes/ui/**`), per the retro that filed
+both tasks this way.
+
+Registered `project.godot`'s previously-empty `[input]` section:
+`move_up`/`move_down`/`move_left`/`move_right` (WASD + arrows),
+`interact` (E), `advance_dialog` (Space/Enter), and `hotbar_1`..
+`hotbar_5` (1-5, a foundation for #94's future hotbar -- registered,
+not consumed by anything yet).
+
+`player_avatar.gd` gains `move_by_input(direction, delta)`: direct,
+immediate keyboard movement, additive alongside the existing
+`move_to()` click-to-move stand-in from #100. Documented precedence
+rule: any non-zero keyboard direction cancels an in-flight click
+target, so a movement key always wins over a stale click move; letting
+go of all movement keys just stops rather than resuming the old click
+target (a deliberate "simpler mental model" call, not an oversight).
+Both `move_to()` and `move_by_input()` now update a shared `facing`
+vector so scenes can resolve an "adjacent tile" without this node
+needing any grid/TileMap awareness of its own.
+
+Every world scene (Farm/Ranch/Mine/Forage) got the identical pattern:
+a `_process()` polling `Input.get_vector(move_left/right/up/down)` into
+`move_by_input()`, and the `interact` action wired into each scene's
+existing `_unhandled_input` to re-run that same scene's own
+`_handle_tile_click` against a `_facing_tile()` helper (avatar position
++ one tile-step in its facing direction, run back through
+`tilemap.local_to_map()` -- the same transform the mouse-click path
+already used, so it stays correct under the isometric projection with
+no separate grid-direction math). One shared interaction/validation
+path behind either mouse click or keyboard; mouse-tile-click stays the
+primary targeting input per the issue's own scope guard.
+
+`IntroSequence._unhandled_input` now checks the named `advance_dialog`
+action instead of the built-in `ui_accept` (same default keys:
+Space/Enter) -- mouse/touch advance unchanged. `PauseMenu`'s
+`ui_cancel` toggle deliberately left as-is (already a named engine
+action, not a raw click/button check, so out of this issue's "read
+actions instead of raw indices" scope) -- its docstring's now-stale
+"no `[input]` section exists yet" reasoning was updated to say so.
+
+Documented the whole scheme in `design/ui-flows/menu-hud-flow-spec.md`
+(new §5) -- that doc previously had zero mentions of movement/controls,
+per the issue's own verified gap.
+
+Merge conflict hit (expected, logged by both sides in advance): both
+this task and FRONTEND-123 touched `scripts/world/farm_scene.gd`'s
+`_unhandled_input` in the same sprint -- FRONTEND-123 added a raw "B"
+keycode branch for its Shop overlay toggle in the exact spot this task
+added the `interact` action branch. Resolved per `SQUAD-SPLIT.md`'s
+documented pattern: pulled the base branch fresh (which already had
+FRONTEND-123/PR #125 and CONTENT-SEED-BALANCE/PR #124 merged), kept
+both `_unhandled_input` branches (no logic overlap -- `interact` action
+check, then the raw "B" check), re-ran the full suite.
+
+Verification: Godot 4.3-stable binary already present in this
+session's environment from a prior run (matching `project.godot`'s
+`config/features`). Headless boot of `scenes/Main.tscn`: clean, no
+errors, both before and after merging the base branch forward. Full
+`tests/TestRunner.tscn` suite: all passing across repeated runs, both
+before the merge (1009-1012 checks -- pre-existing count
+nondeterminism, confirmed present on the unmodified base branch too,
+never a failure) and after (1027-1030 checks, once FRONTEND-123's own
++18 tests were folded in). No dedicated `PlayerAvatar`/input unit
+tests added -- this repo's presentation-node scenes (`PlayerAvatar`,
+`NPCController`, every world scene) have no unit-test precedent;
+documented here per the task's own instruction rather than silently
+skipped.
+
+Shipped as PR #127 against `claude/farming-game-pm-requirements-w9ugtk`.
+
+Follow-up gaps (not built here):
+- `hotbar_1`..`hotbar_5` actions are registered but unconsumed -- #94
+  (live hotbar) is the natural consumer.
+- Keyboard movement moves the avatar in continuous screen-space, not
+  grid-snapped movement; the `interact` action's "facing tile" is
+  derived from that same screen-space direction fed through each
+  scene's own `local_to_map()`. Correct under the isometric projection,
+  but an approximation of true grid-adjacency rather than a strict
+  4-neighbor lookup -- flagged as a reasonable v1 simplification, not a
+  silent gap.
+- No gamepad remapping UI, no combat inputs -- both explicitly out of
+  scope per the issue's own scope guards.
+
+`backlog-inbox.md`'s FRONTEND-101 task_item updated to `DONE` the
+append-only way (new block referencing the same id, prior
+`IN_PROGRESS` block left untouched).
+
+## Sprint 3 -- FRONTEND-102 DONE
+
+Claimed FRONTEND-102 (issue #102: instantiate NPCs in world scenes -- the
+shipped NPC-schedule/relationship backend, NPCController/NPCSchedule,
+RelationshipManager, MarriageManager, had zero scene presence anywhere in
+the repo; six villagers existed only as names in a relationship/gift
+menu, and the daily-schedule feature could never be observed in play).
+Read the issue text via GitHub MCP rather than guessing from the title
+per this task's own instruction; also read npc_controller.gd, npc_
+schedule.gd/npc_schedule_entry.gd, and player_avatar.gd's
+ProceduralCharacterArt sharing before drafting anything.
+
+Backend gap check first: RelationshipManager.GIFT_PREFERENCE_PATHS /
+MarriageManager.MARRIAGEABLE_NPCS both list exactly the same six names
+(Elena, Marcus, Priya, Tobias, Sana, Colton) -- that's the real villager
+count this task placed, not an arbitrary number. No NPCSchedule .tres
+resource existed anywhere in the repo (grepped for it) -- schedule
+*content* (which grid stops, which hours) was a pure content gap nobody
+had filled, same as FarmScene's own hardcoded PLACEHOLDER_PLANT_CROP_ID
+precedent, so this task filled it as Frontend's own placeholder rather
+than blocking on Content/Writer lane.
+
+Shipped `scripts/npc/npc_roster.gd` (new file): maps each of the six
+villagers to a "home" world scene loosely matching their existing
+gift-preference-dialogue archetype (relationship_manager.gd's own heart-
+event text already establishes Colton=miner, Elena=gardener, Priya=
+farmer, Sana=rancher, Marcus=angler, Tobias=treasure hunter) --
+Colton/Tobias -> Mine, Elena/Priya -> Farm, Sana -> Ranch, Marcus ->
+Forage (no dock/fishing world scene exists yet, so Marcus's placeholder
+home is the closest outdoor scene, documented as such). Three grid-
+position/time-of-day stops per villager per day; `build_schedule()`
+converts each stop's Vector2i grid cell through *the calling scene's own*
+TileMap.map_to_local(), so the roster file itself never hardcodes pixel
+coordinates or assumes any particular grid size -- same coordinate
+transform every world scene's own click-to-move/interact code already
+uses. This stays inside npc_controller.gd's existing "Frontend consumes
+NPCSchedule, doesn't own the data-model class" split per SQUAD-SPLIT.md:
+npc_schedule.gd/npc_schedule_entry.gd (the class definitions) are
+untouched, npc_roster.gd only builds instances of them, exactly the kind
+of instantiation any scene is already free to do.
+
+Farm/Ranch/Mine/Forage scenes: each now calls a new `_add_villagers()` in
+`_ready()`, instantiating one NPCController per NPCRoster.npcs_for_scene()
+match, reusing #100's ProceduralCharacterArt silhouette sprites (no new
+art, per the issue's own scope guard). Added a `_add_dynamic_layer()` --
+a runtime-created YSort-enabled Node2D -- and reparented the player
+avatar plus every villager under it, per design/art/isometric-grid-spec.md
+section 4's depth-sorting convention (that doc already named
+NPCController explicitly as a consumer, "no change needed" on
+NPCController's own side -- the gap was scenes never having a YSort
+container at all). Decorative props stay direct scene children: static
+border dressing outside the playable grid, not something that needs
+draw-order resolution against a moving entity.
+
+Optional smallest-possible interaction (issue ask #4): clicking a
+villager's sprite (hit-tested via `_npc_at_local_point()` against each
+NPCController's bottom-anchored sprite bounding box -- no Area2D/
+collision shapes added) opens the pre-existing RelationshipsOverlay (same
+overlay the pause menu's "Relationships" button already opens) instead of
+acting on the tile behind them. No new dialog/conversation system, no
+schedule editor -- both explicitly out of scope per the issue, and the
+overlay isn't scrolled/focused to just the clicked villager (lists all
+six, same as it always has) since building that would be more than the
+"smallest possible interaction" the issue actually asked for.
+
++21 headless tests: NPCRoster pure data/logic (every MARRIAGEABLE_NPCS
+villager placed in exactly one scene -- no duplicates, no omissions --
+grid->pixel conversion through a given TileMap matches map_to_local()
+exactly, an unrecognized npc_name builds an empty schedule rather than
+crashing) plus FarmScene-level coverage of villager instantiation under
+the new DynamicLayer (right names, right YSort flag) and click-to-open-
+RelationshipsOverlay (a click at a villager's own anchor position hits;
+a point far from every villager doesn't). FarmScene got full test
+coverage as the representative case; Ranch/Mine/Forage mirror the exact
+same `_add_dynamic_layer`/`_add_villagers`/`_npc_at_local_point`/
+`_open_relationships_for` pattern (confirmed via each file's own diff)
+and were verified via individual headless scene boots instead of
+duplicating near-identical tests four times over -- same "one scene gets
+full coverage, the rest mirror it" precedent every prior world-scene test
+block in this file already follows.
+
+Verification: this session's environment already had a Godot 4.3-stable
+binary from a prior session in the scratchpad directory (matches
+project.godot's config/features) -- no fresh install needed, just an
+`--import` pass since this worktree had no `.godot/` cache yet. Branch
+cut fresh from the live base branch (`claude/farming-game-pm-requirements-
+w9ugtk`, already includes PR #129/ENG-LIST-CROP-IDS landed since Sprint
+2's PRs -- fetched and rebased onto it before writing any code, per this
+task's own instruction to check for concurrent landings first). Clean
+headless boot of scenes/Main.tscn, and each of the four world scenes
+individually (confirms villager instantiation doesn't throw at _ready()
+in any of them). Full tests/TestRunner.tscn suite passing across repeated
+runs both before this PR's own test additions (1049-1052 checks, matching
+the documented pre-existing count nondeterminism) and after (**1076
+checks**, no FAILED ever observed).
+
+No merge-collision hit with the parallel Backend (farm_plot_manager.gd)
+or QA (test_runner.gd check-count investigation) squads this sprint --
+disjoint files as SQUAD-SPLIT.md's cross-squad note anticipated; the only
+shared file (tests/test_runner.gd) only had QA reading it, not editing it
+concurrently as far as this session could see.
+
+Shipped as PR #130 against `claude/farming-game-pm-requirements-w9ugtk`.
+
+Follow-up gaps (not built here):
+- Schedule content (NPC_DAILY_STOPS) is this PR's own placeholder, not
+  designed content -- three fixed stops/day, "Any"/"Any" season/weather
+  on every entry. A real Content/Writer-lane pass could author richer,
+  season-varying routines without touching any code here.
+- A villager is only ever visible in its one assigned home scene -- no
+  cross-scene schedule (e.g. walking from Farm to Ranch over the day).
+  NPCSchedule/NPCScheduleEntry already support arbitrary positions and
+  location_name values, so this is purely a content gap, not a code one.
+- Clicking a villager opens the full RelationshipsOverlay (all six
+  villagers) rather than a version scrolled/focused to just the one
+  clicked -- ruled out for v1 by the issue's own "smallest possible
+  interaction" scope guard.
+- Marcus (angler) has no dock/fishing world scene to call home -- placed
+  in ForageScene as the closest existing outdoor scene; a real
+  fishing-spot scene (if #15's mini-game half is ever un-boxed from
+  FishingOverlay) would be a more natural fit.
+
+`backlog-inbox.md`'s FRONTEND-102 task_item added the append-only way
+(new block; no prior IN_PROGRESS block existed for this id to leave
+untouched -- the issue was claimed directly from GitHub, not pre-staged
+in backlog-inbox.md).
