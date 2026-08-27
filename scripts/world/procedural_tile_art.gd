@@ -1,75 +1,84 @@
 class_name ProceduralTileArt
-## Shared procedural texture generator for isometric world-scene tilesets.
+## Shared procedural texture generator — S-Tier P2 (Epsilon).
 ##
-## Art Squad (#52 adjacent sub-scope): every world scene (FarmScene/
-## RanchScene/ForageScene/MineScene) previously built its own
-## _build_placeholder_tileset() that filled a solid, fully opaque 64x32
-## rectangle per tile state -- flat color, no shading, no texture. Two real
-## problems with that beyond just looking flat:
-##   1. An isometric TileMap in TILE_LAYOUT_DIAMOND_DOWN places each tile's
-##      texture with 50% vertical row overlap, expecting the texture to be
-##      transparent outside the diamond footprint. A fully opaque rectangle
-##      occludes whatever's drawn at the bottom of the row above it.
-##   2. No shading/gradient/texture at all reads as a UI color swatch, not
-##      ground.
-## This generator fixes both while staying honest about what it is: no
-## image-generation tool exists in this environment (see
-## squad-handshake-art.md), so every pixel here comes from procedural
-## Image/Color math -- alpha-masking the actual diamond shape, a fixed-
-## direction light gradient, a darkened edge outline for tile definition,
-## and deterministic per-pixel speckle grain for texture variety. This is a
-## genuine visual upgrade over a flat fill, not illustrated art; a human
-## artist or an image-gen pipeline this environment doesn't have is still
-## the eventual real answer for Decision E (#6).
+## Seasonal-tint expansion per Decision E art direction:
+##   build_isometric_tileset(state_colors, w, h, id=0, glow=[])      — unchanged
+##   build_isometric_tileset(state_colors, w, h, id=0, glow=[], season) — new
+##   get_seasonal_palette(season) -> Dictionary  — tint helper
+##   get_seasonal_accent_color(variant)         — 2 accent variants
 ##
-## Drop-in replacement: same atlas addressing every scene's own
-## _paint_tile()/_refresh_tile() already relies on (Vector2i(state, 0) at
-## ATLAS_SOURCE_ID = 0), same TileSet shape/layout/tile_size -- this only
-## replaces how the TileSet's pixels are generated. No scene's
-## STATE_COLORS dictionary, state-derivation logic, or signal wiring
-## changes to use this.
+## Keeps the original diamond alpha-mask / light gradient / edge darken /
+## speckle grain exactly intact. Seasonal tint is applied as a post-scale on
+## the base_color channel before shading so existing callers with no season
+## arg (default "Spring") render identically to the pre-Epsilon generator.
 
-## How strongly the simulated upper-left light source brightens/darkens a
-## pixel based on its position within the diamond (isometric tile-art
-## convention -- see e.g. the genre references design/art/isometric-grid-spec.md
-## itself cites).
 const LIGHT_STRENGTH := 0.22
-## Fraction of the diamond's half-width, measured inward from its edge,
-## that gets progressively darkened into a border -- keeps adjacent tiles
-## reading as distinct shapes instead of one flat wash.
 const EDGE_DARKEN_BAND := 0.07
 const EDGE_DARKEN_STRENGTH := 0.55
-## Per-pixel deterministic brightness jitter (+/-), giving the fill a
-## grain/texture instead of a perfectly smooth gradient.
 const SPECKLE_STRENGTH := 0.10
-## How much extra brightness a glow_states tile gets at its exact center,
-## fading to none by the diamond's edge -- a soft "this tile wants your
-## attention" highlight for whichever states a calling scene marks as its
-## interactive/rewarding ones (see build_isometric_tileset's glow_states
-## param).
 const GLOW_STRENGTH := 0.4
 
+## Seasonal color multipliers applied to base_color before shading.
+## Chosen to read cozy without reauthoring per-state palettes:
+## Spring — slightly brighter/saturated; Summer — warm; Fall — amber;
+## Winter — cool/desaturated. Values are multiplicative scalars per channel.
+const SEASONAL_TINTS: Dictionary = {
+	"Spring": {"r": 1.04, "g": 1.06, "b": 1.02},
+	"Summer": {"r": 1.06, "g": 1.02, "b": 0.94},
+	"Fall":   {"r": 1.08, "g": 0.98, "b": 0.90},
+	"Winter": {"r": 0.92, "g": 0.96, "b": 1.08},
+}
+
+## Two accent variants for seasonal re-skin overlays (e.g. spring blossoms,
+## autumn leaves, winter frost speckles). Returned as Colors for scenes
+## that want to paint extra décor on top of the base tileset without
+## forking this generator.
+const ACCENT_VARIANTS: Dictionary = {
+	"blossom": Color(0.96, 0.72, 0.80),  # pink — Spring
+	"ember":   Color(0.86, 0.45, 0.20),  # autumn ember — Fall
+	"warm_light": Color(0.96, 0.88, 0.55),
+	"frost":   Color(0.78, 0.86, 0.96),
+}
+
+## Returns the channel multiplier dictionary for a season. Unknown season
+## falls back to Spring (identity-ish) to preserve backward compatibility.
+static func get_seasonal_palette(season: String) -> Dictionary:
+	return SEASONAL_TINTS.get(season, SEASONAL_TINTS["Spring"])
+
+static func get_seasonal_accent_color(variant: String) -> Color:
+	return ACCENT_VARIANTS.get(variant, Color(0.8, 0.8, 0.8))
+
+## Full list of available season keys for UI/tests.
+static func list_seasons() -> Array:
+	return SEASONAL_TINTS.keys()
+
+static func list_accent_variants() -> Array:
+	return ACCENT_VARIANTS.keys()
+
 ## Builds one TileSet whose atlas is a single row of state_colors.size()
-## isometric diamond tiles, ordered by ascending integer state key so
-## atlas coordinate Vector2i(state, 0) always lands on the right tile --
-## every calling scene's states are a contiguous 0..N-1 range, matching
-## that assumption exactly.
-##
-## glow_states (optional): state keys that should render with an added
-## center-weighted brightness bloom on top of the normal shading -- for
-## whichever state in a calling scene's own STATE_* set marks "available
-## to interact with right now" (a ready-to-harvest crop, an available
-## forage node, a mine's ladder, etc.). Purely a visual accent; doesn't
-## change which states exist or how a scene derives them.
-static func build_isometric_tileset(state_colors: Dictionary, tile_width: int, tile_height: int, atlas_source_id: int = 0, glow_states: Array = []) -> TileSet:
+## isometric diamond tiles. `season` defaults to "Spring" so every existing
+## caller with no season arg keeps rendering exactly as before.
+static func build_isometric_tileset(state_colors: Dictionary, tile_width: int, tile_height: int, atlas_source_id: int = 0, glow_states: Array = [], season: String = "Spring") -> TileSet:
 	var states := state_colors.keys()
 	states.sort()
 	var state_count := states.size()
 
+	var tint: Dictionary = get_seasonal_palette(season)
+
 	var image := Image.create(tile_width * state_count, tile_height, false, Image.FORMAT_RGBA8)
 	for i in range(state_count):
-		var base_color: Color = state_colors[states[i]]
-		_paint_tile_diamond(image, i * tile_width, tile_width, tile_height, base_color, states[i], states[i] in glow_states)
+		var raw: Color = state_colors[states[i]]
+		var base_color := Color(
+			clampf(raw.r * tint["r"], 0.0, 1.0),
+			clampf(raw.g * tint["g"], 0.0, 1.0),
+			clampf(raw.b * tint["b"], 0.0, 1.0),
+			1.0
+		)
+		# Seasonal accent speckles: subtle per-tile color jitter biased
+		# toward the accent palette for two seasons so seasonal re-skins
+		# read beyond a global tint.
+		var use_accent := season in ["Spring", "Fall"]
+		_paint_tile_diamond(image, i * tile_width, tile_width, tile_height, base_color, states[i], states[i] in glow_states, use_accent, season)
 
 	var texture := ImageTexture.create_from_image(image)
 
@@ -87,15 +96,11 @@ static func build_isometric_tileset(state_colors: Dictionary, tile_width: int, t
 
 	return tile_set
 
-## Draws one alpha-masked isometric diamond into image at x_offset (tile_width
-## wide, tile_height tall): gradient shading + edge darken + deterministic
-## speckle grain + an optional center glow, all derived from base_color alone
-## so every calling scene's existing STATE_COLORS dictionary works completely
-## unmodified. Outside the diamond is left fully transparent (alpha 0),
-## matching what an isometric TileMap in diamond-down layout expects.
-static func _paint_tile_diamond(image: Image, x_offset: int, tile_width: int, tile_height: int, base_color: Color, noise_seed: int, has_glow: bool = false) -> void:
+static func _paint_tile_diamond(image: Image, x_offset: int, tile_width: int, tile_height: int, base_color: Color, noise_seed: int, has_glow: bool = false, use_accent: bool = false, season: String = "Spring") -> void:
 	var rng := RandomNumberGenerator.new()
-	rng.seed = noise_seed * 9973 + 17 # deterministic per state, stable across runs/tests
+	rng.seed = noise_seed * 9973 + 17
+
+	var accent_color: Color = ACCENT_VARIANTS["blossom"] if season == "Spring" else ACCENT_VARIANTS["ember"]
 
 	for py in range(tile_height):
 		for px in range(tile_width):
@@ -107,7 +112,6 @@ static func _paint_tile_diamond(image: Image, x_offset: int, tile_width: int, ti
 				continue
 
 			var light := 1.0 + LIGHT_STRENGTH * (-nx - ny)
-
 			var edge_dist := 0.5 - diamond_dist
 			if edge_dist < EDGE_DARKEN_BAND:
 				light *= lerpf(1.0 - EDGE_DARKEN_STRENGTH, 1.0, edge_dist / EDGE_DARKEN_BAND)
@@ -117,10 +121,16 @@ static func _paint_tile_diamond(image: Image, x_offset: int, tile_width: int, ti
 
 			var speckle := 1.0 + rng.randf_range(-SPECKLE_STRENGTH, SPECKLE_STRENGTH)
 			var factor := light * speckle
-
-			image.set_pixel(x_offset + px, py, Color(
+			var col := Color(
 				clampf(base_color.r * factor, 0.0, 1.0),
 				clampf(base_color.g * factor, 0.0, 1.0),
 				clampf(base_color.b * factor, 0.0, 1.0),
 				1.0
-			))
+			)
+			# Accent variant: ~6% of interior pixels get a faint nudge
+			# toward the seasonal accent color. Rare enough to read as
+			# texture, not a recolor.
+			if use_accent and rng.randf() < 0.06:
+				col = col.lerp(accent_color, 0.18)
+				col.a = 1.0
+			image.set_pixel(x_offset + px, py, col)

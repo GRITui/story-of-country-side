@@ -3867,8 +3867,8 @@ func _test_marriage_save_round_trip() -> void:
 func _test_festival_definition_flavor_text_registers_and_looks_up() -> void:
 	_reset_festival_manager()
 	var def := FestivalManager.get_festival_definition("bloomtide_fair")
-	_check(def.flavor_text == "",
-		"the default-registered festivals ship with no flavor_text yet -- a documented Content/Writer gap, not a bug")
+	_check(def.flavor_text != "",
+		"the default-registered festivals should now ship with flavor_text per S-Tier P2 (additive copy from FestivalManager)")
 
 	var custom := FestivalDefinition.new()
 	custom.festival_id = "test_custom_festival"

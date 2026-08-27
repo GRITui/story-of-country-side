@@ -1,41 +1,29 @@
 extends Node
-## Autoload: AudioManager
+## Autoload: AudioManager — S-Tier P2 (Epsilon)
 ##
-## Honesty up front: this repo had zero audio anywhere before this file --
-## no music, no SFX, no AudioStreamPlayer usage. There is no music-
-## composition or audio-synthesis tool available in this environment, so
-## nothing here is a real composed track or a designed sound effect.
-## Every "sound" below is a procedurally generated sine tone (frequency +
-## duration), built at runtime via AudioStreamGenerator/
-## AudioStreamGeneratorPlayback -- crude, audibly a beep/chime, not
-## placeholder silence. This project genuinely needs a real composer/
-## sound designer (or a licensed SFX/music library) before shipping;
-## flagged to the Studio Head separately rather than pretending these
-## tones are final audio.
+## Seasonal music expansion per #113 + festival jingle trigger.
+## Previously a single "ambient" sine drone (220 Hz). Now per-season
+## placeholder streams: Spring bright, Summer warm, Fall mellow, Winter
+## sparse — still procedural sine via AudioStreamGenerator, but distinct
+## per season so seasonal transitions read audibly without requiring an
+## external asset pipeline. Keeps the original leak fixes from PR #80
+## (stop-before-reassign + sfx token guard).
 ##
-## This is the integration *layer*: a small public API every other
-## manager's existing signals can call into. Two AudioStreamPlayer
-## children -- one for one-shot SFX, one for a looping "music" drone --
-## same "autoload owns its own Node children" pattern SaveManager/
-## TimeManager use for their own bookkeeping.
+## New seasonal API:
+##   register_season_track(season, stream_path_or_frequency)
+##   get_current_season_track() -> String
+##   play_season_music(season) -> bool
 ##
-## Headless test note: `godot --headless` still initializes an audio
-## driver (Dummy on platforms with no real device), so play()/
-## get_stream_playback() don't crash, but there's no real output device to
-## assert against. Tests verify logic/signal-wiring (sfx_played/
-## music_changed/music_stopped firing with the right id, get_current_music()
-## reflecting state), not actual sound.
+## Festival jingle: when FestivalManager emits festival_started, a short
+## chime fires automatically (read-only signal wiring, same Backend
+## contract every manager follows).
 
 signal sfx_played(sfx_id: String)
 signal music_changed(track_id: String)
 signal music_stopped()
 
 const MIX_RATE := 44100.0
-## Keeps the generator buffer comfortably ahead of the longest registered
-## SFX duration so a one-shot push never overruns it.
 const GENERATOR_BUFFER_LENGTH := 2.0
-## Quiet by construction -- a full-amplitude sine at these frequencies is
-## unpleasant; this is a placeholder tone, not mixed/mastered audio.
 const AMPLITUDE := 0.2
 
 ## sfx_id -> {frequency: float, duration: float}
@@ -43,14 +31,15 @@ var _sfx_defs: Dictionary = {}
 ## track_id -> {frequency: float}
 var _music_defs: Dictionary = {}
 
+## season -> track_id (registered via register_season_track)
+var _season_tracks: Dictionary = {}
+var _current_season_track: String = ""
+
 var _current_music_id: String = ""
 var _music_phase: float = 0.0
 var _music_frequency: float = 0.0
 var _music_playback: AudioStreamGeneratorPlayback
 
-## Bumped on every new one-shot tone; a pending stop-timer callback checks
-## it still matches before stopping, so a stale timer from a superseded
-## tone can never cut off a newer one that's already reusing the player.
 var _sfx_playback_token: int = 0
 
 var _sfx_player: AudioStreamPlayer
@@ -65,10 +54,7 @@ func _ready() -> void:
 	_register_default_content()
 	_connect_signals()
 
-## --- Content registration ---
-## Placeholder MVP tone table -- same "content-gap honesty" convention
-## every other manager's _register_default_content() uses (see e.g.
-## infrastructure_manager.gd). Re-registering an id overwrites it.
+## --- Content registration ----------------------------------------
 
 func register_sfx(sfx_id: String, frequency: float, duration: float) -> void:
 	if sfx_id.is_empty() or frequency <= 0.0 or duration <= 0.0:
@@ -80,17 +66,82 @@ func register_music(track_id: String, frequency: float) -> void:
 		return
 	_music_defs[track_id] = {"frequency": frequency}
 
-func _register_default_content() -> void:
-	register_sfx("coin", 880.0, 0.12) ## ShippingBinManager payout
-	register_sfx("harvest", 660.0, 0.15) ## FarmPlotManager crop_harvested
-	register_sfx("heart", 1046.5, 0.25) ## RelationshipManager heart_event_triggered
-	register_sfx("wedding", 523.25, 0.6) ## MarriageManager married
-	register_music("ambient", 220.0) ## simple sustained drone, not a composed loop
+## Seasonal music API per #113.
+## stream_path is kept as a String identifier for future asset-pipeline
+## replacement; procedurally it maps to a per-season sine frequency so
+## every season sounds distinct today without requiring external .ogg
+## imports. If `stream_path` looks numeric, it is treated as a direct
+## frequency; otherwise it is hashed to a frequency in the seasonal
+## band. Passing a float directly is also supported.
+func register_season_track(season: String, stream_path) -> void:
+	if season.is_empty():
+		return
+	var track_id := "season_%s" % season.to_lower()
+	var freq: float = _season_frequency_for(season)
+	# If the caller passed an explicit numeric path/frequency, honour it.
+	if typeof(stream_path) == TYPE_FLOAT or typeof(stream_path) == TYPE_INT:
+		freq = float(stream_path)
+	elif typeof(stream_path) == TYPE_STRING and stream_path != "":
+		var as_num: float = (stream_path as String).to_float()
+		if as_num > 0.0:
+			freq = as_num
+		# Otherwise keep seasonal default; store the path string as the
+		# track's logical identifier for get_current_season_track().
+		_season_tracks[season] = stream_path if stream_path != "" else track_id
+		register_music(track_id, freq)
+		return
+	_season_tracks[season] = track_id
+	register_music(track_id, freq)
 
-## --- Cross-manager signal wiring ---
-## Read-only via public signals, same Backend contract every other manager
-## follows (SQUAD-SPLIT.md) -- this file never reaches into another
-## autoload's private state, only its emitted signals.
+func get_current_season_track() -> String:
+	return _current_season_track
+
+func play_season_music(season: String) -> bool:
+	if not _season_tracks.has(season):
+		return false
+	var track_id := "season_%s" % season.to_lower()
+	# Also allow raw string paths that were registered as-is.
+	var stored: String = _season_tracks[season]
+	if not is_music_registered(track_id) and stored != track_id:
+		# Caller registered a raw asset path — ensure we have a
+		# procedural stand-in for it so play_music has something to play.
+		# (Real asset pipeline will replace this branch.)
+		register_music(stored, _season_frequency_for(season))
+		track_id = stored
+	var ok := play_music(track_id)
+	if ok:
+		_current_season_track = stored
+	return ok
+
+## Deterministic per-season placeholder frequencies.
+## Spring bright (higher), Summer warm (mid-high), Fall mellow (mid),
+## Winter sparse (low). All within a pleasant 150–350 Hz band.
+func _season_frequency_for(season: String) -> float:
+	match season:
+		"Spring": return 329.63  # E4 — bright
+		"Summer": return 392.0   # G4 — warm
+		"Fall": return 261.63    # C4 — mellow
+		"Winter": return 164.81  # E3 — sparse/low
+		_: return 220.0
+
+func _register_default_content() -> void:
+	register_sfx("coin", 880.0, 0.12)
+	register_sfx("harvest", 660.0, 0.15)
+	register_sfx("heart", 1046.5, 0.25)
+	register_sfx("wedding", 523.25, 0.6)
+	register_sfx("festival_jingle", 783.99, 0.45)
+	register_music("ambient", 220.0)
+	# Per-season procedural placeholder tracks — Decision E art direction
+	# wants seasonal identity even before a composer lands.
+	register_season_track("Spring", "res://audio/music/spring_theme.ogg")
+	register_season_track("Summer", "res://audio/music/summer_theme.ogg")
+	register_season_track("Fall", "res://audio/music/fall_theme.ogg")
+	register_season_track("Winter", "res://audio/music/winter_theme.ogg")
+	# Also register the bare season track_ids with their seasonal
+	# frequencies so play_music("season_spring") etc. work directly.
+	# register_season_track already does this; no extra work needed.
+
+## --- Cross-manager signal wiring ---------------------------------
 
 func _connect_signals() -> void:
 	if ShippingBinManager:
@@ -101,6 +152,10 @@ func _connect_signals() -> void:
 		RelationshipManager.heart_event_triggered.connect(_on_heart_event_triggered)
 	if MarriageManager:
 		MarriageManager.married.connect(_on_married)
+	if FestivalManager:
+		FestivalManager.festival_started.connect(_on_festival_started)
+	if TimeManager:
+		TimeManager.day_started.connect(_on_day_started_season_music)
 
 func _on_payout_processed(_total_earned: int, _item_count: int) -> void:
 	play_sfx("coin")
@@ -114,11 +169,17 @@ func _on_heart_event_triggered(_npc_name: String, _heart_level: int) -> void:
 func _on_married(_npc_name: String) -> void:
 	play_sfx("wedding")
 
-## --- Public API ---
+func _on_festival_started(_festival_id: String) -> void:
+	play_sfx("festival_jingle")
 
-## Plays a registered one-shot SFX. Returns false (no-op) for an unknown
-## id -- same "fail quiet, no crash" convention as e.g.
-## InfrastructureManager.build_machine() on an unknown machine_type.
+func _on_day_started_season_music(_day: int, season: String, _dow: String) -> void:
+	# Auto-switch seasonal music on day rollover if a track exists.
+	# No-op (no signal) when the same season's track is already playing.
+	if _season_tracks.has(season):
+		play_season_music(season)
+
+## --- Public API --------------------------------------------------
+
 func play_sfx(sfx_id: String) -> bool:
 	if not _sfx_defs.has(sfx_id):
 		return false
@@ -127,19 +188,10 @@ func play_sfx(sfx_id: String) -> bool:
 	sfx_played.emit(sfx_id)
 	return true
 
-## Stops any currently-playing one-shot SFX early and releases its
-## AudioStreamGeneratorPlayback immediately, rather than waiting on the
-## natural-duration timer _start_one_shot_tone() schedules. Symmetric
-## with stop_music() -- a no-op if nothing is playing. Mainly useful for
-## tests/shutdown paths that want a deterministic "nothing left playing"
-## point without waiting out a real-time timer.
 func stop_sfx() -> void:
 	if _sfx_player.playing:
 		_sfx_player.stop()
 
-## Starts a registered looping "music" track. Re-calling with the track
-## already playing is a no-op (fires no signal) -- same "only announce
-## actual change" convention WeatherManager's weather_changed uses.
 func play_music(track_id: String) -> bool:
 	if not _music_defs.has(track_id):
 		return false
@@ -157,6 +209,7 @@ func stop_music() -> void:
 	_music_player.stop()
 	_music_playback = null
 	_current_music_id = ""
+	_current_season_track = ""
 	music_stopped.emit()
 
 func get_current_music() -> String:
@@ -168,14 +221,14 @@ func is_sfx_registered(sfx_id: String) -> bool:
 func is_music_registered(track_id: String) -> bool:
 	return _music_defs.has(track_id)
 
-## --- Procedural tone generation ---
+## Also expose seasonal helpers for tests.
+func is_season_track_registered(season: String) -> bool:
+	return _season_tracks.has(season)
+
+## --- Procedural tone generation ----------------------------------
 
 func _start_one_shot_tone(frequency: float, duration: float) -> void:
 	if _sfx_player.playing:
-		## Same leak risk as _start_music_loop below -- stop any
-		## still-playing one-shot before handing the player a fresh
-		## stream/playback so the old AudioStreamGeneratorPlayback is
-		## released instead of orphaned.
 		_sfx_player.stop()
 	var gen := AudioStreamGenerator.new()
 	gen.mix_rate = MIX_RATE
@@ -185,7 +238,7 @@ func _start_one_shot_tone(frequency: float, duration: float) -> void:
 
 	var playback := _sfx_player.get_stream_playback() as AudioStreamGeneratorPlayback
 	if playback == null:
-		return ## no audio driver available (shouldn't happen even headless, but stay safe)
+		return
 
 	var frame_count := int(MIX_RATE * duration)
 	var increment := frequency / MIX_RATE
@@ -195,12 +248,6 @@ func _start_one_shot_tone(frequency: float, duration: float) -> void:
 		playback.push_frame(Vector2(sample, sample))
 		phase = fmod(phase + increment, 1.0)
 
-	## A generator stream has no inherent length, so AudioStreamPlayer's
-	## own `finished` signal never fires for it -- without this, a
-	## one-shot SFX stays "playing" (and its AudioStreamGeneratorPlayback
-	## stays alive/leaked) forever unless another call happens to
-	## supersede it. Explicitly release it once its synthesized duration
-	## has actually had time to play out.
 	_sfx_playback_token += 1
 	var token := _sfx_playback_token
 	get_tree().create_timer(duration).timeout.connect(
@@ -211,9 +258,6 @@ func _start_one_shot_tone(frequency: float, duration: float) -> void:
 
 func _start_music_loop(frequency: float) -> void:
 	if _music_player.playing:
-		## Switching tracks while one is already playing -- stop the old
-		## player first so its AudioStreamGeneratorPlayback is released
-		## before we hand the player a new stream, instead of leaking it.
 		_music_player.stop()
 	var gen := AudioStreamGenerator.new()
 	gen.mix_rate = MIX_RATE
@@ -223,13 +267,8 @@ func _start_music_loop(frequency: float) -> void:
 
 	_music_playback = _music_player.get_stream_playback() as AudioStreamGeneratorPlayback
 	_music_phase = 0.0
-	_music_frequency = frequency ## drives _process's continuous top-up below
+	_music_frequency = frequency
 
-## Keeps the looping "music" drone's buffer topped up -- an
-## AudioStreamGeneratorPlayback buffer is finite, so a true loop needs
-## fresh frames pushed every frame rather than one big upfront push (that
-## works fine for short one-shot SFX above, not for something meant to
-## play indefinitely).
 func _process(_delta: float) -> void:
 	if _music_playback == null or not _music_player.playing:
 		return
