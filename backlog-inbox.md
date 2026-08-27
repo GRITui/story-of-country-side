@@ -2387,3 +2387,61 @@ either, so the remote branches remain as harmless merged-and-stale refs).
     perks live; cozy friction floor).
   </description>
 </task_item>
+
+<task_item>
+  <id>PO-SPRINT-1-PLANNING</id>
+  <source>PRODUCT_OWNER</source>
+  <status>DONE</status>
+  <priority>HIGH</priority>
+  <title>Sprint 1 plan: close the one real economy bug, start the embodiment epic</title>
+  <description>
+    Product Owner sprint planning pass. Reviewed open GitHub issues (#91-120)
+    and backlog-inbox status. Two findings stood out over everything else
+    labeled P2/P3: (1) #91 is the only open issue that is an actual economic
+    bug, not a scope gap -- planting is currently free and infinite, which
+    undermines every other economy system already shipped (shipping bin,
+    price registry, seed-destruction guard from #97). (2) Super User's own
+    embodiment triage (#100/#101/#102) found the game currently has no
+    visible player character, no registered input map, and no NPCs
+    instantiated in any scene -- the "five activities + economy + social"
+    backend is complete but literally invisible in play. Both are P0-in-
+    substance even though labeled P1/P2.
+    Sprint 1 goal: "A player can see themselves, and seeds cost money."
+    Scope (sized to land inside one 30-120 min squad execution window each,
+    run in parallel since they touch disjoint lanes per SQUAD-SPLIT.md):
+      - ENG-91 (Backend/Engineer Squad): seeds as items + starting grant +
+        purchase path, per issue #91.
+      - FRONTEND-100 (Frontend Squad): visible player avatar in world
+        scenes, per issue #100. Deliberately NOT bundling #101 (input map)
+        or #102 (NPC instantiation) into this sprint -- keep the diff
+        reviewable, they're natural Sprint 2 follow-ons once the avatar
+        exists to control.
+    Explicitly out of scope this sprint: #93, #96, #105-119 (queued,
+    unaffected by this sprint's outcome).
+  </description>
+</task_item>
+
+<task_item>
+  <id>ENG-91</id>
+  <status>IN_PROGRESS</status>
+  <priority>HIGH</priority>
+  <title>Seed economy: seeds as items + starting grant + purchase path</title>
+  <description>
+    Claimed for Sprint 1 by Product Owner, assigned to Engineer/Backend
+    Squad. See issue #91 for full spec. Backend lane per SQUAD-SPLIT.md
+    (scripts/autoload/**, scripts/economy/**, scripts/farming/**).
+  </description>
+</task_item>
+
+<task_item>
+  <id>FRONTEND-100</id>
+  <status>IN_PROGRESS</status>
+  <priority>HIGH</priority>
+  <title>Player avatar: a visible main character in world scenes</title>
+  <description>
+    Claimed for Sprint 1 by Product Owner, assigned to Frontend Squad. See
+    issue #100 for full spec. Frontend lane per SQUAD-SPLIT.md
+    (scenes/**, scripts/story/**, scripts/npc/npc_controller.gd). Must not
+    touch backend autoloads except through existing public methods/signals.
+  </description>
+</task_item>
