@@ -477,6 +477,13 @@ func _ready() -> void:
 	_test_get_all_recipes_returns_defaults()
 	_test_cooking_save_round_trip()
 
+	_test_savefile_envelope_wraps_and_survives_json_round_trip()
+	_test_legacy_v1_flat_payload_migrates_content_untouched()
+	_test_future_version_payload_is_rejected_without_touching_state()
+	_test_corrupt_main_recovers_from_backup_then_self_heals()
+	_test_atomic_save_leaves_no_tmp_residue_and_rotates_bak()
+	_test_delete_clears_main_bak_and_tmp()
+
 	if _failures.is_empty():
 		print("ALL TESTS PASSED (%d checks)" % _pass_count)
 		get_tree().quit(0)
@@ -5976,3 +5983,166 @@ func _test_shop_overlay_close_emits_closed_signal() -> void:
 	overlay.get_node("Root/Panel/Margin/VBox/Header/CloseButton").pressed.emit()
 	_check(_shop_overlay_closed_count == 1, "pressing Close should emit the closed signal exactly once")
 	overlay.queue_free()
+
+## --- Save-state hardening: versioned envelope, atomic write, .bak recovery ---
+##
+## Backs scripts/save/save_file.gd + save_migrations.gd + the rewritten
+## SaveManager IO pipeline. All disk-touching cases operate on the real
+## user://savegame.json slot like the pre-existing ENG-26 suite did, and each
+## ends by delete_save_file()-ing so ordering can never leak artifacts into
+## another case's assumptions.
+
+func _test_savefile_envelope_wraps_and_survives_json_round_trip() -> void:
+	SaveManager.delete_save_file()
+	var state_before := SaveManager.build_save_data()
+	var snapshot: Variant = SaveFile.wrap(state_before)
+	if snapshot == null:
+		_check(false, "wrap() of a real aggregate should never fail")
+		return
+	_check(snapshot.save_version == SaveMigrations.CURRENT_SAVE_VERSION,
+		"a freshly wrapped save must carry the current schema version")
+	_check(not snapshot.saved_at_utc.is_empty(),
+		"a freshly wrapped save must be stamped with a UTC timestamp")
+	var roundtripped: Variant = SaveFile.unwrap(JSON.parse_string(JSON.stringify(snapshot.to_json_dict())))
+	if roundtripped == null:
+		_check(false, "wrap -> stringify -> parse -> unwrap must reconstruct the envelope")
+		return
+	# Structural comparison, not hash(): JSON has no integer type, so every
+	# number comes back as float after parse ("year": 1 becomes 1.0) and two
+	# otherwise-identical dictionaries hash differently. _same_shape ignores
+	# that well-known normalization while still catching any dropped key.
+	_check(_same_shape(roundtripped.state, state_before),
+		"envelope JSON round-trip must preserve the full per-manager payload")
+	SaveManager.delete_save_file()
+
+## Deep structural equality ignoring int-vs-float distinctions (the standard
+## JSON serialization fuzz) but strict about everything else -- arrays'
+## order, dict keys, String/bool/null contents, and nesting depth. Lives in
+## the runner rather than shipping code because it is a TEST affordance:
+## production code goes through typed accessors where such fuzz can't hide.
+func _same_shape(a: Variant, b: Variant) -> bool:
+	var type_a := typeof(a)
+	if type_a != typeof(b):
+		# Tolerate ONLY the well-known JSON fuzz -- whole numbers arrive from
+		# parse as floats. Any other cross-type mismatch is a real difference.
+		var numeric_a := type_a == TYPE_INT or type_a == TYPE_FLOAT
+		var type_b := typeof(b)
+		var numeric_b := type_b == TYPE_INT or type_b == TYPE_FLOAT
+		if numeric_a and numeric_b:
+			return is_equal_approx(float(a), float(b))
+		return false
+	match type_a:
+		TYPE_DICTIONARY:
+			if (a as Dictionary).size() != (b as Dictionary).size():
+				return false
+			for key in a.keys():
+				if not (b as Dictionary).has(key):
+					return false
+				if not _same_shape(a[key], b[key]):
+					return false
+			return true
+		TYPE_ARRAY:
+			if (a as Array).size() != (b as Array).size():
+				return false
+			for i in range((a as Array).size()):
+				if not _same_shape(a[i], b[i]):
+					return false
+			return true
+		_:
+			return a == b
+
+func _test_legacy_v1_flat_payload_migrates_content_untouched() -> void:
+	var legacy := {
+		"time": {"year": 3, "season_index": 2, "day_in_season": 14, "hour": 21, "minute": 37},
+		"stamina": {"current": 42},
+		"farm_plots": {"plots": {"3,4": {"crop_id": "parsnip", "days_grown": 2}}},
+		"intro_seen": true,
+	}
+	var migrated: Variant = SaveMigrations.migrate_to_current(SaveFile.LEGACY_VERSION, legacy)
+	if migrated == null:
+		_check(false, "a legacy v1 payload must migrate to the current version")
+		return
+	_check(migrated["save_version"] == SaveMigrations.CURRENT_SAVE_VERSION,
+		"the walk must report arrival at CURRENT_SAVE_VERSION, got %d" % migrated["save_version"])
+	_check(migrated["state"].hash() == legacy.hash(),
+		"v1->v2 is a pure re-key wrap: migrated content must equal the original payload")
+	_check(SaveMigrations.migrate_to_current(SaveMigrations.CURRENT_SAVE_VERSION + 5, legacy) == null,
+		"a payload from an unknown FUTURE version must refuse to migrate")
+
+func _test_future_version_payload_is_rejected_without_touching_state() -> void:
+	SaveManager.delete_save_file()
+	TimeManager.from_save_dict({})
+	TimeManager.hour = 13 # sentinel that nothing from disk may overwrite
+	var future_root := {
+		"schema": SaveFile.SCHEMA_ID,
+		"save_version": SaveMigrations.CURRENT_SAVE_VERSION + 5,
+		"saved_at_utc": "2099-01-01T00:00:00",
+		"state": SaveManager.build_save_data(),
+	}
+	var file := FileAccess.open(SaveManager.SAVE_PATH, FileAccess.WRITE)
+	if file == null:
+		_check(false, "test setup: failed to stage a future-version file under user://")
+		return
+	file.store_string(JSON.stringify(future_root))
+	file.close()
+	_check(SaveManager.load_game() == false,
+		"a newer-schema save must fail cleanly, never crash or half-apply")
+	_check(TimeManager.hour == 13, "a rejected future version must leave live manager state untouched")
+	TimeManager.from_save_dict({})
+	SaveManager.delete_save_file()
+
+func _test_corrupt_main_recovers_from_backup_then_self_heals() -> void:
+	SaveManager.delete_save_file()
+	TimeManager.from_save_dict({})
+	TimeManager.hour = 8
+	SaveManager.save_game()
+	TimeManager.hour = 20
+	SaveManager.save_game() # rotates the hour=8 payload into .bak; main becomes hour=20
+	var vandal := FileAccess.open(SaveManager.SAVE_PATH, FileAccess.WRITE)
+	if vandal == null:
+		_check(false, "test setup: failed to open main save for corruption staging")
+		return
+	vandal.store_string("{definitely-not-json")
+	vandal.close()
+	TimeManager.from_save_dict({}) # defaults back to DAY_START_HOUR (6)
+	_check(SaveManager.load_game(),
+		"a corrupted main save must fall back to the rotated .bak copy")
+	_check(TimeManager.hour == 8,
+		"recovered state must come from the pre-overwrite (.bak) generation, got hour %d" % TimeManager.hour)
+	_check(FileAccess.file_exists(SaveManager.SAVE_PATH),
+		"a successful backup recovery must self-heal the dead main slot")
+	TimeManager.from_save_dict({})
+	_check(SaveManager.load_game(), "the self-healed main file must load on its own afterward")
+	_check(TimeManager.hour == 8, "the self-healed main slot must hold the recovered payload")
+	TimeManager.from_save_dict({})
+	SaveManager.delete_save_file()
+
+func _test_atomic_save_leaves_no_tmp_residue_and_rotates_bak() -> void:
+	SaveManager.delete_save_file()
+	SaveManager.save_game()
+	_check(FileAccess.file_exists(SaveManager.SAVE_PATH),
+		"first successful write must land the main save file")
+	_check(not FileAccess.file_exists(SaveManager.TMP_PATH),
+		"no staging artifact may survive a completed write")
+	_check(not SaveManager.has_backup_file(),
+		"before any overwrite exists there must be no .bak rotation yet")
+	SaveManager.save_game()
+	_check(SaveManager.has_backup_file(),
+		"overwriting an existing save must rotate the previous payload into .bak")
+	_check(not FileAccess.file_exists(SaveManager.TMP_PATH),
+		".tmp must always be consumed by promotion, never left behind")
+	SaveManager.delete_save_file()
+
+func _test_delete_clears_main_bak_and_tmp() -> void:
+	SaveManager.delete_save_file()
+	SaveManager.save_game()
+	SaveManager.save_game()
+	var stray := FileAccess.open(SaveManager.TMP_PATH, FileAccess.WRITE)
+	if stray != null:
+		stray.close()
+	_check(FileAccess.file_exists(SaveManager.SAVE_PATH), "test setup: main exists before cleanup assertions")
+	_check(SaveManager.has_backup_file(), "test setup: backup exists before cleanup assertions")
+	_check(FileAccess.file_exists(SaveManager.TMP_PATH), "test setup: stray tmp planted before cleanup assertions")
+	SaveManager.delete_save_file()
+	for path: String in [SaveManager.SAVE_PATH, SaveManager.BACKUP_PATH, SaveManager.TMP_PATH]:
+		_check(not FileAccess.file_exists(path), "%s must be gone after delete_save_file()" % path.get_file())
