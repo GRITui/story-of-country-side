@@ -2627,3 +2627,36 @@ either, so the remote branches remain as harmless merged-and-stale refs).
     "Sprint 2 -- FRONTEND-101 DONE" entry.
   </description>
 </task_item>
+
+<task_item>
+  <id>ENG-LIST-CROP-IDS</id>
+  <status>DONE</status>
+  <priority>MEDIUM</priority>
+  <title>FarmPlotManager has no getter to enumerate all registered crop ids (backend)</title>
+  <description>
+    Shipped as PR #129 against claude/farming-game-pm-requirements-w9ugtk.
+    Added FarmPlotManager.get_all_crop_ids() -> Array, returning every
+    crop_id registered via _register_default_content()/register_crop(),
+    sorted for deterministic iteration (matches this file's own
+    get_all_positions() naming and FestivalManager.get_festival_for_date()'s
+    sort-before-use precedent). Closes the gap PR #125's ShopOverlay hit
+    and worked around with a hardcoded CROP_IDS const, flagged there as a
+    backend follow-up.
+    Also swapped ShopOverlay's hardcoded CROP_IDS for the real getter --
+    a trivial one-line consumer change made directly rather than filed as
+    a separate Frontend follow-up, per this task's own scope framing.
+    Backend-only (scripts/autoload/farm_plot_manager.gd) plus that one
+    scripts/ui/shop_overlay.gd swap and the shared tests/test_runner.gd,
+    per SQUAD-SPLIT.md -- no scenes/** touched.
+    Verification: fetched claude/farming-game-pm-requirements-w9ugtk
+    fresh as the base branch. Clean headless boot of scenes/Main.tscn
+    before and after. tests/TestRunner.tscn: baseline 1027/1027 checks
+    passing, post-change 1049/1049 checks passing (+22, zero
+    regressions), Godot 4.3-stable headless. Pre-existing ObjectDB-leak/
+    resource-still-in-use warnings at --quit are present identically on
+    the unmodified base branch -- unrelated to this change.
+    Follow-up gaps: none identified for this getter itself. Any future
+    UI roster consumer (beyond ShopOverlay) should read
+    get_all_crop_ids() rather than re-hardcoding a crop list.
+  </description>
+</task_item>

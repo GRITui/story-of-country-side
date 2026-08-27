@@ -7,6 +7,31 @@
   <sprint_completion_percentage>100</sprint_completion_percentage>
 </squad_metadata>
 
+## Sprint 3 — ENG-LIST-CROP-IDS DONE
+FarmPlotManager had no way to enumerate every registered crop_id --
+callers could only look one up by id via get_crop_definition(). PR
+#125's ShopOverlay hardcoded a CROP_IDS const as a workaround and
+flagged the gap as a backend follow-up. Added
+FarmPlotManager.get_all_crop_ids() -> Array (sorted, matching this
+file's own get_all_positions() naming and
+FestivalManager.get_festival_for_date()'s sort-before-use precedent).
+Also swapped ShopOverlay's hardcoded CROP_IDS for the real getter --
+a trivial one-line consumer change made directly rather than filed as
+a separate Frontend follow-up, per this task's own scope framing; no
+other scenes/**/scripts/ui/** files touched.
++2 tests (new roster-match/no-dupes test, plus updating the existing
+ShopOverlay listing test off the removed const). Verification: fetched
+claude/farming-game-pm-requirements-w9ugtk fresh as the base branch
+(Godot 4.3-stable, downloaded to scratchpad from a prior session).
+Clean headless boot of scenes/Main.tscn before and after. Full
+tests/TestRunner.tscn suite: baseline 1027/1027 checks passing on the
+unmodified base, 1049/1049 checks passing after this change (+22, zero
+regressions). Pre-existing ObjectDB-leak/resource-still-in-use warnings
+at --quit are present identically on the unmodified base -- unrelated
+to this change. PR: gritui/story-of-country-side#129. No follow-up
+gaps identified for this getter; any future UI roster consumer should
+read get_all_crop_ids() rather than re-hardcoding a crop list.
+
 ## DONE — Sprint 4 S4-B1 (issue #97)
 sell_item() silently destroyed stock when unit_price <= 0 (bin drops the
 shipment after inventory already removed it). Fixed in
