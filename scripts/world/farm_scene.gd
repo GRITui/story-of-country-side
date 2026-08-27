@@ -69,6 +69,10 @@ class_name FarmScene
 ## selection UI/hotbar-binding yet (HUD's own docstring already flags the
 ## hotbar has no real item binding -- same gap, not re-solved here). This is
 ## a placeholder interaction model, not a designed one.
+##
+## Seed Shop (#123): pressing "B" toggles scenes/ui/ShopOverlay.tscn, a
+## minimal restock UI for FarmPlotManager.buy_seed() -- see
+## scripts/ui/shop_overlay.gd's own docstring and _toggle_shop() below.
 
 const GRID_WIDTH := 8
 const GRID_HEIGHT := 8
@@ -107,6 +111,7 @@ const DECORATIVE_PROPS := [
 
 @onready var _tilemap: TileMap = $TileMap
 var _player_avatar: PlayerAvatar
+var _shop_overlay: ShopOverlay
 
 func _ready() -> void:
 	_build_tileset()
@@ -207,11 +212,45 @@ func _on_crop_withered(position: Vector2i, _crop_id: String) -> void:
 ## lifecycle. Whichever FarmPlotManager call applies returns false and is a
 ## silent no-op if its own preconditions aren't met (wrong season, already
 ## watered, etc.) -- this scene never duplicates that validation.
+## Seed Shop toggle (#123: buy_seed() had no UI hook -- see
+## scripts/ui/shop_overlay.gd's own docstring for the overlay itself).
+## "B" is checked as a raw physical keycode rather than a new input
+## action -- project.godot has no [input] section yet (see PauseMenu's
+## own docstring for why it reuses the built-in ui_cancel action instead
+## of adding one), and a second Frontend squad is adding the real input
+## map + player movement bindings in parallel this same sprint
+## (FRONTEND-101) -- touching project.godot's [input] block here would
+## be a pure landing-order conflict with that work for no benefit v1
+## needs. No dedicated shopkeeper NPC/building exists yet either (out of
+## scope for #123's v1), so a raw key check is the simplest toggle that
+## doesn't require one.
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		var local_pos: Vector2 = _tilemap.to_local(get_global_mouse_position())
 		var cell: Vector2i = _tilemap.local_to_map(local_pos)
 		_handle_tile_click(cell)
+	elif event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_B:
+		_toggle_shop()
+
+func _toggle_shop() -> void:
+	if _shop_overlay != null and is_instance_valid(_shop_overlay):
+		_close_shop()
+	else:
+		_open_shop()
+
+func _open_shop() -> void:
+	_shop_overlay = load("res://scenes/ui/ShopOverlay.tscn").instantiate()
+	add_child(_shop_overlay)
+	_shop_overlay.closed.connect(_close_shop)
+
+func _close_shop() -> void:
+	if _shop_overlay != null and is_instance_valid(_shop_overlay):
+		# free(), not queue_free() -- a re-press of "B" in the same frame
+		# (or a headless test asserting the overlay is gone right after
+		# closing) needs the node actually out of the tree immediately,
+		# same precedent InventoryOverlay's row-removal already documents.
+		_shop_overlay.free()
+	_shop_overlay = null
 
 func _handle_tile_click(position: Vector2i) -> void:
 	if not _in_grid(position):
