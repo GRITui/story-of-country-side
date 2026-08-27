@@ -81,11 +81,19 @@ func _ready() -> void:
 ## (a faster second poultry option) and goat (a faster second dairy
 ## option), both 2-day producers slotting between chicken/cow and sheep.
 func _register_default_content() -> void:
-	register_species(_make_def("chicken", "Chicken", "egg", 1, 20, 3))
-	register_species(_make_def("duck", "Duck", "duck_egg", 2, 45, 5))
-	register_species(_make_def("cow", "Cow", "milk", 1, 30, 4))
-	register_species(_make_def("goat", "Goat", "goat_milk", 2, 55, 6))
-	register_species(_make_def("sheep", "Sheep", "wool", 3, 75, 8))
+	# Migrate all animal product base sell prices to PriceRegistry
+	PriceRegistry.register_price("egg", 20)
+	PriceRegistry.register_price("duck_egg", 45)
+	PriceRegistry.register_price("milk", 30)
+	PriceRegistry.register_price("goat_milk", 55)
+	PriceRegistry.register_price("wool", 75)
+	
+	# Continue with existing animal registration (keeping existing logic)
+	register_species(_make_def("chicken", "Chicken", "egg", 1, PriceRegistry.get_price("egg"), 3))
+	register_species(_make_def("duck", "Duck", "duck_egg", 2, PriceRegistry.get_price("duck_egg"), 5))
+	register_species(_make_def("cow", "Cow", "milk", 1, PriceRegistry.get_price("milk"), 4))
+	register_species(_make_def("goat", "Goat", "goat_milk", 2, PriceRegistry.get_price("goat_milk"), 6))
+	register_species(_make_def("sheep", "Sheep", "wool", 3, PriceRegistry.get_price("wool"), 8))
 
 func _make_def(species_id: String, display_name: String, product_item_id: String,
 	days_between_products: int, base_sell_price: int, xp_reward: int) -> AnimalDefinition:

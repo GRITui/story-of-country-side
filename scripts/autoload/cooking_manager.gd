@@ -54,10 +54,22 @@ func get_all_recipes() -> Array:
 	return result
 
 func _register_default_recipes() -> void:
-	register_recipe(_make_recipe("parsnip_soup", "Parsnip Soup", ["parsnip"], [1], 30, 5))
-	register_recipe(_make_recipe("veggie_medley", "Veggie Medley", ["tomato", "pumpkin"], [1, 1], 50, 10))
-	register_recipe(_make_recipe("fish_stew", "Fish Stew", ["carp"], [1], 40, 8))
-	register_recipe(_make_recipe("goldfish_sushi", "Goldfish Sushi", ["goldfish"], [1], 60, 12))
+	# Register food base prices to PriceRegistry
+	PriceRegistry.register_price("parsnip_soup", 15)
+	PriceRegistry.register_price("veggie_medley", 25)
+	PriceRegistry.register_price("fish_stew", 20)
+	PriceRegistry.register_price("goldfish_sushi", 30)
+	
+	# Register quality multipliers for food
+	PriceRegistry.register_quality_multiplier("normal", 1.0)
+	PriceRegistry.register_quality_multiplier("silver", 1.5)
+	PriceRegistry.register_quality_multiplier("gold", 2.0)
+	
+	# Continue with existing recipe registration (keeping existing logic)
+	register_recipe(_make_recipe("parsnip_soup", "Parsnip Soup", ["parsnip"], [1], PriceRegistry.get_price("parsnip_soup"), 5))
+	register_recipe(_make_recipe("veggie_medley", "Veggie Medley", ["tomato", "pumpkin"], [1, 1], PriceRegistry.get_price("veggie_medley"), 10))
+	register_recipe(_make_recipe("fish_stew", "Fish Stew", ["carp"], [1], PriceRegistry.get_price("fish_stew"), 8))
+	register_recipe(_make_recipe("goldfish_sushi", "Goldfish Sushi", ["goldfish"], [1], PriceRegistry.get_price("goldfish_sushi"), 12))
 
 func _make_recipe(recipe_id: String, display_name: String, ingredients: Array[String], ingredient_quantities: Array[int], stamina_restore: int, xp_granted: int) -> RecipeDefinition:
 	var r := RecipeDefinition.new()

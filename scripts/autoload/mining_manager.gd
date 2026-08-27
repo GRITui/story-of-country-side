@@ -66,10 +66,17 @@ func _ready() -> void:
 ## reuse ToolManager's exact item ids (see top-of-file docstring), diamond
 ## is a rare floor-5+ gem with no consumer yet. Not final game balance.
 func _register_default_content() -> void:
-	register_ore(_make_ore("copper_ore", 1, 50.0, 3))
-	register_ore(_make_ore("iron_ore", 1, 30.0, 4))
-	register_ore(_make_ore("gold_ore", 3, 15.0, 6))
-	register_ore(_make_ore("diamond", 5, 5.0, 10))
+	# Migrate all ore base sell prices to PriceRegistry
+	PriceRegistry.register_price("copper_ore", 50)
+	PriceRegistry.register_price("iron_ore", 30)
+	PriceRegistry.register_price("gold_ore", 15)
+	PriceRegistry.register_price("diamond", 5)
+	
+	# Continue with existing ore registration (keeping existing logic)
+	register_ore(_make_ore("copper_ore", 1, PriceRegistry.get_price("copper_ore"), 3))
+	register_ore(_make_ore("iron_ore", 1, PriceRegistry.get_price("iron_ore"), 4))
+	register_ore(_make_ore("gold_ore", 3, PriceRegistry.get_price("gold_ore"), 6))
+	register_ore(_make_ore("diamond", 5, PriceRegistry.get_price("diamond"), 10))
 
 func _make_ore(item_id: String, min_floor: int, weight: float, xp_reward: int) -> OreDefinition:
 	var def := OreDefinition.new()

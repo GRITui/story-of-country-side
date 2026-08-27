@@ -98,17 +98,41 @@ func _ready() -> void:
 ##   which is the "regrowable crops can rationally support a higher seed
 ##   price" reasoning PR #122 flagged but didn't apply.
 func _register_default_content() -> void:
+	# Migrate all crop base sell prices to PriceRegistry
+	PriceRegistry.register_price("parsnip", 35)
+	PriceRegistry.register_price("cauliflower", 80)
+	PriceRegistry.register_price("tomato", 45)
+	PriceRegistry.register_price("melon", 140)
+	PriceRegistry.register_price("pumpkin", 120)
+	PriceRegistry.register_price("corn", 55)
+	PriceRegistry.register_price("frost_kale", 70)
+	
+	# Migrate seed prices to PriceRegistry
+	PriceRegistry.register_price("parsnip_seed", 5)
+	PriceRegistry.register_price("cauliflower_seed", 5)
+	PriceRegistry.register_price("tomato_seed", 5)
+	PriceRegistry.register_price("melon_seed", 5)
+	PriceRegistry.register_price("pumpkin_seed", 5)
+	PriceRegistry.register_price("corn_seed", 5)
+	PriceRegistry.register_price("frost_kale_seed", 5)
+	
+	# Register quality multipliers for crops
+	PriceRegistry.register_quality_multiplier("normal", 1.0)
+	PriceRegistry.register_quality_multiplier("silver", 1.5)
+	PriceRegistry.register_quality_multiplier("gold", 2.0)
+	
+	# Continue with existing crop registration (keeping existing logic)
 	# Spring
-	register_crop(_make_crop("parsnip", "Parsnip", ["Spring"], 4, false, 0, 35, 4, 12))
-	register_crop(_make_crop("cauliflower", "Cauliflower", ["Spring"], 6, false, 0, 80, 8, 28))
+	register_crop(_make_crop("parsnip", "Parsnip", ["Spring"], 4, false, 0, PriceRegistry.get_price("parsnip"), 4, 12))
+	register_crop(_make_crop("cauliflower", "Cauliflower", ["Spring"], 6, false, 0, PriceRegistry.get_price("cauliflower"), 8, 28))
 	# Summer
-	register_crop(_make_crop("tomato", "Tomato", ["Summer"], 5, true, 3, 45, 6, 30))
-	register_crop(_make_crop("melon", "Melon", ["Summer"], 7, false, 0, 140, 12, 45))
+	register_crop(_make_crop("tomato", "Tomato", ["Summer"], 5, true, 3, PriceRegistry.get_price("tomato"), 6, 30))
+	register_crop(_make_crop("melon", "Melon", ["Summer"], 7, false, 0, PriceRegistry.get_price("melon"), 12, 45))
 	# Fall
-	register_crop(_make_crop("pumpkin", "Pumpkin", ["Fall"], 7, false, 0, 120, 12, 38))
-	register_crop(_make_crop("corn", "Corn", ["Fall"], 8, true, 4, 55, 6, 38))
+	register_crop(_make_crop("pumpkin", "Pumpkin", ["Fall"], 7, false, 0, PriceRegistry.get_price("pumpkin"), 12, 38))
+	register_crop(_make_crop("corn", "Corn", ["Fall"], 8, true, 4, PriceRegistry.get_price("corn"), 6, 38))
 	# Winter (Winter is a real TimeManager season; previously had no crop)
-	register_crop(_make_crop("frost_kale", "Frost Kale", ["Winter"], 6, false, 0, 70, 7, 24))
+	register_crop(_make_crop("frost_kale", "Frost Kale", ["Winter"], 6, false, 0, PriceRegistry.get_price("frost_kale"), 7, 24))
 
 func _make_crop(crop_id: String, display_name: String, seasons: Array[String],
 	days_to_grow: int, regrowable: bool, regrow_days: int, sell_price: int, xp: int,

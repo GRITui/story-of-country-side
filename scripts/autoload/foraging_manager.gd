@@ -50,16 +50,33 @@ func _ready() -> void:
 		TimeManager.day_started.connect(_on_day_started)
 
 func _register_default_content() -> void:
-	register_forageable(_make_forageable("wild_berries", "Wild Berries", ["Spring", "Summer"], 8, 3, 2))
-	register_forageable(_make_forageable("wild_flower", "Wild Flower", ["Spring"], 6, 2, 2))
-	register_forageable(_make_forageable("spring_onion", "Spring Onion", ["Spring"], 10, 3, 2))
-	register_forageable(_make_forageable("sweet_pea", "Sweet Pea", ["Summer"], 9, 3, 2))
-	register_forageable(_make_forageable("mushroom", "Mushroom", ["Fall"], 12, 4, 3))
-	register_forageable(_make_forageable("hazelnut", "Hazelnut", ["Fall"], 14, 4, 3))
-	register_forageable(_make_forageable("snow_truffle", "Snow Truffle", ["Winter"], 20, 6, 4))
-	register_forageable(_make_forageable("winter_root", "Winter Root", ["Winter"], 16, 5, 3))
+	# Migrate all foraging base sell prices to PriceRegistry
+	PriceRegistry.register_price("wild_berries", 8)
+	PriceRegistry.register_price("wild_flower", 6)
+	PriceRegistry.register_price("spring_onion", 10)
+	PriceRegistry.register_price("sweet_pea", 9)
+	PriceRegistry.register_price("mushroom", 12)
+	PriceRegistry.register_price("hazelnut", 14)
+	PriceRegistry.register_price("snow_truffle", 20)
+	PriceRegistry.register_price("winter_root", 16)
+	PriceRegistry.register_price("four_leaf_clover", 30)
+	
+	# Register quality multipliers for foraging
+	PriceRegistry.register_quality_multiplier("normal", 1.0)
+	PriceRegistry.register_quality_multiplier("silver", 1.5)
+	PriceRegistry.register_quality_multiplier("gold", 2.0)
+	
+	# Continue with existing foraging registration (keeping existing logic)
+	register_forageable(_make_forageable("wild_berries", "Wild Berries", ["Spring", "Summer"], PriceRegistry.get_price("wild_berries"), 3, 2))
+	register_forageable(_make_forageable("wild_flower", "Wild Flower", ["Spring"], PriceRegistry.get_price("wild_flower"), 2, 2))
+	register_forageable(_make_forageable("spring_onion", "Spring Onion", ["Spring"], PriceRegistry.get_price("spring_onion"), 3, 2))
+	register_forageable(_make_forageable("sweet_pea", "Sweet Pea", ["Summer"], PriceRegistry.get_price("sweet_pea"), 3, 2))
+	register_forageable(_make_forageable("mushroom", "Mushroom", ["Fall"], PriceRegistry.get_price("mushroom"), 4, 3))
+	register_forageable(_make_forageable("hazelnut", "Hazelnut", ["Fall"], PriceRegistry.get_price("hazelnut"), 4, 3))
+	register_forageable(_make_forageable("snow_truffle", "Snow Truffle", ["Winter"], PriceRegistry.get_price("snow_truffle"), 6, 4))
+	register_forageable(_make_forageable("winter_root", "Winter Root", ["Winter"], PriceRegistry.get_price("winter_root"), 5, 3))
 	register_forageable(_make_forageable("four_leaf_clover", "Four-Leaf Clover",
-		["Spring", "Summer", "Fall", "Winter"], 30, 8, 5))
+		["Spring", "Summer", "Fall", "Winter"], PriceRegistry.get_price("four_leaf_clover"), 8, 5))
 
 func _make_forageable(item_id: String, display_name: String, seasons: Array[String],
 	sell_price: int, xp: int, respawn_days: int) -> ForageableDefinition:

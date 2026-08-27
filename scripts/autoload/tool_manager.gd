@@ -48,19 +48,33 @@ func _ready() -> void:
 ## income multiplier in the game (see MiningManager), so it's worth
 ## charging the most to reach.
 func _register_default_content() -> void:
+	# Migrate ore prices to PriceRegistry
+	PriceRegistry.register_price("iron_ore", 30)
+	PriceRegistry.register_price("gold_ore", 15)
+	
+	# Migrate tool costs to PriceRegistry
+	PriceRegistry.register_price("hoe_tier_1_cost", 200)
+	PriceRegistry.register_price("hoe_tier_2_cost", 500)
+	PriceRegistry.register_price("watering_can_tier_1_cost", 150)
+	PriceRegistry.register_price("watering_can_tier_2_cost", 400)
+	PriceRegistry.register_price("axe_tier_1_cost", 220)
+	PriceRegistry.register_price("axe_tier_2_cost", 550)
+	PriceRegistry.register_price("pickaxe_tier_1_cost", 260)
+	PriceRegistry.register_price("pickaxe_tier_2_cost", 650)
+	
 	var cross: Array[Vector2i] = [Vector2i(0, 0), Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
 
-	register_tier("Hoe", _make_tier(1, "iron_ore", 5, 200, cross, 4))
-	register_tier("Hoe", _make_tier(2, "gold_ore", 5, 500, _full_3x3_offsets(), 3))
+	register_tier("Hoe", _make_tier(1, "iron_ore", 5, PriceRegistry.get_price("hoe_tier_1_cost"), cross, 4))
+	register_tier("Hoe", _make_tier(2, "gold_ore", 5, PriceRegistry.get_price("hoe_tier_2_cost"), _full_3x3_offsets(), 3))
 
-	register_tier("WateringCan", _make_tier(1, "iron_ore", 4, 150, cross, 4))
-	register_tier("WateringCan", _make_tier(2, "gold_ore", 4, 400, _full_3x3_offsets(), 3))
+	register_tier("WateringCan", _make_tier(1, "iron_ore", 4, PriceRegistry.get_price("watering_can_tier_1_cost"), cross, 4))
+	register_tier("WateringCan", _make_tier(2, "gold_ore", 4, PriceRegistry.get_price("watering_can_tier_2_cost"), _full_3x3_offsets(), 3))
 
-	register_tier("Axe", _make_tier(1, "iron_ore", 5, 220, cross, 4))
-	register_tier("Axe", _make_tier(2, "gold_ore", 6, 550, _full_3x3_offsets(), 3))
+	register_tier("Axe", _make_tier(1, "iron_ore", 5, PriceRegistry.get_price("axe_tier_1_cost"), cross, 4))
+	register_tier("Axe", _make_tier(2, "gold_ore", 6, PriceRegistry.get_price("axe_tier_2_cost"), _full_3x3_offsets(), 3))
 
-	register_tier("Pickaxe", _make_tier(1, "iron_ore", 6, 260, cross, 4))
-	register_tier("Pickaxe", _make_tier(2, "gold_ore", 7, 650, _full_3x3_offsets(), 3))
+	register_tier("Pickaxe", _make_tier(1, "iron_ore", 6, PriceRegistry.get_price("pickaxe_tier_1_cost"), cross, 4))
+	register_tier("Pickaxe", _make_tier(2, "gold_ore", 7, PriceRegistry.get_price("pickaxe_tier_2_cost"), _full_3x3_offsets(), 3))
 
 func _make_tier(tier_index: int, ore_item_id: String, ore_quantity: int, gold_cost: int,
 	aoe_offsets: Array[Vector2i], stamina_cost: int) -> ToolUpgradeTier:
