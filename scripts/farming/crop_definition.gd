@@ -35,11 +35,11 @@ extends Resource
 @export var xp_reward: int = 4
 
 ## Gold cost per seed via FarmPlotManager.buy_seed() (#91: seed economy --
-## planting used to be free/infinite). Placeholder balance, same spirit as
-## base_sell_price above -- roughly 40-55% of base_sell_price so a single
-## harvest already profits, with regrowable crops (tomato/corn) priced
-## toward the higher end since their real return comes from repeat
-## harvests off one seed. No seed-cost design doc exists yet; Content
-## lane's balance pass (see #91 AC) should revisit these against real
-## playtesting, not just this ratio-of-sell-price heuristic.
+## planting used to be free/infinite). CONTENT-SEED-BALANCE (Sprint 2)
+## replaced the original flat "~40-55% of base_sell_price" placeholder
+## with a real per-crop pass -- see the rationale comment on
+## FarmPlotManager._register_default_content(). One-time-harvest crops
+## sit around 30-35% of base_sell_price; regrowable crops (tomato/corn)
+## sit much higher (roughly two-thirds) since one seed pays out across
+## many harvests in a season, not just one.
 @export var seed_price: int = 5

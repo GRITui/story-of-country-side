@@ -75,18 +75,40 @@ func _ready() -> void:
 ## other systems (CommunityGoalManager's pantry_bundle) reference these
 ## item_ids by name, so ids and quantities stay stable even in a content
 ## pass; only newly-added crops are free of that constraint.
+##
+## CONTENT-SEED-BALANCE (Sprint 2): seed_price values below replace PR
+## #122's flat "~40-55% of base_sell_price" placeholder heuristic with a
+## real per-crop pass, grounded in each crop's actual days_to_grow and
+## regrow behavior (28-day season, TimeManager.DAYS_PER_SEASON):
+## - One-time-harvest crops are priced around 30-35% of base_sell_price --
+##   a single harvest must clear the seed cost with real margin left over,
+##   but the seed can't be worth more than a modest slice of the one
+##   payout it produces. Slower/higher-value crops (melon, pumpkin) sit at
+##   the low end of that band since their absolute margin is already
+##   large; faster/cheaper crops (parsnip, frost_kale) sit slightly higher
+##   since a thin absolute margin still needs to feel worthwhile.
+## - Regrowable crops (tomato, corn) are priced much closer to
+##   base_sell_price itself (roughly two-thirds) precisely because one
+##   seed pays out repeatedly across the season -- see get_seed_price
+##   users' math below. Tomato (5-day first grow, 3-day regrow) yields 8
+##   harvests off one seed in a 28-day season; corn (8-day first grow,
+##   4-day regrow) yields 6. The first harvest alone barely clears the
+##   seed cost by design (tomato: 45-30=15g; corn: 55-38=17g) -- every
+##   harvest after that is what actually justifies the higher seed price,
+##   which is the "regrowable crops can rationally support a higher seed
+##   price" reasoning PR #122 flagged but didn't apply.
 func _register_default_content() -> void:
 	# Spring
-	register_crop(_make_crop("parsnip", "Parsnip", ["Spring"], 4, false, 0, 35, 4, 15))
-	register_crop(_make_crop("cauliflower", "Cauliflower", ["Spring"], 6, false, 0, 80, 8, 35))
+	register_crop(_make_crop("parsnip", "Parsnip", ["Spring"], 4, false, 0, 35, 4, 12))
+	register_crop(_make_crop("cauliflower", "Cauliflower", ["Spring"], 6, false, 0, 80, 8, 28))
 	# Summer
-	register_crop(_make_crop("tomato", "Tomato", ["Summer"], 5, true, 3, 45, 6, 25))
-	register_crop(_make_crop("melon", "Melon", ["Summer"], 7, false, 0, 140, 12, 60))
+	register_crop(_make_crop("tomato", "Tomato", ["Summer"], 5, true, 3, 45, 6, 30))
+	register_crop(_make_crop("melon", "Melon", ["Summer"], 7, false, 0, 140, 12, 45))
 	# Fall
-	register_crop(_make_crop("pumpkin", "Pumpkin", ["Fall"], 7, false, 0, 120, 12, 50))
-	register_crop(_make_crop("corn", "Corn", ["Fall"], 8, true, 4, 55, 6, 30))
+	register_crop(_make_crop("pumpkin", "Pumpkin", ["Fall"], 7, false, 0, 120, 12, 38))
+	register_crop(_make_crop("corn", "Corn", ["Fall"], 8, true, 4, 55, 6, 38))
 	# Winter (Winter is a real TimeManager season; previously had no crop)
-	register_crop(_make_crop("frost_kale", "Frost Kale", ["Winter"], 6, false, 0, 70, 7, 30))
+	register_crop(_make_crop("frost_kale", "Frost Kale", ["Winter"], 6, false, 0, 70, 7, 24))
 
 func _make_crop(crop_id: String, display_name: String, seasons: Array[String],
 	days_to_grow: int, regrowable: bool, regrow_days: int, sell_price: int, xp: int,
