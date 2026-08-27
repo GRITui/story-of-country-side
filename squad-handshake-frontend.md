@@ -559,3 +559,97 @@ Follow-up gaps (not built here):
   logged above. A `list_crop_ids()` getter would let this overlay read
   the real roster instead of hardcoding it, and would stop silently
   drifting stale if Content lane adds/removes a crop.
+
+## Sprint 2 -- FRONTEND-101 DONE
+
+Claimed FRONTEND-101 (issue #101: real input map + control scheme,
+replacing the mouse-click-only stand-in #100's `PlayerAvatar` moved
+under). Second Frontend squad session this sprint, running in parallel
+with FRONTEND-123 above -- different files by design (`scenes/world/**`
+world-scene code + `player_avatar.gd` + `project.godot`'s `[input]`
+section, vs. FRONTEND-123's `scenes/ui/**`), per the retro that filed
+both tasks this way.
+
+Registered `project.godot`'s previously-empty `[input]` section:
+`move_up`/`move_down`/`move_left`/`move_right` (WASD + arrows),
+`interact` (E), `advance_dialog` (Space/Enter), and `hotbar_1`..
+`hotbar_5` (1-5, a foundation for #94's future hotbar -- registered,
+not consumed by anything yet).
+
+`player_avatar.gd` gains `move_by_input(direction, delta)`: direct,
+immediate keyboard movement, additive alongside the existing
+`move_to()` click-to-move stand-in from #100. Documented precedence
+rule: any non-zero keyboard direction cancels an in-flight click
+target, so a movement key always wins over a stale click move; letting
+go of all movement keys just stops rather than resuming the old click
+target (a deliberate "simpler mental model" call, not an oversight).
+Both `move_to()` and `move_by_input()` now update a shared `facing`
+vector so scenes can resolve an "adjacent tile" without this node
+needing any grid/TileMap awareness of its own.
+
+Every world scene (Farm/Ranch/Mine/Forage) got the identical pattern:
+a `_process()` polling `Input.get_vector(move_left/right/up/down)` into
+`move_by_input()`, and the `interact` action wired into each scene's
+existing `_unhandled_input` to re-run that same scene's own
+`_handle_tile_click` against a `_facing_tile()` helper (avatar position
++ one tile-step in its facing direction, run back through
+`tilemap.local_to_map()` -- the same transform the mouse-click path
+already used, so it stays correct under the isometric projection with
+no separate grid-direction math). One shared interaction/validation
+path behind either mouse click or keyboard; mouse-tile-click stays the
+primary targeting input per the issue's own scope guard.
+
+`IntroSequence._unhandled_input` now checks the named `advance_dialog`
+action instead of the built-in `ui_accept` (same default keys:
+Space/Enter) -- mouse/touch advance unchanged. `PauseMenu`'s
+`ui_cancel` toggle deliberately left as-is (already a named engine
+action, not a raw click/button check, so out of this issue's "read
+actions instead of raw indices" scope) -- its docstring's now-stale
+"no `[input]` section exists yet" reasoning was updated to say so.
+
+Documented the whole scheme in `design/ui-flows/menu-hud-flow-spec.md`
+(new §5) -- that doc previously had zero mentions of movement/controls,
+per the issue's own verified gap.
+
+Merge conflict hit (expected, logged by both sides in advance): both
+this task and FRONTEND-123 touched `scripts/world/farm_scene.gd`'s
+`_unhandled_input` in the same sprint -- FRONTEND-123 added a raw "B"
+keycode branch for its Shop overlay toggle in the exact spot this task
+added the `interact` action branch. Resolved per `SQUAD-SPLIT.md`'s
+documented pattern: pulled the base branch fresh (which already had
+FRONTEND-123/PR #125 and CONTENT-SEED-BALANCE/PR #124 merged), kept
+both `_unhandled_input` branches (no logic overlap -- `interact` action
+check, then the raw "B" check), re-ran the full suite.
+
+Verification: Godot 4.3-stable binary already present in this
+session's environment from a prior run (matching `project.godot`'s
+`config/features`). Headless boot of `scenes/Main.tscn`: clean, no
+errors, both before and after merging the base branch forward. Full
+`tests/TestRunner.tscn` suite: all passing across repeated runs, both
+before the merge (1009-1012 checks -- pre-existing count
+nondeterminism, confirmed present on the unmodified base branch too,
+never a failure) and after (1027-1030 checks, once FRONTEND-123's own
++18 tests were folded in). No dedicated `PlayerAvatar`/input unit
+tests added -- this repo's presentation-node scenes (`PlayerAvatar`,
+`NPCController`, every world scene) have no unit-test precedent;
+documented here per the task's own instruction rather than silently
+skipped.
+
+Shipped as PR #127 against `claude/farming-game-pm-requirements-w9ugtk`.
+
+Follow-up gaps (not built here):
+- `hotbar_1`..`hotbar_5` actions are registered but unconsumed -- #94
+  (live hotbar) is the natural consumer.
+- Keyboard movement moves the avatar in continuous screen-space, not
+  grid-snapped movement; the `interact` action's "facing tile" is
+  derived from that same screen-space direction fed through each
+  scene's own `local_to_map()`. Correct under the isometric projection,
+  but an approximation of true grid-adjacency rather than a strict
+  4-neighbor lookup -- flagged as a reasonable v1 simplification, not a
+  silent gap.
+- No gamepad remapping UI, no combat inputs -- both explicitly out of
+  scope per the issue's own scope guards.
+
+`backlog-inbox.md`'s FRONTEND-101 task_item updated to `DONE` the
+append-only way (new block referencing the same id, prior
+`IN_PROGRESS` block left untouched).
