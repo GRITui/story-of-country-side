@@ -1,4 +1,5 @@
 extends CanvasLayer
+const BirthdayRegistryRef = preload("res://scripts/social/birthday_registry.gd")
 class_name RelationshipsOverlay
 ## Full-screen Relationships / Marriage overlay against MarriageManager
 ## (#20) and RelationshipManager (#19).
@@ -110,12 +111,14 @@ func _refresh_npc_row(npc_name: String) -> void:
 
 	hearts_label.text = "%d/%d hearts" % [RelationshipManager.get_hearts(npc_name), RelationshipManager.MAX_HEARTS]
 
+	var birthday_suffix := " 🎂 Birthday!" if BirthdayRegistryRef.is_birthday_today(npc_name) else ""
+
 	if MarriageManager.spouse_name() == npc_name:
-		status_label.text = "Spouse"
+		status_label.text = "Spouse" + birthday_suffix
 	elif MarriageManager.engaged_to() == npc_name:
-		status_label.text = "Engaged"
+		status_label.text = "Engaged" + birthday_suffix
 	else:
-		status_label.text = ""
+		status_label.text = birthday_suffix.strip_edges()
 
 	propose_button.disabled = not MarriageManager.can_propose(npc_name)
 

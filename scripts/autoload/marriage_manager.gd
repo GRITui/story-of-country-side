@@ -164,6 +164,63 @@ func _on_day_started(day_in_season: int, _season: String, _day_of_week: String) 
 			_children += 1
 			child_born.emit(_spouse, _children)
 
+## --- Presentation helpers (Squad Gamma, #111) ---
+## Pure query API for UI — no scene logic, no side effects.
+
+func get_wedding_state() -> String:
+	if is_married():
+		return "married"
+	if is_engaged():
+		return "engaged"
+	return "single"
+
+func get_wedding_date() -> Dictionary:
+	if not is_engaged():
+		return {}
+	# Compute future date by adding days_until_wedding to TimeManager's current date.
+	if not is_instance_valid(TimeManager):
+		return {"season": "Spring", "day": _days_until_wedding}
+	var season_idx: int = TimeManager.season_index
+	var day: int = TimeManager.day_in_season
+	var remaining: int = _days_until_wedding
+	# Walk forward day by day, rolling seasons
+	while remaining > 0:
+		day += 1
+		if day > TimeManager.DAYS_PER_SEASON:
+			day = 1
+			season_idx = (season_idx + 1) % TimeManager.SEASONS.size()
+		remaining -= 1
+	return {"season": TimeManager.SEASONS[season_idx], "day": day, "season_index": season_idx}
+
+func is_wedding_today() -> bool:
+	if not is_engaged():
+		return false
+	if not is_instance_valid(TimeManager):
+		return _days_until_wedding <= 0
+	var wd: Dictionary = get_wedding_date()
+	if wd.is_empty():
+		return false
+	return wd["season"] == TimeManager.current_season() and wd["day"] == TimeManager.day_in_season
+
+func get_wedding_countdown_text() -> String:
+	if is_married():
+		return "Married to %s" % _spouse
+	if is_engaged():
+		if is_wedding_today():
+			return "Wedding today! ♥ %s" % _engaged_to
+		return "Wedding in %d day(s) — %s" % [_days_until_wedding, _engaged_to]
+	return "Not engaged"
+
+func get_ceremony_state() -> Dictionary:
+	return {
+		"state": get_wedding_state(),
+		"spouse": _spouse,
+		"engaged_to": _engaged_to,
+		"days_until": _days_until_wedding,
+		"is_today": is_wedding_today(),
+		"wedding_date": get_wedding_date(),
+	}
+
 func to_save_dict() -> Dictionary:
 	return {
 		"engaged_to": _engaged_to,

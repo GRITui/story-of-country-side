@@ -70,10 +70,14 @@ func _ready() -> void:
 ## elsewhere. festival_id strings stay internal identifiers (snake_case,
 ## stable independent of the display name players actually see).
 func _register_default_content() -> void:
-	register_festival(_make_festival("bloomtide_fair", "Bloomtide Fair", "Spring", 13))
-	register_festival(_make_festival("sunfield_revel", "Sunfield Revel", "Summer", 15))
-	register_festival(_make_festival("harvest_moon_festival", "Harvest Moon Festival", "Fall", 16))
-	register_festival(_make_festival("hearthlight_festival", "Hearthlight Festival", "Winter", 21))
+	register_festival(_make_festival("bloomtide_fair", "Bloomtide Fair", "Spring", 13,
+		"Spring's first blush — petals on every doorstep, ribbons in the wind, and Elena's flower crowns for every child. Dance barefoot through the meadow at noon."))
+	register_festival(_make_festival("sunfield_revel", "Sunfield Revel", "Summer", 15,
+		"Summer at its golden peak — sunhats, iced tea, and Marcus's dockside fish fry. Stay for the sunset lantern release over the fields."))
+	register_festival(_make_festival("harvest_moon_festival", "Harvest Moon Festival", "Fall", 16,
+		"Autumn's bounty under a honeyed moon — Priya's harvest table groans with corn and pumpkin, and every scarecrow wears a smile."))
+	register_festival(_make_festival("hearthlight_festival", "Hearthlight Festival", "Winter", 21,
+		"Winter's cozy heart — hearth fires, wool blankets, and Tobias's spiced cider. The whole valley gathers to trade stories until the snow glows."))
 
 func _make_festival(festival_id: String, display_name: String, season: String, day_of_season: int, flavor_text: String = "") -> FestivalDefinition:
 	var def := FestivalDefinition.new()

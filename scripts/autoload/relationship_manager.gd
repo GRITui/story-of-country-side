@@ -14,6 +14,8 @@ const POINTS_PER_HEART := 250
 const MAX_HEARTS := 10
 const MAX_POINTS := POINTS_PER_HEART * MAX_HEARTS
 const TALK_POINTS := 20
+const BIRTHDAY_GIFT_MULTIPLIER := 8
+const BirthdayRegistryRef = preload("res://scripts/social/birthday_registry.gd")
 
 ## npc_name -> .tres path, one entry per shipped GiftPreferenceTable resource
 ## (scripts/social/gift_preferences/, PR #58's Content-lane drop). Flagged as
@@ -46,6 +48,15 @@ var _heart_event_dialogue: Dictionary = {}
 func _ready() -> void:
 	if TimeManager:
 		TimeManager.day_started.connect(_on_day_started)
+	# Register heart event dialogue content (Squad Gamma, #53)
+	var heart_script = load("res://scripts/social/heart_dialogue_content.gd")
+	if heart_script != null:
+		if heart_script.has_method("register_all"):
+			heart_script.register_all(self)
+		else:
+			var tmp = heart_script.new()
+			if tmp.has_method("register_all"):
+				tmp.register_all(self)
 
 func get_points(npc_name: String) -> int:
 	return _points.get(npc_name, 0)
@@ -77,7 +88,9 @@ func give_gift(npc_name: String, item_id: String, preferences: GiftPreferenceTab
 	if has_gifted_today(npc_name):
 		return false
 	_gifted_today[npc_name] = true
-	var delta := preferences.point_delta_for(item_id) if preferences else 0
+	var delta: int = preferences.point_delta_for(item_id) if preferences else 0
+	if delta > 0 and BirthdayRegistryRef.is_birthday_today(npc_name): # BirthdayRegistry class_name
+		delta *= BIRTHDAY_GIFT_MULTIPLIER
 	_add_points(npc_name, delta)
 	return true
 
