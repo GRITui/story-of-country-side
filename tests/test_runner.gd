@@ -10,6 +10,27 @@ extends Node
 ## No test framework dependency — plain assertions. Worth switching to a
 ## real framework (GUT) once this file covers more than two or three
 ## systems; still small enough that the overhead isn't worth it yet.
+##
+## QA-TEST-COUNT-NONDETERMINISM (Sprint 3): the final "ALL TESTS PASSED
+## (N checks)" count can legitimately differ by a small amount (observed
+## +3) between runs of the exact same commit. Root-caused to
+## _test_forage_cooldown_counts_down_and_becomes_available_again below:
+## it registers a forage node with ForagingManager.register_node(), which
+## picks a random item from the current season's candidate pool
+## (ForagingManager._rng, unseeded by design) via `candidates[_rng.randi()
+## % candidates.size()]`. Spring's candidates are wild_berries/
+## wild_flower/spring_onion (respawn_days = 2) and four_leaf_clover,
+## which is valid in every season (respawn_days = 5). The test's
+## `for i in range(respawn_days - 1)` loop emits one _check() per
+## iteration, so picking four_leaf_clover (1-in-4 odds) adds 3 extra
+## passing checks versus the 3-in-4 case. This never affects pass/fail —
+## every iteration's assertion is correct for whichever item was rolled —
+## it only moves the total count. Benign; do not "fix" it into false
+## determinism by seeding the RNG or hardcoding the node's item, since
+## that would silently stop exercising four_leaf_clover's longer
+## cooldown path. If a future PR wants a stable count for external
+## tooling, assert on _failures.is_empty() rather than the printed
+## number.
 
 var _failures: Array[String] = []
 var _pass_count := 0
@@ -5268,8 +5289,7 @@ func _test_festival_survives_save_reload_same_day() -> void:
 
 func _test_non_festival_day_stays_inactive_after_reload() -> void:
 	var tm := TimeManager
-	if not FestivalManager.festival_started.is_connected(_on_festival_started_for_test):
-		FestivalManager.festival_started.connect(_on_festival_started_for_test)
+	FestivalManager.festival_started.connect(_on_festival_started_for_test)
 	_festival_started_events.clear()
 	tm.season_index = 0
 	tm.day_in_season = 12 ## Spring 12: the day BEFORE bloomtide_fair
@@ -5280,11 +5300,11 @@ func _test_non_festival_day_stays_inactive_after_reload() -> void:
 	SaveManager.apply_save_data(saved)
 	_check(not FestivalManager.is_festival_active(), "#90: non-festival-day save must stay inactive after reload")
 	_check(_festival_started_events.is_empty(), "#90: reload on a non-festival day must not emit festival_started")
+	FestivalManager.festival_started.disconnect(_on_festival_started_for_test)
 
 func _test_saved_mid_festival_loaded_past_end_stays_expired() -> void:
 	var tm := TimeManager
-	if not FestivalManager.festival_started.is_connected(_on_festival_started_for_test):
-		FestivalManager.festival_started.connect(_on_festival_started_for_test)
+	FestivalManager.festival_started.connect(_on_festival_started_for_test)
 	tm.season_index = 1 ## Summer -- sunfield_revel is day 15
 	tm.day_in_season = 15
 	tm.hour = 7
@@ -5304,6 +5324,7 @@ func _test_saved_mid_festival_loaded_past_end_stays_expired() -> void:
 	_check(not FestivalManager.is_festival_active(), "#90: festival whose day has passed must stay expired after reload")
 	_check(_festival_started_events.is_empty(), "#90: expired festival must not emit festival_started on reload")
 	_check(tm.season_index == 1 and tm.day_in_season == 16 and tm.hour == 7, "#90: restored date/hour should match the save payload")
+	FestivalManager.festival_started.disconnect(_on_festival_started_for_test)
 
 ## --- Frontend: Seed Shop overlay (#123, ENG-91/PR #122's UI-hook gap) ---
 ##
