@@ -2736,3 +2736,126 @@ either, so the remote branches remain as harmless merged-and-stale refs).
     "Sprint 2 -- FRONTEND-101 DONE" entry.
   </description>
 </task_item>
+
+<task_item>
+  <id>PO-SPRINT-2-RETRO</id>
+  <source>PRODUCT_OWNER</source>
+  <status>DONE</status>
+  <priority>HIGH</priority>
+  <title>Sprint 2 retrospective</title>
+  <description>
+    All three squads delivered: PR #124 (Content, seed-price balance),
+    PR #125+#126 (Frontend, seed shop overlay), PR #127+#128 (Frontend,
+    input map + movement). Sprint goal met end-to-end: a player can now
+    buy a seed via the Shop overlay (B), plant it with a real input-driven
+    avatar, harvest, and rebuy -- with seed prices a human-shaped rationale
+    actually set instead of a flat placeholder ratio.
+    What went well: the Content squad's balance pass was the cleanest
+    execution yet -- zero conflicts, zero follow-up gaps, because a
+    values-only task in one file has nowhere to collide. Sequencing merges
+    as PRs landed (Content first, since it touched neither of the other
+    two squads' files) kept every later squad's baseline fresh instead of
+    stacking merge debt onto retro time.
+    What to improve (the one real miss): despite Sprint 2 planning
+    explicitly choosing FRONTEND-101 and FRONTEND-123 for "zero file
+    overlap," both ended up editing scripts/world/farm_scene.gd's
+    _unhandled_input -- FRONTEND-123 for its Shop-toggle keycode,
+    FRONTEND-101 for its new `interact` action branch. Root cause: I
+    planned around each task's *primary* directory (scenes/ui/ vs
+    scripts/world/) without checking whether either task's stated
+    implementation would need to touch a shared entry-point method in a
+    file outside its "home" directory. Both squads' own sessions caught
+    and resolved it correctly (kept both branches, no logic lost) without
+    needing PM intervention -- the discipline held even where the plan
+    didn't. Sprint 3 planning should check "which existing methods will
+    this task's diff need to extend" per task, not just which directory
+    it lives in.
+    Also noted: PR #127 flagged a pre-existing test-count nondeterminism
+    (983/992/1009/1027/1030-ish counts wobble by a few checks across runs,
+    confirmed present on the unmodified base branch too, never an actual
+    FAILED). Never blocking, but nobody's looked at *why* -- worth a QA
+    pass rather than continuing to wave it off run after run.
+    Feedback into backlog: two real follow-up gaps surfaced twice now by
+    two different squads independently (FRONTEND-123's PR and
+    SkillsOverlay's own prior docstring) -- FarmPlotManager has no
+    list_crop_ids()-style getter, so ShopOverlay hardcodes its 7-item
+    crop roster. Same shape of gap as SkillManager/SkillsOverlay already
+    on record. Worth a small backend ticket since it's now blocking two
+    UI surfaces from reading their content roster instead of copying it.
+  </description>
+</task_item>
+
+<task_item>
+  <id>PO-SPRINT-3-PLANNING</id>
+  <source>PRODUCT_OWNER</source>
+  <status>DONE</status>
+  <priority>MEDIUM</priority>
+  <title>Sprint 3 plan: populate the world, close the two small gaps retro surfaced</title>
+  <description>
+    Sprint 3 goal: "The world has people in it, and the two small backend/
+    QA gaps two sprints of retro kept surfacing are actually closed."
+    Three squads, run in parallel, chosen this time by checking each
+    task's actual diff surface (per Sprint 2 retro's lesson), not just its
+    home directory:
+      - FRONTEND-102 (Frontend Squad): issue #102, instantiate NPCs in
+        world scenes, reusing PlayerAvatar/ProceduralCharacterArt per
+        #100's own text. Deferred from Sprint 1 and Sprint 2 specifically
+        to land after #101 (input map) so it isn't racing that same
+        _unhandled_input entry point -- it now is.
+      - ENG-LIST-CROP-IDS (Engineer/Backend Squad): add a
+        FarmPlotManager.list_crop_ids()-style public getter (backend,
+        scripts/autoload/** only) so ShopOverlay (and any future UI) can
+        read the crop roster instead of hardcoding it. Small, well-scoped,
+        genuinely disjoint from FRONTEND-102's world-scene files.
+      - QA-TEST-COUNT-NONDETERMINISM (QA-Tester Squad): root-cause the
+        test-count wobble flagged across PR #122/#124/#127 (checks
+        fluctuate run-to-run on an unchanged suite). Confirm whether it's
+        a real ordering/isolation bug in tests/test_runner.gd (e.g. a
+        test whose count depends on Dictionary/Array iteration order or
+        leftover state from a prior test) or genuinely benign (e.g. a
+        conditional test that only runs under certain autoload timing).
+        Fix if real, document precisely if benign -- either way, stop
+        every future PR from having to re-discover and re-explain the
+        same wobble.
+  </description>
+</task_item>
+
+<task_item>
+  <id>FRONTEND-102</id>
+  <status>IN_PROGRESS</status>
+  <priority>HIGH</priority>
+  <title>Instantiate NPCs in world scenes: shipped schedules/social systems are completely invisible in play</title>
+  <description>
+    Claimed for Sprint 3 by Product Owner, assigned to Frontend Squad. See
+    issue #102. Builds on #100/#101's PlayerAvatar + input work. Frontend
+    lane per SQUAD-SPLIT.md.
+  </description>
+</task_item>
+
+<task_item>
+  <id>ENG-LIST-CROP-IDS</id>
+  <status>IN_PROGRESS</status>
+  <priority>LOW</priority>
+  <title>FarmPlotManager: add a list_crop_ids()-style getter for UI consumers</title>
+  <description>
+    Claimed for Sprint 3 by Product Owner, assigned to Engineer/Backend
+    Squad. Gap surfaced independently by PR #125 (ShopOverlay) and the
+    pre-existing SkillsOverlay/SkillManager precedent. Backend lane per
+    SQUAD-SPLIT.md, scripts/autoload/** only.
+  </description>
+</task_item>
+
+<task_item>
+  <id>QA-TEST-COUNT-NONDETERMINISM</id>
+  <status>IN_PROGRESS</status>
+  <priority>MEDIUM</priority>
+  <title>Root-cause the test suite's run-to-run check-count wobble</title>
+  <description>
+    Claimed for Sprint 3 by Product Owner, assigned to QA-Tester Squad.
+    Flagged independently across PR #122, #124, and #127's own
+    verification notes -- tests/TestRunner.tscn's total check count
+    fluctuates by a handful across otherwise-identical runs, never with a
+    FAILED result. Investigate root cause; fix if it indicates a real
+    ordering/isolation issue, document precisely if benign.
+  </description>
+</task_item>
