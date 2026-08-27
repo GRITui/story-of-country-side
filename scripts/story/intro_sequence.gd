@@ -17,6 +17,9 @@ extends Node
 ## Freezes TimeManager for the duration, reusing the same freeze mechanism
 ## the pause menu and festivals use (one time-freeze mechanism, not a
 ## competing one) per design/ui-flows/menu-hud-flow-spec.md §1.
+##
+## S-Tier Zeta (#94): advance hint "Press [Space] to continue" + any-key
+## skippable (previously only ui_accept/mouse/touch).
 
 signal line_changed(index: int, text: String)
 signal finished
@@ -31,6 +34,7 @@ const DEFAULT_LINES: Array[String] = [
 ]
 
 const FREEZE_REASON := "intro"
+const ADVANCE_HINT := "Press [Space] to continue"
 
 ## Overridable before this node enters the tree (e.g. by a test, or a
 ## future writer-authored variant); defaults to DEFAULT_LINES otherwise.
@@ -40,11 +44,18 @@ var _index: int = 0
 var _active: bool = false
 
 @onready var _label: Label = get_node_or_null("Label")
+@onready var _hint_label: Label = get_node_or_null("ContinueHint")
 
 func _ready() -> void:
 	if lines.is_empty():
 		lines = DEFAULT_LINES.duplicate()
+	_update_hint()
 	start()
+
+func _update_hint() -> void:
+	if _hint_label:
+		_hint_label.text = ADVANCE_HINT
+		_hint_label.visible = true
 
 ## Idempotent -- calling start() while already active is a no-op, so a
 ## stray extra call (double-instantiation, re-entrant _ready) can't reset
@@ -80,12 +91,15 @@ func _show_current_line() -> void:
 	var text: String = lines[_index]
 	if _label:
 		_label.text = text
+	_update_hint()
 	line_changed.emit(_index, text)
 
 func _finish() -> void:
 	_active = false
 	if TimeManager:
 		TimeManager.unfreeze(FREEZE_REASON)
+	if _hint_label:
+		_hint_label.visible = false
 	finished.emit()
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -93,7 +107,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	var advances: bool = event.is_action_pressed("ui_accept") \
 		or (event is InputEventMouseButton and event.pressed) \
-		or (event is InputEventScreenTouch and event.pressed)
+		or (event is InputEventScreenTouch and event.pressed) \
+		or (event is InputEventKey and event.pressed)
 	if advances:
 		advance()
 		get_viewport().set_input_as_handled()

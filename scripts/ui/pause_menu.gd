@@ -19,12 +19,9 @@ class_name PauseMenu
 ## parent, e.g. main_controller.gd, connects to that to actually switch
 ## the active world scene) and closes the whole pause menu on, since
 ## traveling should return the player to live gameplay rather than leave
-## them staring at the menu. Settings still has no backing scene/system
-## to open (no settings system exists), so it stays a disabled button
-## clearly labelled "(not yet implemented)" rather than either faking a
-## screen or silently omitting the menu item the spec lists.
-## Save & Quit to Title is also partial: there is no title screen yet
-## (see main_controller.gd's own
+## them staring at the menu. Settings now has a real destination:
+## SettingsOverlay (S-Tier Zeta). Save & Quit to Title is also partial:
+## there is no title screen yet (see main_controller.gd's own
 ## docstring on this gap), so it calls the real SaveManager.save_game()
 ## and then quits the application outright instead of returning to a title
 ## screen that doesn't exist -- flagged here and in the PR, not faked.
@@ -40,10 +37,17 @@ class_name PauseMenu
 ## in the repo; this menu is the most natural place to hang one for each
 ## given there's no NPC dialogue/world-map/fishing-spot system yet to
 ## launch them from instead.
+##
+## S-Tier Zeta QoL: last-location persistence — remembers the last opened
+## overlay (inventory/map/skills/etc/settings) and restores it on next
+## open(). Persisted to user://pause_state.json so it survives reboots;
+## also kept in-memory for the current session. Also enables the Settings
+## button (previously disabled placeholder).
 
 signal travel_requested(location: String)
 
 const PAUSE_REASON := "pause"
+const PAUSE_STATE_PATH := "user://pause_state.json"
 
 @onready var _menu_panel: Control = $Root/MenuPanel
 @onready var _resume_button: Button = $Root/MenuPanel/Margin/VBox/ResumeButton
@@ -64,7 +68,9 @@ var _infrastructure_overlay: InfrastructureOverlay
 var _community_goal_overlay: CommunityGoalOverlay
 var _fishing_overlay: FishingOverlay
 var _map_overlay: MapOverlay
+var _settings_overlay: CanvasLayer
 var _is_open := false
+var _last_location: String = ""
 
 func _ready() -> void:
 	visible = false
@@ -76,18 +82,67 @@ func _ready() -> void:
 	_infrastructure_button.pressed.connect(_on_infrastructure_pressed)
 	_community_goal_button.pressed.connect(_on_community_goal_pressed)
 	_fishing_button.pressed.connect(_on_fishing_pressed)
+	_settings_button.pressed.connect(_on_settings_pressed)
 	_save_quit_button.pressed.connect(_on_save_quit_pressed)
-	# Settings has no destination yet -- disabled, not hidden, so the menu
-	# shape still matches the spec's §1 tree even though one of its six
-	# items isn't implemented.
-	_settings_button.disabled = true
+	_settings_button.disabled = false
+	_settings_button.text = "Settings"
+	_load_last_location()
+
+func _load_last_location() -> void:
+	if not FileAccess.file_exists(PAUSE_STATE_PATH):
+		return
+	var file := FileAccess.open(PAUSE_STATE_PATH, FileAccess.READ)
+	if file == null:
+		return
+	var text := file.get_as_text()
+	file.close()
+	var parsed: Variant = JSON.parse_string(text)
+	if typeof(parsed) == TYPE_DICTIONARY:
+		_last_location = str(parsed.get("last_location", ""))
+
+func _save_last_location() -> void:
+	var file := FileAccess.open(PAUSE_STATE_PATH, FileAccess.WRITE)
+	if file == null:
+		return
+	file.store_string(JSON.stringify({"last_location": _last_location}))
+	file.close()
+
+func get_last_location() -> String:
+	return _last_location
+
+func _remember_location(loc: String) -> void:
+	_last_location = loc
+	_save_last_location()
+
+func _restore_last_location() -> void:
+	if _last_location.is_empty():
+		return
+	match _last_location:
+		"inventory":
+			_on_inventory_pressed()
+		"map":
+			_on_map_pressed()
+		"skills":
+			_on_skills_pressed()
+		"relationships":
+			_on_relationships_pressed()
+		"infrastructure":
+			_on_infrastructure_pressed()
+		"community_goal":
+			_on_community_goal_pressed()
+		"fishing":
+			_on_fishing_pressed()
+		"settings":
+			_on_settings_pressed()
+		_:
+			pass
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not event.is_action_pressed("ui_cancel"):
 		return
 	if _is_open:
 		# While the Inventory, Map, Skills, Relationships, Infrastructure,
-		# Community Goal, or Fishing sub-screen is showing, Escape backs
+		# Community Goal, Fishing, or Settings sub-screen is showing, Escape backs
 		# out to the pause menu first rather than resuming straight
 		# through it.
 		if _inventory_overlay != null and is_instance_valid(_inventory_overlay):
@@ -104,6 +159,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			_close_community_goal()
 		elif _fishing_overlay != null and is_instance_valid(_fishing_overlay):
 			_close_fishing()
+		elif _settings_overlay != null and is_instance_valid(_settings_overlay):
+			_close_settings()
 		else:
 			close()
 	else:
@@ -117,6 +174,12 @@ func open() -> void:
 	visible = true
 	_menu_panel.visible = true
 	TimeManager.freeze(PAUSE_REASON)
+	# Restore last location if any — but only once per open,
+	# and not if we are already showing an overlay from a prior open that
+	# wasn't properly closed (defensive).
+	if not _last_location.is_empty():
+		# Defer to next frame so _menu_panel is visible before hiding it
+		_restore_last_location()
 
 func close() -> void:
 	if not _is_open:
@@ -128,6 +191,7 @@ func close() -> void:
 	_close_infrastructure()
 	_close_community_goal()
 	_close_fishing()
+	_close_settings()
 	_is_open = false
 	visible = false
 	TimeManager.unfreeze(PAUSE_REASON)
@@ -139,6 +203,7 @@ func _on_resume_pressed() -> void:
 	close()
 
 func _on_inventory_pressed() -> void:
+	_remember_location("inventory")
 	_menu_panel.visible = false
 	_inventory_overlay = load("res://scenes/ui/InventoryOverlay.tscn").instantiate()
 	add_child(_inventory_overlay)
@@ -151,6 +216,7 @@ func _close_inventory() -> void:
 	_menu_panel.visible = true
 
 func _on_map_pressed() -> void:
+	_remember_location("map")
 	_menu_panel.visible = false
 	_map_overlay = load("res://scenes/ui/MapOverlay.tscn").instantiate()
 	add_child(_map_overlay)
@@ -171,6 +237,7 @@ func _on_map_travel_requested(location: String) -> void:
 	close()
 
 func _on_skills_pressed() -> void:
+	_remember_location("skills")
 	_menu_panel.visible = false
 	_skills_overlay = load("res://scenes/ui/SkillsOverlay.tscn").instantiate()
 	add_child(_skills_overlay)
@@ -183,6 +250,7 @@ func _close_skills() -> void:
 	_menu_panel.visible = true
 
 func _on_relationships_pressed() -> void:
+	_remember_location("relationships")
 	_menu_panel.visible = false
 	_relationships_overlay = load("res://scenes/ui/RelationshipsOverlay.tscn").instantiate()
 	add_child(_relationships_overlay)
@@ -195,6 +263,7 @@ func _close_relationships() -> void:
 	_menu_panel.visible = true
 
 func _on_infrastructure_pressed() -> void:
+	_remember_location("infrastructure")
 	_menu_panel.visible = false
 	_infrastructure_overlay = load("res://scenes/ui/InfrastructureOverlay.tscn").instantiate()
 	add_child(_infrastructure_overlay)
@@ -207,6 +276,7 @@ func _close_infrastructure() -> void:
 	_menu_panel.visible = true
 
 func _on_community_goal_pressed() -> void:
+	_remember_location("community_goal")
 	_menu_panel.visible = false
 	_community_goal_overlay = load("res://scenes/ui/CommunityGoalOverlay.tscn").instantiate()
 	add_child(_community_goal_overlay)
@@ -219,6 +289,7 @@ func _close_community_goal() -> void:
 	_menu_panel.visible = true
 
 func _on_fishing_pressed() -> void:
+	_remember_location("fishing")
 	_menu_panel.visible = false
 	_fishing_overlay = load("res://scenes/ui/FishingOverlay.tscn").instantiate()
 	add_child(_fishing_overlay)
@@ -228,6 +299,20 @@ func _close_fishing() -> void:
 	if _fishing_overlay != null and is_instance_valid(_fishing_overlay):
 		_fishing_overlay.queue_free()
 	_fishing_overlay = null
+	_menu_panel.visible = true
+
+func _on_settings_pressed() -> void:
+	_remember_location("settings")
+	_menu_panel.visible = false
+	_settings_overlay = load("res://scenes/ui/SettingsOverlay.tscn").instantiate()
+	add_child(_settings_overlay)
+	if _settings_overlay.has_signal("closed"):
+		_settings_overlay.closed.connect(_close_settings)
+
+func _close_settings() -> void:
+	if _settings_overlay != null and is_instance_valid(_settings_overlay):
+		_settings_overlay.queue_free()
+	_settings_overlay = null
 	_menu_panel.visible = true
 
 func _on_save_quit_pressed() -> void:

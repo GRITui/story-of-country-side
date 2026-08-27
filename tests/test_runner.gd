@@ -2225,8 +2225,10 @@ func _test_pause_menu_settings_button_stays_disabled() -> void:
 	var menu := _make_pause_menu()
 	_check(not menu.get_node("Root/MenuPanel/Margin/VBox/MapButton").disabled,
 		"Map now has a real destination (MapOverlay) and should be enabled")
-	_check(menu.get_node("Root/MenuPanel/Margin/VBox/SettingsButton").disabled,
-		"Settings has no backing system yet and should stay a disabled placeholder")
+	_check(not menu.get_node("Root/MenuPanel/Margin/VBox/SettingsButton").disabled,
+		"Settings now has a real backend (SettingsManager) and should be enabled")
+	# Also verify SettingsManager autoload exists
+	_check(SettingsManager != null, "SettingsManager autoload should be registered")
 	menu.queue_free()
 
 ## --- Frontend: Relationships overlay (#52 sub-scope, Marriage/Family
