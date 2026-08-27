@@ -81,7 +81,8 @@ var _sleep_zone
 var _last_positions: Dictionary = {} ## session-level location -> Vector2 position persistence
 
 func _ready() -> void:
-	if not SaveManager.load_game():
+	var save_loaded := SaveManager.load_game()
+	if not save_loaded:
 		SaveManager.new_game()
 	if not SaveManager.has_seen_intro():
 		_play_intro()

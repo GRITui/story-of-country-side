@@ -95,8 +95,10 @@ func _on_continue_pressed() -> void:
 	# through to Main.tscn would let its load-or-new fallback silently turn
 	# their Continue into a brand-new game overwriting nothing but their
 	# expectation.
-	if prepare_continue():
+	var loaded := prepare_continue()
+	if loaded:
 		_enter_game()
+	# Else stay on title screen (failed load)
 
 ## State-only half of New Game: reset every system to fresh-boot defaults
 ## and persist the fresh save, via SaveManager.new_game()'s public API.
