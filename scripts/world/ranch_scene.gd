@@ -88,10 +88,12 @@ const PLACEHOLDER_SPECIES_ID := "chicken"
 const ATLAS_SOURCE_ID := 0
 
 @onready var _tilemap: TileMap = $TileMap
+var _player_avatar: PlayerAvatar
 
 func _ready() -> void:
 	_build_tileset()
 	_render_all_pens()
+	_add_player_avatar()
 
 	AnimalManager.animal_added.connect(_on_animal_added)
 	AnimalManager.animal_fed.connect(_on_animal_changed)
@@ -107,6 +109,14 @@ func _render_all_pens() -> void:
 	for x in range(GRID_WIDTH):
 		for y in range(GRID_HEIGHT):
 			_refresh_tile(Vector2i(x, y))
+
+## Player avatar (#100): mirrors farm_scene.gd's _add_player_avatar --
+## placed at the pen grid's center anchor on scene entry, moved toward each
+## clicked pen thereafter.
+func _add_player_avatar() -> void:
+	_player_avatar = PlayerAvatar.new()
+	_player_avatar.position = _tilemap.map_to_local(Vector2i(GRID_WIDTH / 2, GRID_HEIGHT / 2))
+	add_child(_player_avatar)
 
 ## Deterministic position <-> animal_id mapping -- see class docstring for
 ## why this scene derives ids from position rather than tracking a separate
@@ -172,13 +182,17 @@ func _unhandled_input(event: InputEvent) -> void:
 func _handle_tile_click(position: Vector2i) -> void:
 	if not _in_grid(position):
 		return
+	_player_avatar.move_to(_tilemap.map_to_local(position))
 	var animal_id := _animal_id_for_position(position)
 	var animal: Animal = AnimalManager.get_animal(animal_id)
+	var acted := false
 	if animal == null:
-		AnimalManager.add_animal(animal_id, PLACEHOLDER_SPECIES_ID)
+		acted = AnimalManager.add_animal(animal_id, PLACEHOLDER_SPECIES_ID)
 	elif not animal.fed_today:
-		AnimalManager.feed(animal_id)
+		acted = AnimalManager.feed(animal_id)
 	elif not animal.brushed_today:
-		AnimalManager.brush(animal_id)
+		acted = AnimalManager.brush(animal_id)
 	elif animal.product_ready:
-		AnimalManager.collect_product(animal_id)
+		acted = not AnimalManager.collect_product(animal_id).is_empty()
+	if acted:
+		_player_avatar.pulse_tool_use()
