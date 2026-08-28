@@ -173,18 +173,6 @@ func snap_to_cell(cell: Vector2i) -> void:
 func current_cell() -> Vector2i:
 	return _current_cell()
 
-## Inject the owning PlayerAvatar so controllers can parent under it.
-## Required because this controller is a node child of the avatar.
-func set_avatar(avatar: PlayerAvatar) -> void:
-	_avatar = avatar
-
-## Wire up the scene's TileMap and grid bounds for movement logic.
-func set_grid(tilemap: TileMap, width: int, height: int) -> void:
-	_tilemap = tilemap
-	_grid_width = width
-	_grid_height = height
-	_grid_set = true
-
 func _current_cell() -> Vector2i:
 	if _tilemap == null or _avatar == null:
 		return Vector2i.ZERO

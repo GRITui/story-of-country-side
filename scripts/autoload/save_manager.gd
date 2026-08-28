@@ -117,7 +117,6 @@ func new_game() -> void:
 	CookingManager.from_save_dict({})
 	intro_seen = false
 	FestivalManager.rederive_active_festival() # expire any live festival against the reset date
-	FarmPlotManager.grant_starting_seeds() # #91: seed economy starting grant
 	save_game()
 
 func has_seen_intro() -> bool:

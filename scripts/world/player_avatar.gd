@@ -28,6 +28,7 @@ signal tool_changed(tool_id: String) # when player starts using a new tool
 const SPRITE_HEIGHT_PX := 48
 const PLAYER_COLOR := Color(0.82, 0.28, 0.24) # Distinct from NPC name-hashed colors
 const SWING_PULSE_COLOR := Color(1.5, 1.5, 1.15)
+const MOVE_SPEED := 120.0
 
 ## Direction enum for animation states
 enum Direction {
@@ -48,12 +49,15 @@ enum AnimationState {
 @onready var _animated_sprite: AnimatedSprite2D = $Sprite/AnimatedSprite
 
 ## Public API for other systems
-var current_tool: StringName = "" setget set_current_tool
-var current_direction: Direction = Direction.DOWN setget set_direction
+var current_tool: StringName = ""
+var current_direction: Direction = Direction.DOWN
 var is_moving: bool = false
 
 ## Internal state
 var _last_movement_dir: Vector2 = Vector2.DOWN
+## Pixel-facing vector, read by world scenes' _facing_tile() for the
+## interact target (see farm_scene.gd/ranch_scene.gd).
+var facing: Vector2 = Vector2.DOWN
 var _current_animation_state: AnimationState = AnimationState.IDLE
 var _has_pending_input: bool = false
 
@@ -68,6 +72,17 @@ func _initialize_avatar() -> void:
     _sprite.centered = false
     _sprite.offset = Vector2(-_sprite.texture.get_width() / 2.0, -_sprite.texture.get_height())
     add_child(_sprite)
+    # Physical body + follow camera (#100): a CharacterBody2D needs a
+    # collision shape before move_and_slide(), and each world scene expects
+    # the avatar to carry a current Camera2D.
+    var shape := CollisionShape2D.new()
+    var circle := CircleShape2D.new()
+    circle.radius = SPRITE_HEIGHT_PX * 0.4
+    shape.shape = circle
+    add_child(shape)
+    var camera := Camera2D.new()
+    camera.make_current()
+    add_child(camera)
 
 func _setup_animations() -> void:
     """Setup animated sprite for directional animation"""
@@ -96,7 +111,7 @@ func _create_animation_frames() -> SpriteFrames:
                 img.set_pixel(x, y, color)
         var tex := ImageTexture.new()
         tex.create_from_image(img)
-        frames.add_frame("idle_" + str(direction), tex)
+        frames.add_frame("idle_" + _direction_name(direction), tex)
         
         # Walk frames (1 per direction)
         img = Image.create(16, 16, false, Image.FORMAT_RGBA8)
@@ -107,7 +122,7 @@ func _create_animation_frames() -> SpriteFrames:
                 img.set_pixel(x, y, color)
         tex = ImageTexture.new()
         tex.create_from_image(img)
-        frames.add_frame("walk_" + str(direction), tex)
+        frames.add_frame("walk_" + _direction_name(direction), tex)
     
     # Tool swing frame
     var img := Image.create(16, 16, false, Image.FORMAT_RGBA8)
@@ -120,6 +135,15 @@ func _create_animation_frames() -> SpriteFrames:
     frames.add_frame("swing_tool", tex)
     
     return frames
+
+func _direction_name(dir: Direction) -> String:
+    var names := {
+        Direction.DOWN: "down",
+        Direction.UP: "up",
+        Direction.LEFT: "left",
+        Direction.RIGHT: "right",
+    }
+    return names[dir]
 
 ## Public API for backend interaction (B-S9-02)
 
@@ -160,17 +184,48 @@ func _update_animation_direction() -> void:
     if _current_animation_state == AnimationState.SWING_TOOL:
         anim_name = "swing_tool"
     elif _current_animation_state == AnimationState.WALKING:
-        anim_name = "walk_" + str(current_direction)
+        anim_name = "walk_" + _direction_name(current_direction)
     else:
-        anim_name = "idle_" + str(current_direction)
+        anim_name = "idle_" + _direction_name(current_direction)
     
     _animated_sprite.play(anim_name)
 
-func _process(delta: float) -> void:
-    """Handle continuous input and movement"""
+func move_by_input(direction: Vector2, delta: float) -> void:
+    """Public facing/state hook world scenes call per-frame. Kinematics are
+    centralized in _physics_process so the avatar moves exactly once per
+    physics step regardless of which scene drives it."""
+    if direction != Vector2.ZERO:
+        direction = direction.normalized()
+        _last_movement_dir = direction
+        facing = direction
+        current_direction = _direction_for_vector(direction)
+        _current_animation_state = AnimationState.WALKING
+        is_moving = true
+        _update_animation_direction()
+    else:
+        _has_pending_input = false
+        if _current_animation_state != AnimationState.SWING_TOOL:
+            _current_animation_state = AnimationState.IDLE
+            _update_animation_direction()
+        is_moving = false
+
+func _direction_for_vector(dir: Vector2) -> Direction:
+    if absf(dir.x) >= absf(dir.y):
+        return Direction.RIGHT if dir.x >= 0.0 else Direction.LEFT
+    return Direction.DOWN if dir.y >= 0.0 else Direction.UP
+
+func _physics_process(delta: float) -> void:
+    """Continuous input-driven movement via move_and_slide (CharacterBody2D)."""
+    var direction := _get_input_direction()
+    move_by_input(direction, delta)
+    if direction != Vector2.ZERO:
+        velocity = direction * MOVE_SPEED
+        move_and_slide()
+    else:
+        velocity = Vector2.ZERO
+
+func _get_input_direction() -> Vector2:
     var direction := Vector2.ZERO
-    
-    # Check for keyboard input using InputMapManager actions
     if Input.is_action_pressed("move_up"):
         direction.y -= 1
     if Input.is_action_pressed("move_down"):
@@ -179,21 +234,12 @@ func _process(delta: float) -> void:
         direction.x -= 1
     if Input.is_action_pressed("move_right"):
         direction.x += 1
-    
-    if direction != Vector2.ZERO:
-        direction = direction.normalized()
-        _last_movement_dir = direction
-        _has_pending_input = true
-        _current_animation_state = AnimationState.WALKING
-        
-        position += direction * 120.0 * delta  # Move at 120 pixels per second
-        
-        is_moving = true
-        _update_animation_direction()
-    else:
-        _has_pending_input = false
-        if _current_animation_state != AnimationState.SWING_TOOL:
-            _current_animation_state = AnimationState.IDLE
-            _update_animation_direction()
-        
-        is_moving = false
+    return direction.normalized() if direction != Vector2.ZERO else Vector2.ZERO
+
+func move_to(target_position: Vector2) -> void:
+    ## Teleport-style click-to-move used by world scenes' _handle_tile_click.
+    position = target_position
+    is_moving = false
+    _current_animation_state = AnimationState.IDLE
+    _update_animation_direction()
+    arrived.emit()

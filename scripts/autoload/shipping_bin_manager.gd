@@ -22,6 +22,9 @@ var gold: int = STARTING_GOLD
 ## collapsed into one (wrong) average price.
 var _pending_shipments: Array[Dictionary] = []
 
+## Historical receipts: {date: String, items: Array[{item_id, quantity, unit_price}], total_earned: int}
+var _receipts: Array[Dictionary] = []
+
 func _ready() -> void:
 	if TimeManager:
 		TimeManager.day_started.connect(_on_day_started)
@@ -70,14 +73,45 @@ func _on_day_started(_day_in_season: int, _season: String, _day_of_week: String)
 	_pending_shipments.clear()
 	_add_gold(total)
 	payout_processed.emit(total, item_count)
+	
+	## Save receipt for nightly sale receipt
+	_save_receipt(_day_of_week, _season, total, item_count)
 
 func _on_passed_out(money_penalty: int) -> void:
 	_add_gold(-money_penalty)
+
+func _save_receipt(day: String, season: String, total: int, item_count: int) -> void:
+	var receipt := {
+		"date": "%s %s" % [day, season],
+		"items": _format_receipt_items(),
+		"total_earned": total,
+	}
+	_receipts.append(receipt)
+	
+	# Trim old receipts to prevent memory leak (keep last 30 days)
+	if _receipts.size() > 30:
+		_receipts = _receipts.slice(-30)
+
+func _format_receipt_items() -> Array[Dictionary]:
+	var formatted: Array[Dictionary] = []
+	for shipment in _pending_shipments:
+		formatted.append({
+			"item_id": shipment["item_id"],
+			"quantity": shipment["quantity"],
+			"unit_price": shipment["unit_price"],
+		})
+	return formatted
+
+func get_last_receipt() -> Dictionary:
+	if _receipts.is_empty():
+		return {}
+	return _receipts[-1].duplicate(true)
 
 func to_save_dict() -> Dictionary:
 	return {
 		"gold": gold,
 		"pending_shipments": _pending_shipments.duplicate(true),
+		"receipts": _receipts.duplicate(true),
 	}
 
 func from_save_dict(data: Dictionary) -> void:
@@ -86,3 +120,8 @@ func from_save_dict(data: Dictionary) -> void:
 	_pending_shipments.clear()
 	for entry in raw:
 		_pending_shipments.append((entry as Dictionary).duplicate())
+	
+	var receipts_raw: Array = data.get("receipts", [])
+	_receipts.clear()
+	for receipt in receipts_raw:
+		_receipts.append((receipt as Dictionary).duplicate())

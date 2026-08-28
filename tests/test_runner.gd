@@ -5602,9 +5602,12 @@ func _test_main_controller_get_movement_vector_diagonal_normalized() -> void:
 ## movement-vector wiring, and camera follow.
 
 func _find_avatar_child(scene: Node) -> Node:
+	if scene.get_script() != null and scene.get_script().get_global_name() == "PlayerAvatar":
+		return scene
 	for child in scene.get_children():
-		if child.get_script() != null and child.get_script().get_global_name() == "PlayerAvatar":
-			return child
+		var found := _find_avatar_child(child)
+		if found:
+			return found
 	return null
 
 func _find_camera_descendant(node: Node) -> Camera2D:

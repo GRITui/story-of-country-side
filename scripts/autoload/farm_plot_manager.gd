@@ -42,7 +42,7 @@ signal seed_purchased(crop_id: String, quantity: int, total_cost: int) ## #91: b
 ## (ship what vs. plant what) without also being a large gold sink,
 ## matching the issue's "e.g. 8 parsnip seeds" proposal.
 const STARTING_SEED_CROP_ID := "parsnip"
-const STARTING_SEED_QUANTITY := 8
+const STARTING_SEED_QUANTITY := 15
 
 const QUALITY_NORMAL := "normal"
 const QUALITY_SILVER := "silver"

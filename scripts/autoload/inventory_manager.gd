@@ -88,6 +88,6 @@ func from_save_dict(data: Dictionary) -> void:
 	if _counts.is_empty():
 		for seed_id: String in STARTER_SEEDS:
 			add_item(seed_id, STARTER_SEEDS[seed_id])
-	if _counts.is_empty():
-		for seed_id: String in STARTER_SEEDS:
-			add_item(seed_id, STARTER_SEEDS[seed_id])
+		# (duplicate self-grant removed; STARTER_SEEDS is now applied exactly
+		# once on the from-nothing default, and SaveManager.new_game() relies
+		# on this rather than double-granting through FarmPlotManager.)

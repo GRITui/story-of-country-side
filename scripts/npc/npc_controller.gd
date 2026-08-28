@@ -54,7 +54,7 @@ func _add_placeholder_sprite() -> void:
 	
 	# Add walking frame (slightly dimmer for movement)
 	var walking_texture := texture.duplicate()
-	walking_texture.get_image().fill(Color(1.0, 1.0, 1.0, 0.7), Rect2i(0, 0, walking_texture.get_width(), walking_texture.get_height()))
+	walking_texture.get_image().fill(Color(1.0, 1.0, 1.0, 0.7))
 	frames.add_frame("walk_down", walking_texture)
 	frames.add_frame("walk_up", walking_texture)
 	frames.add_frame("walk_left", walking_texture)
