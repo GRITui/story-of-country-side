@@ -148,10 +148,10 @@ func _ready() -> void:
 
 	# Connect PlayerMovementController to avatar
 	if _player_avatar:
-	var movement_controller := PlayerMovementController.new()
-	_player_avatar.add_child(movement_controller)
-	movement_controller.set_avatar(_player_avatar)
-	movement_controller.set_grid(_tilemap, GRID_WIDTH, GRID_HEIGHT)
+		var movement_controller := PlayerMovementController.new()
+		_player_avatar.add_child(movement_controller)
+		movement_controller.set_avatar(_player_avatar)
+		movement_controller.set_grid(_tilemap, GRID_WIDTH, GRID_HEIGHT)
 
 	FarmPlotManager.crop_planted.connect(_on_crop_planted)
 	FarmPlotManager.crop_watered.connect(_on_crop_watered)

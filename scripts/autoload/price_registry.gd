@@ -52,7 +52,7 @@ func _ready() -> void:
 func register_price(item_id: String, base_price: int) -> void:
 	if item_id.is_empty() or base_price <= 0:
 		return
-	var old := _base_prices.get(item_id, -1)
+	var old: int = int(_base_prices.get(item_id, -1))
 	_base_prices[item_id] = base_price
 	price_registered.emit(item_id, base_price)
 	if old >= 0:
@@ -73,7 +73,7 @@ func get_price(item_id: String) -> int:
 ## DoD: public method, strict typing, no side effects.
 func get_price_with_quality(item_id: String, quality: String) -> int:
 	var base := get_price(item_id)
-	var mult := _quality_multipliers.get(quality, 1.0)
+	var mult: float = float(_quality_multipliers.get(quality, 1.0))
 	return int(base * mult)
 
 ## List all registered item IDs for validation/testing. Returns sorted keys
@@ -98,7 +98,7 @@ func has_price(item_id: String) -> bool:
 func register_quality_multiplier(quality: String, multiplier: float) -> void:
 	if quality.is_empty() or multiplier <= 0:
 		return
-	var old := _quality_multipliers.get(quality, 1.0)
+	var old: float = float(_quality_multipliers.get(quality, 1.0))
 	_quality_multipliers[quality] = multiplier
 	quality_multiplier_updated.emit(quality, multiplier)
 
@@ -121,19 +121,19 @@ func get_all_quality_tiers() -> Array[String]:
 ## DoD: public methods, strict typing, deterministic ordering.
 func to_save_dict() -> Dictionary:
 	return {
-		\"base_prices\": _base_prices.duplicate(),
-		\"quality_multipliers\": _quality_multipliers.duplicate(),
+		"base_prices": _base_prices.duplicate(),
+		"quality_multipliers": _quality_multipliers.duplicate(),
 	}
 
 func from_save_dict(data: Dictionary) -> void:
-	_base_prices = (data.get(\"base_prices\", {}) as Dictionary).duplicate()
-	_quality_multipliers = (data.get(\"quality_multipliers\", {}) as Dictionary).duplicate()
+	_base_prices = (data.get("base_prices", {}) as Dictionary).duplicate()
+	_quality_multipliers = (data.get("quality_multipliers", {}) as Dictionary).duplicate()
 
 ## Helper: populate default quality tiers (normal, silver, gold).
 func _register_default_quality_multipliers() -> void:
-	register_quality_multiplier(\"normal\", 1.0)
-	register_quality_multiplier(\"silver\", 1.5)
-	register_quality_multiplier(\"gold\", 2.0)
+	register_quality_multiplier("normal", 1.0)
+	register_quality_multiplier("silver", 1.5)
+	register_quality_multiplier("gold", 2.0)
 
 ## Helper: migrate all existing hardcoded prices from other autoloads.
 ## The backlog.md section for ORCH-007 T1 lists each location.
@@ -142,23 +142,23 @@ func _register_default_quality_multipliers() -> void:
 ## no get_node(); idempotent.
 func _register_default_content() -> void:
 	# ShippingBinManager already handles its own registry; this is just for reference
-	# register_price(\"seed_item_id\", 10)  # placeholder
+	# register_price("seed_item_id", 10)  # placeholder
 	
 	# FarmPlotManager crops
 	# (content lane must edit register_price calls below, not this logic)
-	# FarmPlotManager.register_price(\"parsnip\", 10)  # example
+	# FarmPlotManager.register_price("parsnip", 10)  # example
 	
 	# AnimalManager products
 	# (content lane must edit register_price calls below)
-	# AnimalManager.register_price(\"milk\", 5)
+	# AnimalManager.register_price("milk", 5)
 	
 	# MiningManager ores
 	# (content lane must edit register_price calls below)
-	# MiningManager.register_price(\"iron_ore\", 20)
+	# MiningManager.register_price("iron_ore", 20)
 	
 	# ForagingManager forage items
 	# (content tier must edit register_price calls below)
-	# ForagingManager.register_price(\"berry\", 15)
+	# ForagingManager.register_price("berry", 15)
 	
 	# Note: the actual migration happens when each upstream autoload's _ready()
 	# calls PriceRegistry.register_price() — the backlog.md documents each
@@ -169,11 +169,11 @@ func _register_default_content() -> void:
 ##
 ## DoD: developer-only helper, no public export.
 func debug_print_registry() -> void:
-	print(\"=== PriceRegistry ===\")
-	print(\"Base prices:\")
+	print("=== PriceRegistry ===")
+	print("Base prices:")
 	for id in get_all_item_ids():
-		print(\"  %s: %d\" % [id, get_price(id)])
-	print(\"Quality multipliers:\")
+		print("  %s: %d" % [id, get_price(id)])
+	print("Quality multipliers:")
 	for q in get_all_quality_tiers():
-		print(\"  %s: %.2f\" % [q, get_quality_multiplier(q)])
-	print(\"=== End ===\")
+		print("  %s: %.2f" % [q, get_quality_multiplier(q)])
+	print("=== End ===")
