@@ -477,6 +477,13 @@ func _ready() -> void:
 	_test_get_all_recipes_returns_defaults()
 	_test_cooking_save_round_trip()
 
+	_test_starter_quest_chain_available_at_boot()
+	_test_starter_quest_chain_progresses_in_order()
+	_test_every_known_npc_has_a_registered_birthday()
+	_test_birthday_fires_on_the_registered_day_only()
+	_test_birthday_gifts_grant_a_bonus()
+	_test_morning_notification_shows_birthday_line()
+
 	if _failures.is_empty():
 		print("ALL TESTS PASSED (%d checks)" % _pass_count)
 		get_tree().quit(0)
@@ -771,6 +778,7 @@ func _reset_relationship_manager() -> void:
 	rm._talked_today = {}
 	rm._gifted_today = {}
 	rm._heart_event_dialogue = {}
+	rm._birthday_npc_today = ""
 
 func _make_gift_table() -> GiftPreferenceTable:
 	var t := GiftPreferenceTable.new()
@@ -1050,6 +1058,7 @@ func _reset_quest_manager() -> void:
 	qm._completed = {}
 	qm._delivered_totals = {}
 	qm._unlocked_flags = {}
+	qm._announced_available = {}
 
 func _reset_relationship_manager_for_quests() -> void:
 	var rm := RelationshipManager
@@ -5979,3 +5988,136 @@ func _test_shop_overlay_close_emits_closed_signal() -> void:
 	overlay.get_node("Root/Panel/Margin/VBox/Header/CloseButton").pressed.emit()
 	_check(_shop_overlay_closed_count == 1, "pressing Close should emit the closed signal exactly once")
 	overlay.queue_free()
+
+## --- Sprint-C: #108 starter quest chain (onboarding -> first payout) ---
+
+var _quest_available_events_for_test: Array = []
+var _birthday_events_for_test: Array = []
+
+func _on_quest_available_for_test(quest_id: String, _title: String) -> void:
+	_quest_available_events_for_test.append(quest_id)
+
+func _on_birthday_today_for_test(npc_name: String) -> void:
+	_birthday_events_for_test.append(npc_name)
+
+func _test_starter_quest_chain_available_at_boot() -> void:
+	_reset_quest_manager()
+	QuestManager._register_default_content()
+	var available := QuestManager.get_available_quest_ids()
+	_check(available.has("starter_first_harvest"),
+		"starter chain: the first quest should be available at boot")
+	_check(not available.has("starter_earn_gold"),
+		"starter chain: the second quest should be locked behind the first")
+	_check(not available.has("starter_meet_the_town"),
+		"starter chain: the third quest should be locked behind the second")
+	var quest: QuestDefinition = QuestManager.get_quest("starter_first_harvest")
+	_check(quest != null and not quest.title.is_empty() and not quest.description.is_empty(),
+		"starter chain: quests should carry title/description content for the HUD")
+
+func _test_starter_quest_chain_progresses_in_order() -> void:
+	_reset_quest_manager()
+	_reset_shipping_bin()
+	_reset_inventory_manager()
+	_reset_relationship_manager_for_quests()
+	QuestManager._register_default_content()
+	_quest_available_events_for_test = []
+	QuestManager.quest_available.connect(_on_quest_available_for_test)
+
+	# Quest 1: ship the first parsnip (teaches the shipping bin).
+	InventoryManager.add_item("parsnip", 1)
+	ShippingBinManager.ship_item("parsnip", 1, 35)
+	_check(QuestManager.is_completed("starter_first_harvest"),
+		"starter chain: shipping one parsnip completes the first quest")
+	_check(QuestManager.is_unlocked("starter_quest_1_done"),
+		"starter chain: completing the first quest flips its unlock flag")
+	_check(QuestManager.get_available_quest_ids().has("starter_earn_gold"),
+		"starter chain: the second quest becomes available after the first")
+	_check(_quest_available_events_for_test.has("starter_earn_gold"),
+		"starter chain: quest_available fires for the newly unblocked quest")
+
+	# Quest 2: the overnight payout (teaches the payout loop).
+	ShippingBinManager._on_day_started(2, "Spring", "Tue")
+	_check(QuestManager.is_completed("starter_earn_gold"),
+		"starter chain: the first overnight payout completes the earn-gold quest")
+	_check(QuestManager.get_available_quest_ids().has("starter_meet_the_town"),
+		"starter chain: the third quest becomes available after the second")
+
+	# Quest 3: meet the town (introduces the social layer).
+	RelationshipManager._add_points("Elena", RelationshipManager.POINTS_PER_HEART)
+	_check(QuestManager.is_completed("starter_meet_the_town"),
+		"starter chain: reaching one heart completes the friendship quest")
+	_check(QuestManager.is_unlocked("starter_quest_3_done"),
+		"starter chain: the full chain flips the final unlock flag")
+	QuestManager.quest_available.disconnect(_on_quest_available_for_test)
+
+
+
+## --- Sprint-C: #110 villager birthdays ---
+
+func _test_every_known_npc_has_a_registered_birthday() -> void:
+	_reset_relationship_manager()
+	for npc_name: String in RelationshipManager.GIFT_PREFERENCE_PATHS.keys():
+		var birthday: Dictionary = RelationshipManager.get_birthday(npc_name)
+		_check(not birthday.is_empty(),
+			"birthdays: '%s' should have a birthday registered" % npc_name)
+		if birthday.is_empty():
+			continue
+		var day := int(birthday.get("day", 0))
+		var season := String(birthday.get("season", ""))
+		_check(day >= 1 and day <= TimeManager.DAYS_PER_SEASON,
+			"birthdays: '%s' day should be within the season, got %d" % [npc_name, day])
+		_check(TimeManager.SEASONS.has(season),
+			"birthdays: '%s' season should be a real season, got '%s'" % [npc_name, season])
+
+func _test_birthday_fires_on_the_registered_day_only() -> void:
+	_reset_relationship_manager()
+	_birthday_events_for_test = []
+	RelationshipManager.birthday_today.connect(_on_birthday_today_for_test)
+	TimeManager.day_started.emit(3, "Spring", "Mon")
+	_check(_birthday_events_for_test == ["Elena"],
+		"birthdays: Elena's Spring day-3 birthday should fire, got %s" % [_birthday_events_for_test])
+	_check(RelationshipManager.is_birthday_today("Elena"),
+		"birthdays: is_birthday_today() should be true on the birthday")
+	_check(RelationshipManager.get_birthday_npc_today() == "Elena",
+		"birthdays: get_birthday_npc_today() should name today's birthday NPC")
+	TimeManager.day_started.emit(4, "Spring", "Tue")
+	_check(_birthday_events_for_test.size() == 1,
+		"birthdays: should not fire again on a non-birthday day")
+	_check(RelationshipManager.get_birthday_npc_today() == "",
+		"birthdays: today's birthday flag should clear on the next day")
+	RelationshipManager.birthday_today.disconnect(_on_birthday_today_for_test)
+
+func _test_birthday_gifts_grant_a_bonus() -> void:
+	_reset_relationship_manager()
+	var preferences: GiftPreferenceTable = load(RelationshipManager.GIFT_PREFERENCE_PATHS["Elena"])
+	var gift_item := "any_item"
+	if not preferences.loved_items.is_empty():
+		gift_item = preferences.loved_items[0]
+	var base_delta := preferences.point_delta_for(gift_item)
+
+	RelationshipManager._on_day_started(1, "Spring", "Mon") # not Elena's birthday
+	RelationshipManager.give_gift_by_npc_name("Elena", gift_item)
+	var normal_points := RelationshipManager.get_points("Elena")
+
+	_reset_relationship_manager()
+	RelationshipManager._birthday_npc_today = "Elena"
+	RelationshipManager.give_gift_by_npc_name("Elena", gift_item)
+	var birthday_points := RelationshipManager.get_points("Elena")
+
+	var expected := int(base_delta * RelationshipManager.BIRTHDAY_GIFT_MULTIPLIER)
+	_check(birthday_points == expected,
+		"birthdays: a birthday gift should apply the %.1fx multiplier, expected %d got %d"
+			% [RelationshipManager.BIRTHDAY_GIFT_MULTIPLIER, expected, birthday_points])
+	_check(birthday_points > normal_points,
+		"birthdays: a birthday gift should out-earn the same gift on a normal day")
+
+func _test_morning_notification_shows_birthday_line() -> void:
+	var notification: MorningNotification = load("res://scenes/ui/MorningNotification.tscn").instantiate()
+	notification.birthday_npc = "Marcus"
+	add_child(notification)
+	var label: Label = notification.get_node("Margin/Label")
+	_check("Marcus" in label.text,
+		"morning notification: birthday line should name the birthday NPC, got '%s'" % label.text)
+	_check("Good morning" in label.text,
+		"morning notification: should keep the standard morning greeting")
+	notification.free()

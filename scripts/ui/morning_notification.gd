@@ -8,10 +8,17 @@ signal finished
 const DISPLAY_SECONDS := 2.0
 const FADE_SECONDS := 0.5
 
+## #110: set by the instantiator (sleep_system) before add_child when today is
+## a villager's birthday; appends the birthday line under the greeting.
+var birthday_npc: String = ""
+
 @onready var _label: Label = $Margin/Label
 
 func _ready() -> void:
-	_label.text = "Good morning!\nDay %d, %s" % [TimeManager.day_in_season, TimeManager.current_season()]
+	var text := "Good morning!\nDay %d, %s" % [TimeManager.day_in_season, TimeManager.current_season()]
+	if not birthday_npc.is_empty():
+		text += "\nIt's %s's birthday today!" % birthday_npc
+	_label.text = text
 	var timer := get_tree().create_timer(DISPLAY_SECONDS)
 	timer.timeout.connect(_fade_out)
 

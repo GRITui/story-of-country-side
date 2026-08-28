@@ -9,6 +9,7 @@ extends Node
 
 signal points_changed(npc_name: String, points: int, hearts: int)
 signal heart_event_triggered(npc_name: String, heart_level: int)
+signal birthday_today(npc_name: String)
 
 const POINTS_PER_HEART := 250
 const MAX_HEARTS := 10
@@ -30,10 +31,29 @@ const GIFT_PREFERENCE_PATHS := {
 	"Colton": "res://scripts/social/gift_preferences/colton.tres",
 }
 
+## #110 villager birthdays: npc_name -> {"season": String, "day": int}, one per
+## GIFT_PREFERENCE_PATHS NPC. Content-lane data (same treatment as
+## GIFT_PREFERENCE_PATHS above) -- spread across the four seasons so every
+## season has a birthday beat, day_in_season is 1-based to match TimeManager.
+const BIRTHDAYS := {
+	"Elena": {"season": "Spring", "day": 3},
+	"Marcus": {"season": "Summer", "day": 8},
+	"Priya": {"season": "Summer", "day": 21},
+	"Tobias": {"season": "Fall", "day": 5},
+	"Sana": {"season": "Fall", "day": 17},
+	"Colton": {"season": "Winter", "day": 12},
+}
+
+## #110: gifting on an NPC's birthday multiplies the points delta (both
+## directions -- a hated gift on a birthday is still a worse idea). Small on
+## purpose: the beat is the reminder, not a grinding shortcut.
+const BIRTHDAY_GIFT_MULTIPLIER := 1.5
+
 var _points: Dictionary = {} ## npc_name -> int
 var _highest_triggered_heart: Dictionary = {} ## npc_name -> int
 var _talked_today: Dictionary = {} ## npc_name -> bool
 var _gifted_today: Dictionary = {} ## npc_name -> bool
+var _birthday_npc_today: String = "" ## "" on a day with no birthday (#110)
 
 ## npc_name -> {heart_level(int) -> dialogue text}. Registered content, same
 ## "dictionary of data, not a subsystem" treatment GIFT_PREFERENCE_PATHS gets
@@ -125,6 +145,8 @@ func give_gift(npc_name: String, item_id: String, preferences: GiftPreferenceTab
 		return false
 	_gifted_today[npc_name] = true
 	var delta := preferences.point_delta_for(item_id) if preferences else 0
+	if is_birthday_today(npc_name) and delta != 0:
+		delta = int(delta * BIRTHDAY_GIFT_MULTIPLIER)
 	_add_points(npc_name, delta)
 	return true
 
@@ -172,7 +194,37 @@ func _check_heart_events(npc_name: String, hearts: int) -> void:
 		heart_event_triggered.emit(npc_name, highest)
 	_highest_triggered_heart[npc_name] = highest
 
-func _on_day_started(_day_in_season: int, _season: String, _day_of_week: String) -> void:
+## Returns npc_name's registered birthday as {"season": String, "day": int},
+## or an empty Dictionary for an NPC with no birthday registered -- fail-quiet,
+## same convention as get_heart_event_dialogue() below.
+func get_birthday(npc_name: String) -> Dictionary:
+	return BIRTHDAYS.get(npc_name, {}) as Dictionary
+
+## #110: whether npc_name is the NPC whose birthday it is today. False on
+## no-birthday days and for NPCs without a registered birthday.
+func is_birthday_today(npc_name: String) -> bool:
+	return not _birthday_npc_today.is_empty() and _birthday_npc_today == npc_name
+
+## The NPC whose birthday it is today, or "" (drives the morning banner).
+func get_birthday_npc_today() -> String:
+	return _birthday_npc_today
+
+## Re-derives _birthday_npc_today for the given date and fires birthday_today
+## when it lands on someone's birthday. Also called from from_save_dict so a
+## mid-birthday save reload still shows the banner (same day-edge-derived
+## re-derivation reason FestivalManager.rederive_active_festival() exists).
+func _derive_birthday_npc_today(day_in_season: int, season: String) -> void:
+	_birthday_npc_today = ""
+	for npc_name: String in BIRTHDAYS.keys():
+		var birthday: Dictionary = BIRTHDAYS[npc_name] as Dictionary
+		if int(birthday.get("day", -1)) == day_in_season \
+				and String(birthday.get("season", "")) == season:
+			_birthday_npc_today = npc_name
+			birthday_today.emit(npc_name)
+			return
+
+func _on_day_started(day_in_season: int, season: String, _day_of_week: String) -> void:
+	_derive_birthday_npc_today(day_in_season, season)
 	_talked_today.clear()
 	_gifted_today.clear()
 
@@ -187,3 +239,5 @@ func from_save_dict(data: Dictionary) -> void:
 	_highest_triggered_heart = (data.get("highest_triggered_heart", {}) as Dictionary).duplicate()
 	_talked_today.clear()
 	_gifted_today.clear()
+	if TimeManager:
+		_derive_birthday_npc_today(TimeManager.day_in_season, TimeManager.current_season())

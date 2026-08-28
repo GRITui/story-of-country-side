@@ -33,6 +33,9 @@ func _on_faded_out() -> void:
 
 func _show_morning_notification() -> void:
 	_morning_notification = load("res://scenes/ui/MorningNotification.tscn").instantiate()
+	# #110: advance_day() already fired day_started, so RelationshipManager has
+	# derived today's birthday (if any) by the time the banner shows.
+	_morning_notification.birthday_npc = RelationshipManager.get_birthday_npc_today()
 	get_tree().current_scene.add_child(_morning_notification)
 	_morning_notification.finished.connect(_on_morning_notification_finished)
 
