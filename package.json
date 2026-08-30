@@ -1,0 +1,29 @@
+{
+  "name": "story-of-country-side",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "demo:record": "node scripts/record_showcase.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GRITui/story-of-country-side.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/GRITui/story-of-country-side/issues"
+  },
+  "homepage": "https://github.com/GRITui/story-of-country-side#readme",
+  "devDependencies": {
+    "@playwright/test": "^1.62.1",
+    "typescript": "^7.0.2"
+  }
+}

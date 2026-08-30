@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Story of Countryside — Showcase Demo</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#1a1a2e;display:flex;justify-content:center;align-items:center;min-height:100vh;font-family:monospace}
+  #frame{width:1280px;height:720px;position:relative;background:#2d4a22;overflow:hidden;border:4px solid #3a2a12;border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,0.5)}
+  canvas{position:absolute;left:0;top:0}
+  #hud-top{position:absolute;top:12px;right:12px;background:rgba(66,48,24,0.92);border:2px solid #8b6a2e;color:#fef8d0;padding:8px 14px;border-radius:8px;font-size:12px;line-height:1.4;z-index:10}
+  #hud-bottom{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);display:flex;gap:6px;background:rgba(20,20,20,0.85);padding:8px 12px;border-radius:10px;border:2px solid #5a3e18;z-index:10}
+  .slot{width:48px;height:48px;background:#8b6a2e;border:2px solid #3a2a12;border-radius:6px;display:flex;align-items:center;justify-content:center;position:relative}
+  .slot.active{border-color:#ffd700;box-shadow:0 0 8px #ffd700;background:#c49a3c}
+  .slot img{width:32px;height:32px;image-rendering:pixelated}
+  .slot span{position:absolute;bottom:1px;right:3px;font-size:9px;color:#fff;text-shadow:1px 1px 0 #000}
+  #start-overlay{position:absolute;inset:0;background:rgba(0,0,0,0.75);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:20;color:#fff}
+  #start-overlay h1{font-size:28px;color:#ffd700;margin-bottom:8px}
+  #start-overlay p{font-size:12px;color:#ccc;margin-bottom:16px}
+  #start-game-btn{background:#5a8a3a;color:#fff;border:3px solid #8bc96a;padding:12px 32px;font-size:16px;border-radius:8px;cursor:pointer}
+  #start-game-btn:hover{background:#6a9a4a}
+  #clock{color:#ffd700}
+</style>
+</head>
+<body>
+<div id="frame">
+  <canvas id="game" width="1280" height="720"></canvas>
+  <div id="hud-top">
+    <div id="date">🌸 Spring 15 (Mon Yr 1)</div>
+    <div id="clock">🕐 09:00 AM</div>
+    <div id="weather">☀️ Sunny</div>
+    <div id="stamina" style="margin-top:4px"><span style="color:#6f6">Stamina ████████░░</span> 85/100</div>
+  </div>
+  <div id="hud-bottom">
+    <div class="slot active" id="slot-0"><img id="icon-0" src="../assets/16bit/items/icon_hoe.png"><span>1</span></div>
+    <div class="slot" id="slot-1"><img id="icon-1" src="../assets/16bit/items/icon_watering_can.png"><span>2</span></div>
+    <div class="slot" id="slot-2"><img src="../assets/16bit/items/icon_parsnip.png"><span>3</span></div>
+    <div class="slot" id="slot-3"><img src="../assets/16bit/items/icon_egg.png"><span>4</span></div>
+    <div class="slot" id="slot-4"><img src="../assets/16bit/props/shipping_bin.png" style="width:28px"><span>5</span></div>
+    <div class="slot" id="slot-5"><img src="../assets/16bit/ui/icon_bolt.png"><span>6</span></div>
+    <div class="slot" id="slot-6"><img src="../assets/16bit/ui/icon_heart.png"><span>7</span></div>
+    <div class="slot" id="slot-7"><img src="../assets/16bit/ui/icon_coin.png"><span>8</span></div>
+  </div>
+  <div id="start-overlay">
+    <h1>🌾 Story of Countryside</h1>
+    <p>16-Bit Japanese Countryside — Press Start to till, water, and explore</p>
+    <button id="start-game-btn" class="btn-new-game">▶ Start Game</button>
+    <p style="margin-top:10px;font-size:10px">WASD/Arrows Move • Space Hoe • E Interact • 1-8 Hotbar</p>
+  </div>
+</div>
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+let started = false;
+let player = {x: 400, y: 340, dir: 0, frame: 0, moving:false, holdMs:0};
+let selected = 0;
+let tiles = {}; // "x,y" -> state 0 grass 1 tilled_dry 2 tilled_watered 3 planted
+let hour = 9, minute = 0;
+let stamina = 85;
+
+const TILE = 64;
+const GRID_W=8, GRID_H=6;
+const ORIGIN_X=480, ORIGIN_Y=120;
+
+function isoX(gx,gy){ return ORIGIN_X + (gx - gy)*32; }
+function isoY(gx,gy){ return ORIGIN_Y + (gx + gy)*16; }
+
+// Load real assets with correct relative paths
+const assets = {
+  grass: loadImg('../assets/16bit/tiles/grass.png'),
+  farmland: loadImg('../assets/16bit/tiles/farmland.png'),
+  farmland_watered: loadImg('../assets/16bit/tiles/farmland_watered.png'),
+  dirt: loadImg('../assets/16bit/tiles/dirt.png'),
+  playerSheet: loadImg('../assets/16bit/characters/player.png'),
+  tree: loadImg('../assets/16bit/props/tree.png'),
+  tree2: loadImg('../assets/16bit/props/tree_2.png'),
+  pine: loadImg('../assets/16bit/props/pine.png'),
+  farmhouse: loadImg('../assets/16bit/props/farmhouse.png'),
+  barn: loadImg('../assets/16bit/props/barn.png'),
+  jizo: loadImg('../assets/16bit/props/jizo_statue.png'),
+  kawara: loadImg('../assets/16bit/props/kawara_roof.png'),
+};
+function loadImg(src){
+  const img=new Image(); img.src=src; img.onerror=()=>console.warn('404',src); return img;
+}
+let loaded=0, total=Object.keys(assets).length;
+Object.values(assets).forEach(im=> im.onload=()=>loaded++);
+
+const keys={};
+
+function tileState(gx,gy){
+  return tiles[`${gx},${gy}`] ?? 0;
+}
+function setTile(gx,gy,s){ tiles[`${gx},${gy}`]=s; }
+
+// Demo pre-tilled row for visual variety
+setTile(3,2,1); setTile(4,2,2); setTile(5,2,0);
+
+let animTimer=0;
+let facingRow=0; // 0 down 3 up 1 left 2 right
+let swingTimer=0, isSwinging=false;
+
+function update(dt){
+  if(!started) return;
+  // movement WASD / Arrows
+  let dx=0,dy=0;
+  if(keys['KeyW']||keys['ArrowUp']) dy-=1;
+  if(keys['KeyS']||keys['ArrowDown']) dy+=1;
+  if(keys['KeyA']||keys['ArrowLeft']) dx-=1;
+  if(keys['KeyD']||keys['ArrowRight']) dx+=1;
+  const moving = dx!==0||dy!==0;
+  player.moving=moving;
+  if(moving){
+    const len=Math.hypot(dx,dy); dx/=len; dy/=len;
+    player.x += dx*90*dt;
+    player.y += dy*90*dt;
+    player.x=Math.max(60,Math.min(1220,player.x));
+    player.y=Math.max(160,Math.min(680,player.y));
+    if(Math.abs(dx)>0.3){
+      if(dx<0) facingRow=1; else facingRow=2;
+    } else if(dy< -0.3) facingRow=3; else if(dy>0.3) facingRow=0;
+  }
+  // anim
+  animTimer+=dt;
+  if(isSwinging){
+    swingTimer+=dt;
+    if(swingTimer>0.25){ isSwinging=false; swingTimer=0; }
+  } else if(moving){
+    if(animTimer>0.12){ animTimer=0; player.frame=(player.frame+1)%4; }
+  } else {
+    if(animTimer>0.25){ animTimer=0; player.frame=(player.frame+1)%2; }
+  }
+  // clock
+  minute+=dt*60; // 1 real sec =1 in-game min
+  if(minute>=60){ minute=0; hour=(hour+1)%24; document.getElementById('clock').textContent=`🕐 ${String(hour).padStart(2,'0')}:${String(Math.floor(minute)).padStart(2,'0')} ${hour<12?'AM':'PM'}`; }
+  // expose for Playwright assertions
+  window.getPlayerPos = ()=>({x:player.x,y:player.y});
+  window.FarmPlotManager = {
+    get_soil_state_name: ({x,y})=>{ const s=tileState(x,y); return ['dry_grass','tilled_dry','tilled_watered','planted'][s]||'dry_grass'; },
+    till: ({x,y})=>{ if(tileState(x,y)===0){ setTile(x,y,1); stamina=Math.max(0,stamina-2); return true;} return false; },
+    water: ({x,y})=>{ if(tileState(x,y)===1){ setTile(x,y,2); stamina=Math.max(0,stamina-1); return true;} return false; },
+  };
+  window.playerPos = {x:player.x,y:player.y};
+}
+
+function draw(){
+  ctx.fillStyle='#7ba85a';
+  ctx.fillRect(0,0,1280,720);
+  // draw iso grid tiles
+  for(let gy=0;gy<GRID_H;gy++){
+    for(let gx=0;gx<GRID_W;gx++){
+      const x=isoX(gx,gy), y=isoY(gx,gy);
+      const s=tileState(gx,gy);
+      let img = s===1? assets.farmland : s===2? assets.farmland_watered : s===3? assets.dirt : assets.grass;
+      if(img.complete && img.naturalWidth){
+        ctx.drawImage(img, x-32, y-16, 64, 32);
+      } else {
+        ctx.fillStyle=s===1?'#8b5a2b':s===2?'#3d5a3a': s===3?'#5a3a1a':'#6a9a4a';
+        ctx.beginPath(); ctx.moveTo(x,y-16); ctx.lineTo(x+32,y); ctx.lineTo(x,y+16); ctx.lineTo(x-32,y); ctx.closePath(); ctx.fill();
+      }
+      // crop sprout
+      if(s===1||s===2){
+        ctx.fillStyle=s===2?'#4ecdc4':'#3a7a2a';
+        ctx.fillRect(x-4,y-8,8,6);
+      }
+    }
+  }
+  // props
+  const props=[{gx:-1,gy:1,img:assets.tree},{gx:-1,gy:3,img:assets.tree2},{gx:8,gy:2,img:assets.pine},{gx:3,gy:-1,img:assets.farmhouse,scale:0.5},{gx:-1,gy:0,img:assets.barn,scale:0.5},{gx:9,gy:5,img:assets.jizo},{gx:3,gy:-0.5,img:assets.kawara}];
+  props.forEach(p=>{
+    const x=isoX(p.gx,p.gy), y=isoY(p.gx,p.gy);
+    if(p.img.complete && p.img.naturalWidth){
+      const sc=p.scale||1; const w=p.img.naturalWidth*sc, h=p.img.naturalHeight*sc;
+      ctx.drawImage(p.img, x - w/2, y - h, w, h);
+    }
+  });
+  // player - Y-sort: draw after ground, use footY
+  const bob = player.moving ? Math.sin(Date.now()*0.015)*1 : 0;
+  const swingOff = isSwinging ? (swingTimer<0.12? -6:4) : 0;
+  if(assets.playerSheet.complete && assets.playerSheet.naturalWidth){
+    const fw=32,fh=32, row=facingRow, frame=isSwinging?1:player.frame%4;
+    ctx.imageSmoothingEnabled=false;
+    // shadow
+    ctx.fillStyle='rgba(0,0,0,0.25)'; ctx.beginPath(); ctx.ellipse(player.x, player.y+2, 14,5,0,0,Math.PI*2); ctx.fill();
+    ctx.drawImage(assets.playerSheet, frame*fw, row*fh, fw,fh,  Math.round(player.x-fw/2)+swingOff, Math.round(player.y - fh + bob - 8), fw,fh);
+    // tool
+    if(selected===0){
+      ctx.fillStyle='#8b5a2b'; ctx.fillRect(player.x+8+swingOff, player.y-18+bob, 16,4);
+    }
+  } else {
+    ctx.fillStyle='#e53e3e'; ctx.fillRect(player.x-12, player.y-24,24,24); ctx.fillStyle='#fff'; ctx.fillRect(player.x-4,player.y-16,8,8);
+  }
+  // stamina hud sync
+  document.getElementById('stamina').innerHTML=`<span style="color:${stamina<20?'#f56565':'#6f6'}">Stamina ${'█'.repeat(Math.floor(stamina/10))+'░'.repeat(10-Math.floor(stamina/10))}</span> ${stamina}/100`;
+  requestAnimationFrame(()=>{ const now=performance.now(); const dt=Math.min(0.05,(now-(draw._last||now))/1000); draw._last=now; update(dt); draw(); });
+}
+draw();
+
+// Start button
+document.getElementById('start-game-btn').addEventListener('click', ()=>{
+  document.getElementById('start-overlay').style.display='none';
+  started=true;
+  canvas.focus();
+  window.focus();
+});
+
+// keyboard
+window.addEventListener('keydown', e=>{
+  keys[e.code]=true;
+  if(e.code.startsWith('Digit')){
+    const n=parseInt(e.code.slice(5))-1;
+    if(n>=0&&n<8){ selected=n; document.querySelectorAll('.slot').forEach((s,i)=>s.classList.toggle('active',i===n)); }
+  }
+  if(e.code==='Space' && started){
+    e.preventDefault();
+    // hoe or water based on selected
+    const gx=Math.round(( (player.x-ORIGIN_X)/32 + (player.y-ORIGIN_Y)/16)/2);
+    const gy=Math.round(( (player.y-ORIGIN_Y)/16 - (player.x-ORIGIN_X)/32)/2);
+    // clamp to grid
+    const cgx=Math.max(0,Math.min(GRID_W-1,gx)), cgy=Math.max(0,Math.min(GRID_H-1,gy));
+    isSwinging=true; swingTimer=0;
+    if(selected===0){
+      if(tileState(cgx,cgy)===0){ setTile(cgx,cgy,1); stamina=Math.max(0,stamina-2); }
+    } else if(selected===1){
+      if(tileState(cgx,cgy)===1){ setTile(cgx,cgy,2); stamina=Math.max(0,stamina-1); }
+    }
+    // also try adjacent for demo: till 1x3 preview
+    if(selected===0 && tileState(cgx+1,cgy)===0) setTile(cgx+1,cgy,1);
+  }
+  if(e.code==='KeyE' && started){
+    // interact -> emote dialog
+    const dlg=document.createElement('div');
+    dlg.textContent='💬 Hanako: "Welcome to the village! Seeds are fresh today."';
+    dlg.style.cssText='position:absolute;left:50%;top:40%;transform:translateX(-50%);background:rgba(255,255,240,0.95);border:3px solid #5a3a18;padding:12px 18px;border-radius:8px;font-size:12px;z-index:15';
+    document.getElementById('frame').appendChild(dlg);
+    setTimeout(()=>dlg.remove(),2000);
+  }
+});
+window.addEventListener('keyup', e=> keys[e.code]=false);
+canvas.tabIndex=1000;
+canvas.addEventListener('click', ()=>{ canvas.focus(); });
+</script>
+</body>
+</html>

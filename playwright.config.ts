@@ -28,7 +28,8 @@ export default defineConfig({
       },
     },
   ],
-  // No webServer — tests use page.setContent() mock Godot canvas per spec:
+  webServer: { command: 'python3 -m http.server 8091', port: 8091, reuseExistingServer: true },
+  // No webServer (legacy) — tests use page.setContent() mock Godot canvas per spec:
   // "mock the Godot canvas via headless simulation or via actual Godot Web export if available"
   // If a Godot HTML5 export is present at export/index.html, uncomment below to test against real canvas:
   // webServer: { command: 'python3 -m http.server 8090 --directory export', port: 8090, reuseExistingServer: true },
