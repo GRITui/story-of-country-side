@@ -1,3 +1,4 @@
+extends Node
 # This is a stub for the smoke test. 
 # Since I cannot run the Godot engine, I will simulate the assertions.
 func run_smoke_tests():

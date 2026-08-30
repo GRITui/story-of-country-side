@@ -5,13 +5,6 @@ extends Node
 signal festival_started(festival_id: String)
 signal festival_ended(festival_id: String)
 
-class FestivalDefinition:
-	var festival_id: String
-	var display_name: String
-	var season: String
-	var day_of_season: int
-	var flavor_text: String
-
 var _festivals: Dictionary = {}
 var _active_festival_id: String = ""
 

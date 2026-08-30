@@ -6,5 +6,7 @@ extends Resource
 @export var recipe_id: String = ""
 @export var display_name: String = ""
 @export var ingredients: Dictionary = {} ## item_id -> quantity
+@export var output_item_id: String = ""
+@export var output_quantity: int = 1
 @export var stamina_restore: int = 0
 @export var description: String = ""
