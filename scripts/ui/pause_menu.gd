@@ -2,10 +2,12 @@ extends CanvasLayer
 class_name PauseMenu
 ## In-game pause menu (design/ui-flows/menu-hud-flow-spec.md §1).
 ##
-## Toggled by the built-in `ui_cancel` action (Escape by default) --
-## project.godot has no [input] section yet, so this reuses Godot's default
-## action instead of adding a new one and touching that shared file for no
-## reason. Freezes TimeManager via freeze("pause")/unfreeze("pause") while
+## Toggled by the built-in `ui_cancel` action (Escape by default) -- kept
+## as-is by #101 (project.godot's [input] section now exists for
+## movement/interact/dialog, but `ui_cancel` is already Godot's own
+## always-registered action, not a raw click/button-index check, so there
+## is no "raw input" gap here for that issue to close). Freezes TimeManager
+## via freeze("pause")/unfreeze("pause") while
 ## open, reusing the same reference-counted freeze mechanism the festival
 ## system (#21) already established -- one time-freeze mechanism, per the
 ## spec's own §1 rule, not a second one.

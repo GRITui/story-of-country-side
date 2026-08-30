@@ -1837,3 +1837,849 @@ either, so the remote branches remain as harmless merged-and-stale refs).
     lane, not this session's.
   </description>
 </task_item>
+
+<task_item>
+  <id>ART-KENNEY-DECORATIVE-PROPS</id>
+  <status>DONE</status>
+  <description>
+    Studio Head (trig_01YF7oCXPTdZentfLPHXzLBv) greenlit pursuing free,
+    properly-licensed isometric asset packs before continuing indefinitely
+    with procedural-only generation. kenney.nl/opengameart.org/itch.io are
+    all blocked by this environment's egress policy (403, confirmed via
+    the proxy status endpoint, not retried per README's policy-denial
+    rule) -- found Kenney's "Isometric Miniature Farm" pack mirrored on
+    GitHub (Tiddybub/2d-assets, a CC0-only asset catalog), cloned it, and
+    verified the license from the pack's own bundled License.txt rather
+    than trusting the mirror's SOURCE.md label (per Studio Head's explicit
+    instruction) -- genuine CC0-1.0, straight from Kenney.
+
+    Measured compatibility before committing to anything: the pack's own
+    ground tiles (dirt_S.png etc.) are true-isometric renders with a
+    measured ~1.73-1.84:1 footprint ratio (Pillow getbbox() on the opaque
+    pixels), not the locked 2:1 dimetric convention
+    design/art/isometric-grid-spec.md requires and every existing tile
+    already uses -- using them as TileMap floor tiles would distort the
+    art (if stretched) or misalign against every other tile (if not), so
+    ground tiles correctly stay on ProceduralTileArt. An honest
+    incompatibility finding, not a workaround -- documented with exact
+    measurements in assets/kenney/isometric-miniature-farm/ATTRIBUTION.md.
+
+    What does fit without the TileMap's diamond math: standalone
+    decorative props (Sprite2D nodes, not tiles -- same reasoning
+    ProceduralCharacterArt's NPC silhouette already relies on). Added four
+    real illustrated CC0 sprites -- hay bales, a sack/crate stack, a low
+    fence section, a corn stalk pair -- cropped to their opaque bounding
+    box and placed as bottom-anchored Sprite2D children around FarmScene's
+    grid border (_add_decorative_props()). Purely cosmetic set dressing:
+    zero interaction/signal/gameplay changes, no risk to the
+    click-to-plant/water/harvest logic Frontend-Squad owns.
+
+    PR: gritui/story-of-country-side#83 (base:
+    claude/farming-game-pm-requirements-w9ugtk, squash-merged). 935/935
+    tests pass (6 new) against the real Godot 4.3 engine headless, clean
+    smoke boot. Self-merged per standing authorization. Commented on #52.
+
+    Scope note: only FarmScene got decorative props this pass (the
+    clearest thematic fit for a farm-specific pack). RanchScene/
+    ForageScene/MineScene would need their own separately-sourced,
+    separately-verified packs (this pack has no ranch-animal, forest, or
+    mine-appropriate content) -- a natural next epoch, not done here to
+    keep this PR's scope and review surface tight.
+  </description>
+</task_item>
+
+<!-- Writer/Dialogue Designer (Country Side Crew org chart, reports to
+     Lead Narrative Designer). Round 2 -- came back to the two gaps round 1
+     flagged (not built around) once the Producer's PR #82 shipped the
+     underlying plumbing (RelationshipManager.register_heart_event_
+     dialogue()/get_heart_event_dialogue(), FestivalDefinition.
+     flavor_text). Re-read backlog-inbox.md's tail and #53's thread fresh
+     before claiming, confirmed via comment on #53 before building. -->
+
+<task_item>
+  <id>WRITER-HEART-EVENT-AND-FESTIVAL-DIALOGUE</id>
+  <status>DONE</status>
+  <description>
+    Wrote 30 heart-event dialogue lines across the 6 marriageable NPCs
+    (Elena/Marcus/Priya/Tobias/Sana/Colton) at milestone heart levels
+    2/4/6/8/10, registered via RelationshipManager.
+    register_heart_event_dialogue(). Every heart level still fires
+    heart_event_triggered per existing logic -- a distinct line at 5
+    milestones per NPC reads as the right density for a first pass rather
+    than diluting across all 10 levels. Voice matched to each NPC's
+    established GiftPreferenceTable archetype (Colton = miner/blacksmith,
+    Elena = gardener, Marcus = angler, Priya = farmer, Sana = rancher,
+    Tobias = treasure hunter) -- same cast the Lead Narrative Designer's
+    earlier standup confirmed reads as distinct/non-contradictory.
+
+    Also wrote flavor text for all 4 registered festivals (Bloomtide
+    Fair/Sunfield Revel/Harvest Moon Festival/Hearthlight Festival),
+    passed through _make_festival()'s existing optional flavor_text param
+    (added by PR #82, no signature change needed here).
+
+    Value/string content only: RelationshipManager._register_default_
+    content() is a new function following the exact same
+    registration-in-_ready() pattern every other manager in this repo
+    already uses, body is pure register_heart_event_dialogue() calls --
+    no signature/signal/control-flow change beyond that one wiring call.
+    Updated one tests/test_runner.gd assertion that explicitly asserted
+    the old empty flavor_text placeholder for bloomtide_fair, per issue
+    #53's documented allowance for updating placeholder-value assertions
+    as part of a content pass.
+
+    PR: gritui/story-of-country-side#84 (base:
+    claude/farming-game-pm-requirements-w9ugtk, squash-merged). 930/930
+    tests pass against the real Godot 4.3 engine headless (class-cache
+    refreshed first), clean smoke boot against the real Main.tscn.
+    Self-merged per standing authorization. Claimed via comment on #53
+    before building.
+
+    Remaining in-lane: none found this round beyond what's already
+    tracked. Every NPC now has both gift-preference content and
+    heart-event dialogue; every festival has a name, date, and flavor
+    text.
+  </description>
+</task_item>
+
+<!-- Art Squad epoch 4. Natural next step flagged at the end of
+     ART-KENNEY-DECORATIVE-PROPS above: pick a scene-appropriate CC0 pack
+     for each remaining world scene under the same Studio Head-greenlit
+     direction, one scene at a time, each independently license-verified
+     and ratio-measured rather than assumed from the farm pack. -->
+
+<task_item>
+  <id>ART-KENNEY-MINE-PROPS</id>
+  <status>DONE</status>
+  <description>
+    Same free-asset direction as ART-KENNEY-DECORATIVE-PROPS, applied to
+    MineScene. Found Kenney's "Isometric Miniature Dungeon" pack on the
+    same Tiddybub/2d-assets CC0 mirror -- barrels, a chest, a stone column
+    read naturally as mine-shaft dressing. Verified this pack's license
+    independently (its own bundled License.txt, not assumed from the farm
+    pack's sibling directory): genuine CC0-1.0. Measured its ground tiles
+    again before using anything (Pillow getbbox()): same ~1.84:1
+    true-isometric footprint as the farm pack, not the locked 2:1
+    convention -- so MineScene's rock/floor/ladder tiles correctly stay on
+    ProceduralTileArt, same reasoning as before. Only standalone Sprite2D
+    props are exempt from that constraint.
+
+    Added four cropped CC0 props (barrel, stacked barrels, closed chest,
+    stone column) wired into MineScene._add_decorative_props(). Unlike
+    FarmScene's fixed 8x8 grid, MineScene's grid size is
+    MiningManager.get_floor_size() at runtime, so prop positions are
+    computed from that (not hardcoded) -- first draft mistakenly used
+    hardcoded absolute offsets that happened to work for the current 5x5
+    floor without actually deriving from get_floor_size(); caught and
+    rewrote before shipping. Full attribution trail in
+    assets/kenney/isometric-miniature-dungeon/ATTRIBUTION.md.
+
+    Also investigated a Ranch-appropriate pack this epoch: the only free
+    animal content in the same mirror catalog (Kenney's "Animal Pack
+    Remastered") is flat "toy"-style art, not isometric-projected --
+    would look visually inconsistent next to the isometric dressing
+    already shipped for Farm/Mine. Correctly not integrated -- an honest
+    "doesn't fit" finding per the Studio Head's own instruction to skip
+    rather than force when nothing free fits well, not a gap needing to
+    be filled.
+
+    PR: gritui/story-of-country-side#85 (base:
+    claude/farming-game-pm-requirements-w9ugtk), squash-merged. 940/940
+    tests pass (5 new -- confirms exactly one Sprite2D per
+    DECORATIVE_PROP_PATHS entry, each with a successfully-loaded
+    texture), clean smoke boot. Self-merged per standing authorization.
+    Commented on #52.
+
+    Remaining: ForageScene has not yet been checked for a matching pack
+    (natural candidate: a nature/forest-themed pack, if one exists in the
+    same mirror catalog) -- not pursued this epoch to keep scope tight,
+    flagged for a future epoch only if genuinely well-scoped.
+  </description>
+</task_item>
+
+<!-- Epoch 2 (Audio-Squad session, resumed after a multi-day account-wide
+     rate-limit gap -- 21 queued standup-trigger notifications drained via
+     ReadNotifications and consolidated into one STANDUP.md entry rather
+     than fabricated individually). Studio Head validated the epoch-1
+     escalation and greenlit pursuing free CC0 SFX/music, same shape of
+     direction the Art Squad got for its own asset search
+     (squad-handshake-art.md epoch 3), arrived at independently for
+     audio. -->
+
+<task_item>
+  <id>AUDIO-CC0-INTERFACE-SOUNDS</id>
+  <status>DONE</status>
+  <description>
+    Replaced AudioManager's four default procedural SFX (coin/harvest/
+    heart/wedding) with real CC0-licensed WAV clips. kenney.nl is blocked
+    by this environment's egress policy (confirmed via curl, same finding
+    Art Squad already made); found Calinou/kenney-interface-sounds on
+    GitHub -- a Godot-oriented repackaging of Kenney's "Interface Sounds"
+    pack (100 CC0 sounds) maintained by a Godot core contributor. Checked
+    the general-purpose Tiddybub/2d-assets mirror Art Squad already uses
+    first -- confirmed via find it's 2D sprites/tiles/UI only, zero audio,
+    not the right source here. Cloned read-only via add_repo + git clone,
+    license verified by reading the pack's own bundled License.txt
+    directly (copied into assets/kenney/interface-sounds/), genuine
+    CC0-1.0, not just trusted from a mirror label -- same verification
+    discipline the Art Squad's precedent set.
+
+    New AudioManager.register_sfx_asset(sfx_id, path) loads a real
+    AudioStream; play_sfx() branches on asset vs. procedural -- public
+    API (play_sfx/play_music/etc.) unchanged for callers. Sound-to-event
+    mapping (pluck->coin, confirmation->harvest, bong->heart, the one
+    long outlier select_006->wedding) was picked from Kenney's own
+    semantic filenames plus measured duration/size via Python's wave
+    module -- this environment has no audio playback capability, so
+    honestly documented as not verified by ear, flagged in
+    assets/kenney/interface-sounds/ATTRIBUTION.md for correction if
+    actual listening reveals a mismatch. Music ("ambient") stays
+    procedural -- this pack is SFX only, no fitting free music/ambient
+    loop found this round, an honest "nothing fits yet" per the Studio
+    Head's own "leave procedural where nothing fits" instruction, not a
+    final verdict.
+
+    PR: gritui/story-of-country-side#86 (base:
+    claude/farming-game-pm-requirements-w9ugtk), squash-merged. 947/947
+    tests pass (6 new -- register_sfx_asset's fail-quiet behavior on an
+    invalid path and empty args, plus successful real-asset
+    registration+playback) against the real Godot 4.3 engine headless,
+    --verbose run shows no leak/ObjectDB warnings, clean smoke boot. Ran
+    a fresh godot --headless --editor --quit-after 1 pass to generate
+    .import files for the new .wav assets before committing, same
+    convention Art Squad's PNG asset PRs use. Self-merged per standing
+    authorization (mergeable_state: "clean", no CI configured on this
+    repo).
+
+    Escalation trig_01SmE36gWWmYhv4WUrmQHW2D (epoch 1) is now closed --
+    Studio Head validated and greenlit, this PR is the direct outcome.
+
+    Remaining: music/ambient loop still procedural -- Kenney's "Music
+    Jingles"/"RPG Audio" packs exist and are CC0 per web search, just not
+    yet located through a reachable GitHub mirror; worth a real search
+    pass before calling "no music exists" final. More signal hookups
+    (SkillManager.level_changed, QuestManager completion, FestivalManager
+    start/end, ToolManager upgrade, CommunityGoalManager bundle
+    completion) could now plausibly reuse the same already-shipped
+    Interface Sounds pack (100 sounds, only 4 used so far) rather than
+    needing a new asset search. Full detail in squad-handshake-audio.md.
+  </description>
+</task_item>
+
+<task_item>
+  <id>PM-EPOCH-MERGE-PR87-MARKETING-CAPTURE</id>
+  <status>DONE</status>
+  <description>
+    UI/Tools Engineer session (session_016YfC2hK1ei19kUsGYTfeNb) delivered
+    on the Community &amp; Marketing Manager's gameplay-capture request
+    (queued since 2026-08-24T12:36Z): a real ~9.2s screen capture of
+    FarmScene's plant/water/harvest loop, recorded from the actual Godot
+    4.3 engine running non-headless under Xvfb (llvmpipe), driving the
+    real Main.tscn/MainController/FarmPlotManager public API -- not a
+    mockup or staged screenshots. PR #87, single new binary asset
+    (marketing/farmscene-plant-water-harvest.mp4), no code/scene changes.
+    Verified via `git merge-tree` against the current base tip before
+    merging: a clean pure addition, no conflicts. Squash-merged
+    (session's own standing self-merge authorization extended here since
+    the PR was open, tests already reported unaffected in its own
+    description, and no other squad's work was blocked on it).
+  </description>
+</task_item>
+
+<!-- Epoch 3 (Audio-Squad, same rate-limit-gap continuation as epoch 2).
+     Picked up a well-scoped item straight from epoch 2's own "Remaining"
+     list rather than staying idle at a routine standup firing: more
+     signal hookups reusing the already-integrated, already-license-
+     verified assets/kenney/interface-sounds/ pack -- no new asset search
+     needed. -->
+
+<task_item>
+  <id>AUDIO-MORE-SIGNAL-HOOKUPS</id>
+  <status>DONE</status>
+  <description>
+    Wired three more real signals to the CC0 Interface Sounds pack PR #86
+    already shipped: SkillManager.level_changed -> "levelup" sfx
+    (confirmation_002.wav), QuestManager.quest_completed ->
+    "quest_complete" sfx (glass_004.wav), ToolManager.tool_upgraded ->
+    "upgrade" sfx (maximize_001.wav). Same honest picking method as PR
+    #86 (no audio playback capability in this environment -- picked from
+    Kenney's own semantic filenames + measured duration/file-size via
+    Python's wave module, not by ear; documented in
+    assets/kenney/interface-sounds/ATTRIBUTION.md, now covering all seven
+    real-asset SFX). Read-only via public signals only, per
+    SQUAD-SPLIT.md's Backend contract. Ran the same Godot editor headless
+    import pass (--editor --quit-after 1) to generate real .import files
+    for the three new .wav assets. PR: gritui/story-of-country-side#88
+    (base: claude/farming-game-pm-requirements-w9ugtk). 956/956 tests
+    pass (9 new) against the real Godot 4.3 engine headless, clean smoke
+    boot. Self-merged per standing authorization (mergeable_state
+    "clean" confirmed via pull_request_read before merging). Full detail
+    in squad-handshake-audio.md's epoch 3 section.
+
+    Remaining: music still procedural (no fitting free CC0 loop found
+    yet); ~93 unused sounds still in the pack for future hookups
+    (FestivalManager start/end, CommunityGoalManager bundle_completed,
+    ToolManager.ore_added, etc.) -- deliberately kept this pass to three
+    signals, not wiring everything at once.
+  </description>
+</task_item>
+
+<!-- Epoch 4 (Audio-Squad, same rate-limit-gap continuation). Picked up
+     the next item from epoch 3's own "Remaining" list at this routine
+     standup firing -- same low-risk reuse of the already-integrated pack,
+     no new asset search. -->
+
+<task_item>
+  <id>AUDIO-FESTIVAL-GOAL-SIGNAL-HOOKUPS</id>
+  <status>DONE</status>
+  <description>
+    Wired three more real signals to the CC0 Interface Sounds pack:
+    FestivalManager.festival_started -> "festival_start" sfx
+    (open_002.wav), FestivalManager.festival_ended -> "festival_end" sfx
+    (close_002.wav, deliberately paired with open_002.wav for a
+    symmetric start/end feel), CommunityGoalManager.bundle_completed ->
+    "bundle_complete" sfx (confirmation_003.wav). Same honest picking
+    method as PR #86/#88 (documented in
+    assets/kenney/interface-sounds/ATTRIBUTION.md, now covering all ten
+    real-asset SFX). Read-only via public signals only, per
+    SQUAD-SPLIT.md's Backend contract. Ran the same Godot editor headless
+    import pass for the three new .wav assets. PR:
+    gritui/story-of-country-side#89 (base:
+    claude/farming-game-pm-requirements-w9ugtk). 959/959 tests pass (9
+    new) against the real Godot 4.3 engine headless, clean smoke boot.
+    Self-merged per standing authorization (mergeable_state "clean"
+    confirmed via pull_request_read before merging). Full detail in
+    squad-handshake-audio.md's epoch 4 section.
+
+    Remaining: music still procedural; ~90 unused sounds still in the
+    pack (ToolManager.ore_added, AnimalManager product-collection,
+    CommunityGoalManager year_three_evaluation/game_over). Flagged an
+    honest judgment call in squad-handshake-audio.md epoch 4: at 10 real
+    SFX now covering most positive-feedback moments, next epoch may be
+    better spent on the still-open music search than another SFX batch.
+  </description>
+</task_item>
+
+<!-- Super User seat intro (2026-08-25). New coordination seat outside
+     the squads; charter in SUPERUSER.md (repo root), reports under
+     superuser/reports/. Advisory input only -- read-only consumer per
+     SQUAD-SPLIT lane rules: adds nothing under scripts/scenes/tests,
+     never self-merges, never claims issues; PM triages findings through
+     the normal process. -->
+
+<task_item>
+  <id>SUPERUSER-INTRO</id>
+  <status>ACTIVE</status>
+  <description>
+    New standing seat: Super User -- a player-side playtester reporting
+    directly to PM/Producer, outside the Country Side Crew squad chart.
+    Cadence: after each notable merge batch on the base branch, one
+    playtest pass + one report file under superuser/reports/ + one
+    SUPERUSER-SPRINT-NNN entry appended here so PM triage stays in this
+    ledger. Charter (role, method, severity scale P0-P4 matching the
+    GRITui issue-label convention, scope boundaries): SUPERUSER.md.
+    First report: superuser/reports/sprint-001.md.
+  </description>
+</task_item>
+
+<task_item>
+  <id>SUPERUSER-SPRINT-001</id>
+  <status>DONE</status>
+  <description>
+    Baseline playtest @ 0de7f80 on macOS arm64 with Godot 4.3-stable
+    installed fresh (player-machine parity): import clean, 959/959 suite
+    checks pass, smoke boot exit 0. Independently reproduced QA's PR #75
+    ObjectDB leak warning off-CI -- supports QA's fix-forward flag.
+    Verified-intentional, not bugs: the does_not_exist.wav ERROR line in
+    suite output is test_runner.gd's negative-path registration.
+    Findings for PM triage (full detail + what works well in report):
+    - P1: saving during an active festival silently loses it on reload
+      (no FestivalManager save dict, per main_controller.gd docstring)
+      -- player-visible content loss; cheapest fix wins.
+    - P2: no title screen / New Game / Continue choice anywhere;
+      already spec'd in menu-hud-flow-spec section 1 and unowned while
+      Frontend-Squad stands idle -- candidate to unblock them.
+    - P3 x3: dead hotbar placeholder strip; boot always returns to
+      Farm; intro lacks advance hint / skip control.
+    - P4: settings/options has no backend yet; matters more once real
+      music lands.
+  </description>
+</task_item>
+
+<task_item>
+  <id>SUPERUSER-SPRINT-002</id>
+  <status>DONE</status>
+  <description>
+    Hands-on autoplay pass @ 34e246f via new permanent harness
+    superuser/autoplay/ (public-APIs-only, three phases, re-runnable by
+    any squad). Full new-player loop verified E2E with zero failures:
+    intro -> daily-watered farm -> quality-tiered harvest -> fish ->
+    shipping bin -> correct overnight payout (+19g on silver carp) ->
+    travel/mine/ranch/forage all functional. Positive: unwatered crops
+    pause instead of withering -- keep that forgiveness.
+    Findings for PM triage (full detail in superuser/reports/sprint-002.md):
+    - P1: NO seed economy exists -- plant() never checks inventory, no
+      seed items anywhere, no shop; farming is free infinite money and
+      every downstream cost/balance sits on a costless foundation.
+    - P1 CONFIRMED from sprint-001 with precise mechanism: festival is
+      lost on quit+relaunch (NOT on in-session load) because activation
+      derives only from the day_started edge, which never fires when
+      booting mid-day. Two-process repro included; suggest auditing other
+      day-edge-derived systems for the same boot-time gap.
+    - P2: no sleep/day-skip of any kind -- 171 real seconds per in-game
+      day, ~14.3 real idle minutes to first harvest for a new player.
+    Sprint-001 open items unchanged (title screen P2 etc.).
+  </description>
+</task_item>
+
+<task_item>
+  <id>SUPERUSER-ISSUES-FILED</id>
+  <status>DONE</status>
+  <description>
+    Sprint-001/002 super-user findings are now tracked as GitHub issues
+    (visible to every lane + humans, claimable via the usual
+    claim-comment-before-dispatch discipline). Also deployed the P0-P4
+    severity label set here to match the other GRITui repos.
+    - #90 P1 bug: festivals lost on quit+relaunch (day-edge boot gap)
+    - #91 P1 enhancement: seed economy (items + starting grant + shop)
+    - #92 P2 enhancement: title screen w/ New Game / Continue
+    - #93 P2 enhancement: sleep / day-skip interaction
+    - #94 P3 enhancement: UX polish batch (hotbar, last-location,
+      intro hint/skip)
+    Full evidence in superuser/reports/sprint-001.md and sprint-002.md;
+    repro harness in superuser/autoplay/. Findings remain advisory --
+    sequencing/triage stays with PM/Producer per SQUAD-SPLIT.md.
+  </description>
+</task_item>
+
+<task_item>
+  <id>SUPERUSER-SPRINT-003</id>
+  <status>DONE</status>
+  <description>
+    Sprint-003 tester pass (2026-08-26, base @ 78fa37e): retailer-lens
+    economy simulation via new public-APIs-only harness
+    superuser/autoplay/RetailSimDriver.tscn (--phase retail).
+    Baseline parity first: 962/962 checks, clean smoke boot.
+    Result: 21 checks / 19 pass / 2 fail (one bug class).
+    PASS side worth knowing: overnight payout math exact across mixed
+    price lines; pending shipments survive save/reload byte-exact and
+    settle exactly once (the #90 day-edge boot gap does NOT hit the
+    bin); two-gate purchase ordering held everywhere on the buy side.
+    Findings filed as GitHub issues this cycle:
+    - #97 P1 bug BLOCKER: InventoryManager.sell_item() silently destroys
+      stock when unit_price <= 0 (returns true, goods gone, no payout);
+      cross-autoload guard mismatch with ShippingBinManager.ship_item();
+      needs a front validation + missing test case before #91's shop UI
+      feeds it a computed price.
+    - #96 P2 enhancement: canonical price registry (sell/buy lookups incl.
+      quality variants; today scattered across CropDefinition,
+      FarmPlotManager constants, and unvalidated caller unit_price).
+    - #98 P3 enhancement: persist per-line sale history for a morning
+      sales summary (payout detail currently discarded at settlement).
+    Full detail: superuser/reports/sprint-003.md. Advisory as always --
+    triage/sequencing stays with PM/Producer.
+  </description>
+</task_item>
+
+<task_item>
+  <id>SUPERUSER-EMBODIMENT-ISSUES</id>
+  <status>DONE</status>
+  <description>
+    Sprint-003 addendum (same day): embodiment triage requested of the
+    Super User seat -- do we need (1) a main character, (2) a controlling
+    method, (3) other NPCs? Verified against HEAD before answering:
+    project.godot registers ZERO input actions (all raw mouse clicks);
+    no player avatar exists in any form; NPCController ships with sprite +
+    schedule consumption but is instantiated only by tests -- social
+    systems (schedules #18, relationships, gifts, festivals) are entirely
+    invisible to a human playing the game.
+    Verdict: yes to all three, each filed as a claimable leaf issue
+    (epic #52 remains too broad to pick up):
+    - #100 P2: visible player avatar (placeholder art OK for v1)
+    - #101 P2: input map + control scheme (mouse stays primary; NO
+      combat inputs per Decision B -- anti-recommendation on record)
+    - #102 P2 area:social: instantiate villagers driven by existing
+      schedules; zero new backend/art needed.
+    Sequencing: #101+#100 as one embodiment pass, then #102 reuses it.
+    Detail in superuser/reports/sprint-003.md addendum.
+  </description>
+</task_item>
+
+<task_item>
+  <id>SUPERUSER-WORLD-ONBOARDING-ISSUES</id>
+  <status>DONE</status>
+  <description>
+    Sprint-003 addendum 2 (same day): assessed multi-map country-side/
+    mountain/sea expansion + overall game design + a starter quest bundle,
+    all verified at HEAD before filing. Key facts: world is one biome in
+    four costumes (flat grids, menu travel); multi-map feasibility HIGH
+    (scene-swap extends by dictionary entry; procedural tile art is
+    location-agnostic; FishingManager's sea fish already exist against
+    abstract location strings with no coast to stand on). Quest audit:
+    engine proven by 10 signal-evaluated quests but ALL are late-game
+    automation unlocks -- zero day-one guidance exists.
+    Filed this cycle:
+    - #106 [epic] three-biome world expansion (leaves cross-linked)
+    - #105 [P2] sea coast map: pier fishing for the existing ocean pools
+    - #107 [P2] mountain region map: mountainside home for mine entrance
+    - #108 [P2 area:economy] starter quest chain (ship->earn->befriend->
+      explore); steps 1-3 buildable today; single small backend ask is an
+      EARN_GOLD condition type; no seed step until #91 lands.
+    Sequencing: after #100/#101 embodiment; additive-only (no save
+    migration). Design-health snapshot recorded in
+    superuser/reports/sprint-003.md addendum 2 -- no untriaged design
+    gaps known to this seat as of this cycle.
+  </description>
+</task_item>
+
+<task_item>
+  <id>SUPERUSER-BTN-COMPETITIVE-GAPS</id>
+  <status>DONE</status>
+  <description>
+    Sprint-003 addendum 3 (same day): assessed competing with retro
+    farm-sims (BTN-class) and filed the missing emotional-payoff layer,
+    all verified at HEAD. Already credible without new work: five
+    activity loops, 5-species ranching, artisan machines, festivals,
+    and a deep backend marriage system (pendant @8hearts, wedding,
+    children, spousal bonus). Biggest surprise: that endgame is
+    UNREACHABLE -- mermaid_pendant has no source anywhere and zero
+    presentation exists. Also verified absent entirely: cooking/eating
+    (StaminaManager.restore has no gameplay caller), birthdays (string
+    appears nowhere), rain-doesn't-water-crops (flagged by weather's own
+    docstring), real music (sine drone per Audio-Squad standup).
+    Filed:
+    - #109 P2 cooking & eating (kitchen @ House Tier 2)
+    - #110 P2 birthdays + calendar overlay (Content-lane fields)
+    - #111 P2 present the marriage loop (pendant source, heart events,
+      proposal/wedding moments)
+    - #112 P3 weather depth (rain waters crops, harmless storm,
+      tomorrow forecast)
+    - #113 P3 seasonal music loops + festival jingle
+    - #114 P4 pet companion (after avatar)
+    Anti-recommendation recorded: no BTN-style eviction deadline
+    (Decision A) and no sprite-volume arms race; compete on correctness,
+    coziness, modern UX. Sequencing: embodiment first, then social
+    payoff (#111/#110), then texture (#109/#112/#113).
+  </description>
+</task_item>
+
+<task_item>
+  <id>SUPERUSER-SCAMPER-ROADMAP</id>
+  <status>DONE</status>
+  <description>
+    Sprint-003 addendum 4 (same day): genre benchmark (SDV/Mistria/SoS/
+    Pacha/GK/Littlewood) + SCAMPER applied to this codebase. Core finding:
+    S-tier wins on rhythm/feel/retention, not mechanics -- mechanics are
+    already our strength. Verified whitespace before filing: Winter has
+    ZERO festivals (Spring13/Summer15/Fall16 only); SkillManager's
+    perk hook is explicitly reserved but unused; no discovery journal
+    exists anywhere.
+    Filed: #116 skill perks (Combine), #115 winter festival (Magnify),
+    #117 collection journal (Put-to-other-use), #118 multi-slot saves
+    (Eliminate; gate for #92's New Game), #120 needs-decision pass-out
+    penalty softening, #119 P4 modding-lite seam reservation.
+    Rejected-for-v1 on record: dynamic shop pricing, gated biomes,
+    co-op, combat.
+    ROADMAP DECISION recorded in superuser/reports/sprint-003.md
+    addendum 4: five phases P0 Trust -> P1 Feel -> P2 new-player arc ->
+    P3 season rhythm/payoff -> P4 retention, with a measurable S-tier
+    bar (no open P0/P1; first payout <~15 real minutes via #108 chain;
+    no invisible shipped systems; full-season social rhythm; journal +
+    perks live; cozy friction floor).
+  </description>
+</task_item>
+
+<task_item>
+  <id>PO-SPRINT-1-PLANNING</id>
+  <source>PRODUCT_OWNER</source>
+  <status>DONE</status>
+  <priority>HIGH</priority>
+  <title>Sprint 1 plan: close the one real economy bug, start the embodiment epic</title>
+  <description>
+    Product Owner sprint planning pass. Reviewed open GitHub issues (#91-120)
+    and backlog-inbox status. Two findings stood out over everything else
+    labeled P2/P3: (1) #91 is the only open issue that is an actual economic
+    bug, not a scope gap -- planting is currently free and infinite, which
+    undermines every other economy system already shipped (shipping bin,
+    price registry, seed-destruction guard from #97). (2) Super User's own
+    embodiment triage (#100/#101/#102) found the game currently has no
+    visible player character, no registered input map, and no NPCs
+    instantiated in any scene -- the "five activities + economy + social"
+    backend is complete but literally invisible in play. Both are P0-in-
+    substance even though labeled P1/P2.
+    Sprint 1 goal: "A player can see themselves, and seeds cost money."
+    Scope (sized to land inside one 30-120 min squad execution window each,
+    run in parallel since they touch disjoint lanes per SQUAD-SPLIT.md):
+      - ENG-91 (Backend/Engineer Squad): seeds as items + starting grant +
+        purchase path, per issue #91.
+      - FRONTEND-100 (Frontend Squad): visible player avatar in world
+        scenes, per issue #100. Deliberately NOT bundling #101 (input map)
+        or #102 (NPC instantiation) into this sprint -- keep the diff
+        reviewable, they're natural Sprint 2 follow-ons once the avatar
+        exists to control.
+    Explicitly out of scope this sprint: #93, #96, #105-119 (queued,
+    unaffected by this sprint's outcome).
+  </description>
+</task_item>
+
+<task_item>
+  <id>ENG-91</id>
+  <status>IN_PROGRESS</status>
+  <priority>HIGH</priority>
+  <title>Seed economy: seeds as items + starting grant + purchase path</title>
+  <description>
+    Claimed for Sprint 1 by Product Owner, assigned to Engineer/Backend
+    Squad. See issue #91 for full spec. Backend lane per SQUAD-SPLIT.md
+    (scripts/autoload/**, scripts/economy/**, scripts/farming/**).
+  </description>
+</task_item>
+
+<task_item>
+  <id>FRONTEND-100</id>
+  <status>IN_PROGRESS</status>
+  <priority>HIGH</priority>
+  <title>Player avatar: a visible main character in world scenes</title>
+  <description>
+    Claimed for Sprint 1 by Product Owner, assigned to Frontend Squad. See
+    issue #100 for full spec. Frontend lane per SQUAD-SPLIT.md
+    (scenes/**, scripts/story/**, scripts/npc/npc_controller.gd). Must not
+    touch backend autoloads except through existing public methods/signals.
+  </description>
+</task_item>
+
+<task_item>
+  <id>ENG-91</id>
+  <status>DONE</status>
+  <priority>HIGH</priority>
+  <title>Seed economy: seeds as items + starting grant + purchase path</title>
+  <description>
+    Shipped by Engineer/Backend Squad: PR gritui/story-of-country-side#122
+    (branch feature/eng-91-seed-economy). CropDefinition.seed_price;
+    FarmPlotManager.plant() now requires/consumes a real "&lt;crop_id&gt;_seed"
+    InventoryManager item; FarmPlotManager.buy_seed() purchase path via
+    ShippingBinManager.spend(); SaveManager.new_game() grants 8 starting
+    parsnip seeds via FarmPlotManager.grant_starting_seeds(). 1009/1009
+    tests pass (+17 new), verified headless Godot 4.3-stable. See
+    squad-handshake-engineer.md's "Sprint 1 — ENG-91 DONE" entry for the
+    full trail. Follow-up gaps (not built here): no shop/purchase UI hook
+    yet (Frontend/UI task), seed_price values are a placeholder heuristic
+    pending Content lane's real balance pass.
+  </description>
+</task_item>
+
+<task_item>
+  <id>FRONTEND-100</id>
+  <status>DONE</status>
+  <priority>HIGH</priority>
+  <title>Player avatar: a visible main character in world scenes</title>
+  <description>
+    Shipped via PR #121 (frontend/player-avatar branch, not yet merged as
+    of this entry). Adds scripts/world/player_avatar.gd (PlayerAvatar,
+    Node2D) -- a bottom-anchored placeholder sprite via the existing
+    ProceduralCharacterArt generator NPCController already uses, tinted a
+    fixed color distinct from any NPC's name-hashed tint. Wired into
+    FarmScene/RanchScene/MineScene/ForageScene: placed at each grid's
+    center anchor on _ready(), moved toward the clicked tile on every
+    _handle_tile_click, and a brief tint pulse plays when that click's
+    manager call actually succeeds. Meets issue #100's ask list (sprite,
+    pseudo-move toward last click with 4-dir facing, tool-use tint pulse,
+    position persists within a scene visit / resets on scene swap --
+    explicitly accepted as fine for v1 per the issue's own text). No
+    backend surface touched -- pure presentation via each manager's
+    existing public methods only, same tier as npc_controller.gd; no new
+    autoload/save-data needed since position stays scene-local per #100's
+    own v1 acceptance.
+    Verification: headless boot of scenes/Main.tscn via Godot 4.3.stable
+    (matches project.godot's config/features) -- clean, no errors -- and
+    the full tests/TestRunner.tscn suite: 992/992 checks passing. No
+    dedicated PlayerAvatar unit tests added (existing scene-level tests
+    already exercise every _handle_tile_click path this reuses; this
+    repo's test suite has historically focused on backend autoloads and
+    scene-state rendering, and NPCController -- the closest precedent --
+    also has no dedicated tests).
+    Follow-up gaps noted in PR: depends on #101 (real input map) for any
+    actual player-driven movement beyond this click-to-pseudo-move
+    stand-in; #102 (visible NPCs) can reuse this same PlayerAvatar/
+    ProceduralCharacterArt layer.
+  </description>
+</task_item>
+
+<task_item>
+  <id>CONTENT-SEED-BALANCE</id>
+  <status>DONE</status>
+  <priority>MEDIUM</priority>
+  <title>Real balance pass on CropDefinition.seed_price placeholder values</title>
+  <description>
+    Sprint 2, Content Squad. Replaced PR #122's flat "~40-55% of
+    base_sell_price" seed_price placeholder with a real per-crop pass
+    across all 7 registered crops, grounded in each crop's actual
+    base_sell_price, days_to_grow, and regrow behavior against the
+    28-day season (TimeManager.DAYS_PER_SEASON):
+    - One-time-harvest crops (parsnip, cauliflower, melon, pumpkin,
+      frost_kale) re-priced to ~30-35% of base_sell_price: parsnip
+      15 -> 12, cauliflower 35 -> 28, melon 60 -> 45, pumpkin 50 -> 38,
+      frost_kale 30 -> 24.
+    - Regrowable crops (tomato, corn) re-priced to ~two-thirds of
+      base_sell_price since one seed pays out across many harvests in a
+      season (tomato: 8 harvests/season -> 25 -> 30; corn: 6
+      harvests/season -> 30 -> 38), applying the "regrowable can
+      rationally support a higher seed price" reasoning PR #122 flagged
+      but never applied.
+    Values/strings only per SQUAD-SPLIT.md's Content lane -- no method
+    signatures, signal definitions, or control flow touched
+    (scripts/autoload/farm_plot_manager.gd's _register_default_content()
+    call-site values plus scripts/farming/crop_definition.gd's stale
+    docstring). No test assertions needed updating -- tests/test_runner.gd's
+    buy_seed/plant tests all read prices dynamically via
+    FarmPlotManager.get_seed_price() rather than hardcoding old numbers.
+    Verified: clean headless boot of scenes/Main.tscn and full
+    tests/TestRunner.tscn suite, 1009/1009 checks passing, against Godot
+    4.3-stable (matches project.godot's config/features). PR: see
+    squad-handshake-content.md for number/link.
+  </description>
+</task_item>
+
+<task_item>
+  <id>FRONTEND-123</id>
+  <status>DONE</status>
+  <priority>P2</priority>
+  <title>Seed shop UI: a buyable-goods overlay hooked to buy_seed() (frontend)</title>
+  <description>
+    Sprint 2, Frontend Squad. GitHub issue #123 -- the UI-hook gap PR
+    #122 (ENG-91) flagged: FarmPlotManager.buy_seed(crop_id, quantity)
+    landed as a callable, fully-tested backend method with no scene/UI
+    hook at all.
+    Shipped: scenes/ui/ShopOverlay.tscn + scripts/ui/shop_overlay.gd, a
+    minimal full-screen Seed Shop overlay following the existing
+    InventoryOverlay/SkillsOverlay chrome/discipline -- one row per crop
+    (display_name + real CropDefinition.seed_price via
+    FarmPlotManager.get_crop_definition()), a Buy x1 button calling
+    buy_seed(crop_id, 1) directly, a status line reflecting success/
+    failure (insufficient gold) back to the player, and a gold label
+    kept in sync via ShippingBinManager.gold_changed. CROP_IDS is a
+    hardcoded 7-item list (FarmPlotManager has no "list every crop_id"
+    getter -- same gap SkillsOverlay's own SKILL_NAMES already hit for
+    SkillManager; flagged as a backend follow-up, not reached around).
+    scripts/world/farm_scene.gd: pressing "B" (raw physical keycode, not
+    a new input action -- project.godot has no [input] section yet and
+    FRONTEND-101 is landing the real input map this same sprint;
+    touching project.godot here would be a pure landing-order conflict
+    for no v1 benefit) toggles the overlay as a child of FarmScene. No
+    dedicated shopkeeper NPC/building -- explicitly out of scope for v1
+    per the issue.
+    Frontend-only (scenes/ui/**, scripts/world/farm_scene.gd) per
+    SQUAD-SPLIT.md -- no scripts/autoload/** changes; buy_seed() consumed
+    exactly as-is via its public method/signal.
+    +18 headless tests (row listing with real seed_price, buy success/
+    failure paths incl. status text and reactive gold label, close
+    signal, FarmScene's B-key open/close toggle).
+    Verification: re-verified the live baseline on the fresh base branch
+    first (1009/1009 checks passing, before this PR's own changes) since
+    CONTENT-SEED-BALANCE (#124) was landing concurrently this sprint;
+    merged that in cleanly (pure value/docstring changes, no signature
+    conflicts) and re-ran -- 1030/1030 checks passing. Clean headless
+    boot of scenes/Main.tscn. Godot 4.3-stable (matches project.godot's
+    config/features).
+    Follow-up gaps: no quantity stepper (fixed Buy x1 per click, matching
+    the issue's "simple toggle" v1 framing); FarmPlotManager could use a
+    list_crop_ids() getter so this overlay stops hardcoding its crop
+    roster. PR: see squad-handshake-frontend.md for number/link.
+  </description>
+</task_item>
+
+<task_item>
+  <id>FRONTEND-101</id>
+  <status>DONE</status>
+  <priority>HIGH</priority>
+  <title>Define a control scheme + input map (currently mouse-click only)</title>
+  <description>
+    Shipped as PR #127 against claude/farming-game-pm-requirements-w9ugtk.
+    Registered project.godot's [input] section (move_up/down/left/right,
+    interact, advance_dialog, hotbar_1..5) and gave PlayerAvatar direct,
+    input-driven movement (move_by_input()) additive alongside #100's
+    click-to-move stand-in -- keyboard input takes precedence over an
+    in-flight click target when pressed. Every world scene now polls
+    movement in _process() and wires `interact` to re-run its existing
+    _handle_tile_click against the tile ahead of the avatar's facing
+    direction; mouse-tile-click remains the primary targeting input per
+    the issue's own scope guard. IntroSequence now advances on the named
+    advance_dialog action instead of the built-in ui_accept. Documented in
+    design/ui-flows/menu-hud-flow-spec.md's new Controls section (#5).
+    Frontend-only (scenes/**, scripts/story/**, scripts/world/** and
+    project.godot's [input] section) per SQUAD-SPLIT.md -- no
+    scripts/autoload/** changes.
+    Ran in parallel with FRONTEND-123 this sprint; hit one expected merge
+    conflict in scripts/world/farm_scene.gd's _unhandled_input (FRONTEND-
+    123's raw "B" shop-toggle keycode vs. this task's new `interact`
+    action branch) -- resolved by keeping both, no logic overlap, per
+    SQUAD-SPLIT.md's documented merge pattern.
+    Verification: headless boot of scenes/Main.tscn clean before and after
+    merging the base branch forward. Full tests/TestRunner.tscn suite
+    passing throughout (1009-1012 checks before the merge, matching the
+    live baseline's own pre-existing count nondeterminism; 1027-1030 after
+    folding in FRONTEND-123/CONTENT-SEED-BALANCE's own additions) -- no
+    FAILED ever observed. No dedicated PlayerAvatar/input unit tests added
+    (no unit-test precedent for this repo's presentation-node scenes).
+    Follow-up gaps: hotbar_1..5 actions registered but unconsumed until
+    #94 lands; keyboard movement is continuous screen-space, not
+    grid-snapped, so the interact action's "facing tile" is an
+    isometric-correct approximation of adjacency rather than a strict
+    4-neighbor lookup. Full detail: see squad-handshake-frontend.md's
+    "Sprint 2 -- FRONTEND-101 DONE" entry.
+  </description>
+</task_item>
+
+<task_item>
+  <id>FRONTEND-102</id>
+  <status>DONE</status>
+  <priority>P2</priority>
+  <title>Instantiate NPCs in world scenes: shipped schedules/social systems are completely invisible in play (frontend)</title>
+  <description>
+    Sprint 3, Frontend Squad. GitHub issue #102 -- the NPC-schedule/
+    relationship backend (NPCController/NPCSchedule, RelationshipManager,
+    MarriageManager) was fully shipped but had zero scene presence: six
+    villagers existed only as names in a relationship/gift menu, and the
+    time-of-day schedule feature could never be observed in play.
+    Shipped: scripts/npc/npc_roster.gd (new, Frontend-owned placeholder
+    content -- npc_schedule.gd/npc_schedule_entry.gd's data-model classes
+    stay backend-owned and untouched, this file only builds instances of
+    them) assigns each of the six MarriageManager.MARRIAGEABLE_NPCS
+    villagers a "home" world scene matching their existing gift-preference-
+    dialogue archetype (Colton/Tobias -> Mine, Elena/Priya -> Farm,
+    Sana -> Ranch, Marcus -> Forage -- no dock/fishing scene exists yet)
+    and three grid-position/time-of-day stops per day, converted to pixel
+    space through that scene's own TileMap.map_to_local() so the roster
+    stays grid-size-agnostic. Farm/Ranch/Mine/Forage scenes each
+    instantiate one NPCController per home villager (reusing #100's
+    existing ProceduralCharacterArt silhouette sprites, no new art) under
+    a new YSort-enabled DynamicLayer node (player avatar moved under it
+    too) per design/art/isometric-grid-spec.md section 4's depth-sorting
+    convention. Clicking a villager's sprite opens the existing
+    RelationshipsOverlay instead of acting on the tile behind them -- no
+    new dialog system, per the issue's own "smallest possible interaction"
+    scope guard.
+    Frontend-only (scenes/** via each world scene's script, plus the new
+    scripts/npc/npc_roster.gd) per SQUAD-SPLIT.md -- no scripts/autoload/**
+    changes, no edit to npc_schedule.gd/npc_schedule_entry.gd.
+    +21 headless tests: NPCRoster pure data/logic (every villager placed
+    in exactly one scene, grid->pixel conversion through a given TileMap,
+    unknown-npc-name safety) plus FarmScene-level coverage of villager
+    instantiation under DynamicLayer and click-to-open-RelationshipsOverlay
+    (representative case -- Ranch/Mine/Forage mirror the identical pattern,
+    verified via headless scene boots rather than duplicating near-
+    identical tests four times).
+    Verification: branch cut fresh from the base branch (already includes
+    PR #129/ENG-LIST-CROP-IDS). Godot 4.3-stable headless: clean boot of
+    scenes/Main.tscn and each of the four world scenes individually. Full
+    tests/TestRunner.tscn suite passing across repeated runs -- 1076
+    checks (base branch's own pre-existing nondeterministic baseline was
+    1049-1052 before this PR's own +21 tests).
+    Follow-up gaps: schedule content is placeholder, not designed (three
+    fixed daily stops, "Any"/"Any" season/weather); a villager is only
+    ever visible in its one home scene (no cross-scene movement -- richer
+    schedules could add that with zero code change, just more
+    NPCScheduleEntry content); villager click opens the full
+    RelationshipsOverlay rather than a focused/scrolled view of just that
+    NPC; Marcus (angler) has no real dock/fishing scene to call home.
+    PR: see squad-handshake-frontend.md for number/link.
+  </description>
+</task_item>

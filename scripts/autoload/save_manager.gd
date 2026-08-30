@@ -40,6 +40,7 @@ func build_save_data() -> Dictionary:
 		"mining": MiningManager.to_save_dict(),
 		"community_goals": CommunityGoalManager.to_save_dict(),
 		"weather": WeatherManager.to_save_dict(),
+		"journal": JournalManager.to_save_dict(),
 		"intro_seen": intro_seen,
 	}
 
@@ -76,8 +77,15 @@ func apply_save_data(data: Dictionary) -> void:
 		CommunityGoalManager.from_save_dict(data["community_goals"])
 	if data.has("weather"):
 		WeatherManager.from_save_dict(data["weather"])
+	if data.has("journal"):
+		JournalManager.from_save_dict(data["journal"])
 	if data.has("intro_seen"):
 		intro_seen = data["intro_seen"]
+	# Issue #90: the clock above is restored without firing day_started
+	# (that only fires at the 2AM rollover), so any day-edge-derived state
+	# must be re-derived here explicitly or a mid-festival save reloads
+	# with no festival.
+	FestivalManager.rederive_active_festival()
 
 ## Resets every system to its fresh-boot defaults and starts a brand new
 ## save -- calling from_save_dict({}) directly (not via apply_save_data,
@@ -85,9 +93,10 @@ func apply_save_data(data: Dictionary) -> void:
 ## already falls back to its own defaults when a key is absent. Starting
 ## gold (ShippingBinManager.STARTING_GOLD) and starting Copper-tier tools
 ## (ToolManager) come along for free this way, since those are already
-## each manager's own from-nothing default -- see the PR description for
-## why a fuller starting-inventory grant (seeds, a few crops) isn't part
-## of this reset yet.
+## each manager's own from-nothing default. Starting seeds (#91) are the
+## one grant that isn't a manager's own from-nothing default -- it's
+## InventoryManager state granted on FarmPlotManager's behalf -- so it's
+## called out explicitly below via grant_starting_seeds() instead.
 func new_game() -> void:
 	TimeManager.from_save_dict({})
 	StaminaManager.from_save_dict({})
@@ -105,7 +114,10 @@ func new_game() -> void:
 	MiningManager.from_save_dict({})
 	CommunityGoalManager.from_save_dict({})
 	WeatherManager.from_save_dict({})
+	JournalManager.from_save_dict({})
 	intro_seen = false
+	FestivalManager.rederive_active_festival() # expire any live festival against the reset date
+	FarmPlotManager.grant_starting_seeds() # #91: seed economy starting grant
 	save_game()
 
 func has_seen_intro() -> bool:

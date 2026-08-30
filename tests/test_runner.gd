@@ -10,6 +10,27 @@ extends Node
 ## No test framework dependency — plain assertions. Worth switching to a
 ## real framework (GUT) once this file covers more than two or three
 ## systems; still small enough that the overhead isn't worth it yet.
+##
+## QA-TEST-COUNT-NONDETERMINISM (Sprint 3): the final "ALL TESTS PASSED
+## (N checks)" count can legitimately differ by a small amount (observed
+## +3) between runs of the exact same commit. Root-caused to
+## _test_forage_cooldown_counts_down_and_becomes_available_again below:
+## it registers a forage node with ForagingManager.register_node(), which
+## picks a random item from the current season's candidate pool
+## (ForagingManager._rng, unseeded by design) via `candidates[_rng.randi()
+## % candidates.size()]`. Spring's candidates are wild_berries/
+## wild_flower/spring_onion (respawn_days = 2) and four_leaf_clover,
+## which is valid in every season (respawn_days = 5). The test's
+## `for i in range(respawn_days - 1)` loop emits one _check() per
+## iteration, so picking four_leaf_clover (1-in-4 odds) adds 3 extra
+## passing checks versus the 3-in-4 case. This never affects pass/fail —
+## every iteration's assertion is correct for whichever item was rolled —
+## it only moves the total count. Benign; do not "fix" it into false
+## determinism by seeding the RNG or hardcoding the node's item, since
+## that would silently stop exercising four_leaf_clover's longer
+## cooldown path. If a future PR wants a stable count for external
+## tooling, assert on _failures.is_empty() rather than the printed
+## number.
 
 var _failures: Array[String] = []
 var _pass_count := 0
@@ -57,6 +78,7 @@ var _music_stopped_count := 0 ## member, not a local -- GDScript lambdas capture
 var _community_goal_overlay_closed_count := 0 ## same reason
 var _festival_mini_game_overlay_closed_count := 0 ## same reason
 var _fishing_overlay_closed_count := 0 ## same reason
+var _shop_overlay_closed_count := 0 ## same reason
 
 func _ready() -> void:
 	_test_minute_and_hour_wrap()
@@ -76,6 +98,10 @@ func _ready() -> void:
 	_test_controller_walks_toward_target_and_arrives()
 	_test_controller_pauses_while_time_frozen()
 	_test_controller_retargets_on_schedule_change()
+
+	_test_npc_roster_covers_every_marriageable_npc_exactly_once()
+	_test_npc_roster_build_schedule_converts_grid_positions_through_tilemap()
+	_test_npc_roster_unknown_npc_builds_empty_schedule()
 
 	_test_talk_awards_points_once_per_day()
 	_test_gift_applies_preference_deltas()
@@ -128,6 +154,9 @@ func _ready() -> void:
 	_test_inventory_has_item()
 	_test_inventory_sell_item_ships_and_removes()
 	_test_inventory_sell_item_fails_without_removing_on_short_stock()
+	_test_inventory_sell_item_rejects_zero_unit_price()
+	_test_inventory_sell_item_rejects_negative_unit_price()
+	_test_inventory_sell_item_pays_out_correctly_on_success()
 	_test_inventory_save_round_trip()
 
 	_test_cannot_plant_wrong_season()
@@ -142,6 +171,14 @@ func _ready() -> void:
 	_test_sell_price_applies_quality_multiplier()
 	_test_crop_withers_when_season_ends_unharvested()
 	_test_farm_plot_save_round_trip()
+
+	_test_plant_without_seed_fails_cleanly()
+	_test_plant_consumes_one_seed_from_inventory()
+	_test_buy_seed_deducts_gold_and_credits_inventory()
+	_test_buy_seed_fails_when_gold_insufficient()
+	_test_buy_seed_fails_for_unknown_crop()
+	_test_new_game_grants_starting_seeds()
+	_test_get_all_crop_ids_matches_registered_roster()
 
 	_test_forage_register_node_seeds_season_valid_item()
 	_test_forage_gather_credits_inventory_and_xp_and_sets_cooldown()
@@ -225,6 +262,10 @@ func _ready() -> void:
 	_test_festival_mini_game_overlay_continue_ends_festival_and_closes()
 	_test_main_controller_shows_festival_overlay_on_festival_started()
 	_test_main_controller_removes_festival_overlay_when_it_closes()
+
+	_test_festival_survives_save_reload_same_day()
+	_test_non_festival_day_stays_inactive_after_reload()
+	_test_saved_mid_festival_loaded_past_end_stays_expired()
 	_test_map_overlay_lists_all_locations_on_ready()
 	_test_map_overlay_travel_click_emits_travel_requested_and_closed()
 	_test_map_overlay_close_button_emits_closed_only()
@@ -244,6 +285,15 @@ func _ready() -> void:
 	_test_farm_scene_updates_on_crop_withered_signal()
 	_test_farm_scene_click_plants_empty_tile()
 	_test_farm_scene_click_ignores_out_of_grid_position()
+	_test_farm_scene_renders_decorative_props()
+	_test_farm_scene_b_key_toggles_shop_overlay()
+	_test_farm_scene_instantiates_one_npc_per_home_villager()
+	_test_farm_scene_clicking_a_villager_opens_relationships_overlay()
+	_test_farm_scene_click_far_from_any_villager_does_not_open_overlay()
+	_test_shop_overlay_lists_all_known_crops_on_ready()
+	_test_shop_overlay_buy_button_success_updates_status_and_gold()
+	_test_shop_overlay_buy_button_insufficient_gold_shows_failure()
+	_test_shop_overlay_close_emits_closed_signal()
 	_test_ranch_scene_instantiates_without_error()
 	_test_ranch_scene_renders_empty_grid_on_ready()
 	_test_ranch_scene_renders_already_occupied_pen_on_ready()
@@ -269,6 +319,7 @@ func _ready() -> void:
 	_test_mine_scene_click_breaks_rock_tile()
 	_test_mine_scene_click_ladder_descends()
 	_test_mine_scene_click_ignores_out_of_grid_position()
+	_test_mine_scene_renders_decorative_props()
 
 	_test_available_fish_filters_by_location_season_hour()
 	_test_available_fish_sorted_and_ignores_unregistered()
@@ -363,7 +414,16 @@ func _ready() -> void:
 	_test_crop_harvested_triggers_harvest_sfx()
 	_test_heart_event_triggered_triggers_heart_sfx()
 	_test_married_triggers_wedding_sfx()
+	_test_level_changed_triggers_levelup_sfx()
+	_test_quest_completed_triggers_quest_complete_sfx()
+	_test_tool_upgraded_triggers_upgrade_sfx()
+	_test_festival_started_triggers_festival_start_sfx()
+	_test_festival_ended_triggers_festival_end_sfx()
+	_test_bundle_completed_triggers_bundle_complete_sfx()
 	_test_stop_sfx_is_idempotent_and_leaves_player_reusable()
+	_test_register_sfx_asset_invalid_path_is_noop()
+	_test_register_sfx_asset_empty_args_are_noop()
+	_test_register_sfx_asset_valid_path_is_playable()
 
 	_test_procedural_tile_art_shape_matches_iso_grid_spec()
 	_test_procedural_tile_art_diamond_corners_are_transparent()
@@ -373,6 +433,12 @@ func _ready() -> void:
 	_test_procedural_tile_art_glow_states_brightens_center_pixel()
 	_test_npc_controller_has_visible_sprite_after_ready()
 	_test_npc_controller_sprite_tint_is_deterministic_per_name()
+
+	_test_title_screen_instantiates_with_spec_menu_shape()
+	_test_title_screen_continue_disabled_without_save()
+	_test_title_screen_continue_enabled_with_save()
+	_test_title_screen_new_game_prepares_fresh_state_and_persists()
+	_test_title_screen_continue_prepare_loads_or_reports_failure()
 
 	if _failures.is_empty():
 		print("ALL TESTS PASSED (%d checks)" % _pass_count)
@@ -618,6 +684,47 @@ func _test_controller_retargets_on_schedule_change() -> void:
 
 	npc.queue_free()
 
+## --- Frontend: NPCRoster (#102, placeholder villager-placement content) ---
+##
+## Pure data/logic, unlike the presentation nodes (NPCController, every
+## world scene) this content feeds -- worth real unit coverage rather than
+## just headless/manual verification.
+
+func _test_npc_roster_covers_every_marriageable_npc_exactly_once() -> void:
+	var all_placed: Array[String] = []
+	for scene_name in ["Farm", "Ranch", "Mine", "Forage"]:
+		all_placed.append_array(NPCRoster.npcs_for_scene(scene_name))
+	for npc_name in MarriageManager.MARRIAGEABLE_NPCS:
+		_check(all_placed.count(npc_name) == 1,
+			"%s (a MARRIAGEABLE_NPCS villager) should be placed in exactly one world scene, found in %d" % [npc_name, all_placed.count(npc_name)])
+	_check(all_placed.size() == MarriageManager.MARRIAGEABLE_NPCS.size(),
+		"NPCRoster should place exactly the six known villagers, no extras")
+
+func _test_npc_roster_build_schedule_converts_grid_positions_through_tilemap() -> void:
+	var tilemap := TileMap.new()
+	tilemap.tile_set = ProceduralTileArt.build_isometric_tileset({0: Color.WHITE}, 64, 32, 0, [])
+	add_child(tilemap)
+
+	var schedule := NPCRoster.build_schedule("Elena", tilemap)
+	var stops: Array = NPCRoster.NPC_DAILY_STOPS["Elena"]
+	_check(schedule.entries.size() == stops.size(), "build_schedule should produce one NPCScheduleEntry per authored stop")
+	for i in range(stops.size()):
+		var entry: NPCScheduleEntry = schedule.entries[i]
+		_check(entry.hour == stops[i]["hour"] and entry.minute == stops[i]["minute"],
+			"entry %d should keep its authored hour/minute" % i)
+		_check(entry.position == tilemap.map_to_local(stops[i]["grid_pos"]),
+			"entry %d's position should be the grid stop converted through the given TileMap" % i)
+		_check(entry.location_name == "Farm", "Elena's entries should carry her home scene as location_name")
+
+	tilemap.queue_free()
+
+func _test_npc_roster_unknown_npc_builds_empty_schedule() -> void:
+	var tilemap := TileMap.new()
+	add_child(tilemap)
+	var schedule := NPCRoster.build_schedule("NotARealVillager", tilemap)
+	_check(schedule.entries.is_empty(), "an unrecognized npc_name should build a schedule with no entries, not crash")
+	tilemap.queue_free()
+
 ## --- ENG-19: Relationship System ---
 
 func _reset_relationship_manager() -> void:
@@ -856,13 +963,16 @@ func _test_no_payout_signal_when_bin_empty() -> void:
 func _test_pass_out_penalty_deducts_gold_and_clamps_at_zero() -> void:
 	_reset_shipping_bin()
 	var sb := ShippingBinManager
+	# Softened per #120: PASS_OUT_PENALTY_RATE 5% — penalty is min(fixed, 5% of gold)
 	sb.gold = 30
 	sb._on_passed_out(100)
-	_check(sb.gold == 0, "pass-out penalty larger than current gold should clamp at 0, got %d" % sb.gold)
+	# 5% of 30 = 1 (int), so gold should be 29, not 0
+	_check(sb.gold == 29, "pass-out penalty at 5% of 30 should be 1, gold should be 29, got %d" % sb.gold)
 
 	sb.gold = 200
 	sb._on_passed_out(50)
-	_check(sb.gold == 150, "pass-out penalty should deduct normally when gold is sufficient, got %d" % sb.gold)
+	# 5% of 200 = 10, min(50,10)=10, so gold should be 190
+	_check(sb.gold == 190, "pass-out penalty should be softened to 5% (10 of 200), got %d" % sb.gold)
 
 func _test_spend_succeeds_and_fails_correctly() -> void:
 	_reset_shipping_bin()
@@ -1347,6 +1457,39 @@ func _test_inventory_sell_item_fails_without_removing_on_short_stock() -> void:
 	_check(im.get_count("turnip") == 1, "a failed sale should not touch inventory, got %d" % im.get_count("turnip"))
 	_check(ShippingBinManager.pending_item_count() == 0, "a failed sale should not reach the shipping bin")
 
+## --- Issue #97: non-positive unit_price must never destroy stock ---
+
+func _test_inventory_sell_item_rejects_zero_unit_price() -> void:
+	_reset_inventory_manager()
+	_reset_shipping_bin()
+	var im := InventoryManager
+	im.add_item("turnip", 3)
+	var ok := im.sell_item("turnip", 2, 0)
+	_check(not ok, "selling at unit_price 0 should fail instead of destroying stock (#97)")
+	_check(im.get_count("turnip") == 3, "a zero-price sale must leave inventory untouched, got %d" % im.get_count("turnip"))
+	_check(ShippingBinManager.pending_item_count() == 0, "a zero-price sale must not reach the shipping bin")
+
+func _test_inventory_sell_item_rejects_negative_unit_price() -> void:
+	_reset_inventory_manager()
+	_reset_shipping_bin()
+	var im := InventoryManager
+	im.add_item("turnip", 3)
+	var ok := im.sell_item("turnip", 2, -5)
+	_check(not ok, "selling at a negative unit_price should fail instead of destroying stock (#97)")
+	_check(im.get_count("turnip") == 3, "a negative-price sale must leave inventory untouched, got %d" % im.get_count("turnip"))
+	_check(ShippingBinManager.pending_item_count() == 0, "a negative-price sale must not reach the shipping bin")
+
+func _test_inventory_sell_item_pays_out_correctly_on_success() -> void:
+	_reset_inventory_manager()
+	_reset_shipping_bin()
+	var im := InventoryManager
+	var sb := ShippingBinManager
+	sb.gold = 0
+	im.add_item("turnip", 5)
+	_check(im.sell_item("turnip", 3, 10), "a valid priced sale should still succeed")
+	sb._on_day_started(1, "Spring", "Mon")
+	_check(sb.gold == 30, "successful sale should pay out quantity * unit_price overnight, got %d" % sb.gold)
+
 func _test_inventory_save_round_trip() -> void:
 	_reset_inventory_manager()
 	var im := InventoryManager
@@ -1363,6 +1506,13 @@ func _test_inventory_save_round_trip() -> void:
 
 func _reset_farm_plot_manager() -> void:
 	FarmPlotManager._plots = {}
+
+## #91: plant() now requires + consumes a real seed item -- tests that
+## expect plant() to succeed must stock the matching seed first. Call
+## this AFTER any _reset_inventory_manager() in the same test (that call
+## wipes _counts back to {}), not before.
+func _grant_seed_for_test(crop_id: String, quantity: int = 99) -> void:
+	InventoryManager.add_item(FarmPlotManager.get_seed_item_id(crop_id), quantity)
 
 func _on_crop_planted_for_test(position: Vector2i, crop_id: String) -> void:
 	_crop_planted_events.append([position, crop_id])
@@ -1387,6 +1537,7 @@ func _test_plant_and_water_and_growth_progresses_on_watered_days() -> void:
 	_reset_farm_plot_manager()
 	TimeManager.season_index = 0 # Spring
 	var fpm := FarmPlotManager
+	_grant_seed_for_test("parsnip")
 	_crop_planted_events = []
 	fpm.crop_planted.connect(_on_crop_planted_for_test)
 	var ok := fpm.plant(Vector2i(1, 1), "parsnip")
@@ -1408,6 +1559,7 @@ func _test_growth_does_not_progress_on_unwatered_days() -> void:
 	_reset_farm_plot_manager()
 	TimeManager.season_index = 0 # Spring
 	var fpm := FarmPlotManager
+	_grant_seed_for_test("parsnip")
 	fpm.plant(Vector2i(2, 2), "parsnip")
 	fpm._on_day_started(1, "Spring", "Mon") # never watered
 	var plot := fpm.get_plot(Vector2i(2, 2))
@@ -1418,6 +1570,7 @@ func _test_watered_today_resets_each_day() -> void:
 	_reset_farm_plot_manager()
 	TimeManager.season_index = 0 # Spring
 	var fpm := FarmPlotManager
+	_grant_seed_for_test("parsnip")
 	fpm.plant(Vector2i(3, 3), "parsnip")
 	fpm.water(Vector2i(3, 3))
 	fpm._on_day_started(1, "Spring", "Mon")
@@ -1428,6 +1581,7 @@ func _test_cannot_water_twice_same_day() -> void:
 	_reset_farm_plot_manager()
 	TimeManager.season_index = 0 # Spring
 	var fpm := FarmPlotManager
+	_grant_seed_for_test("parsnip")
 	fpm.plant(Vector2i(4, 4), "parsnip")
 	var first := fpm.water(Vector2i(4, 4))
 	var second := fpm.water(Vector2i(4, 4))
@@ -1446,6 +1600,7 @@ func _test_harvest_credits_inventory_and_xp_and_clears_plot() -> void:
 	TimeManager.season_index = 0 # Spring
 	SkillManager._xp = {}
 	var fpm := FarmPlotManager
+	_grant_seed_for_test("parsnip")
 	fpm.plant(Vector2i(5, 5), "parsnip")
 	_grow_to_harvest(Vector2i(5, 5), 4)
 	_check(fpm.get_plot(Vector2i(5, 5)).harvest_ready, "sanity: plot should be ready to harvest")
@@ -1469,6 +1624,7 @@ func _test_regrowable_crop_resets_instead_of_clearing() -> void:
 	_reset_inventory_manager()
 	TimeManager.season_index = 1 # Summer, Tomato
 	var fpm := FarmPlotManager
+	_grant_seed_for_test("tomato")
 	fpm.plant(Vector2i(6, 6), "tomato")
 	_grow_to_harvest(Vector2i(6, 6), 5) # tomato days_to_grow
 	fpm.harvest(Vector2i(6, 6), FarmPlotManager.QUALITY_NORMAL)
@@ -1490,6 +1646,7 @@ func _test_forced_quality_skips_random_roll() -> void:
 	_reset_inventory_manager()
 	TimeManager.season_index = 0
 	var fpm := FarmPlotManager
+	_grant_seed_for_test("parsnip")
 	fpm.plant(Vector2i(7, 7), "parsnip")
 	_grow_to_harvest(Vector2i(7, 7), 4)
 	var result := fpm.harvest(Vector2i(7, 7), FarmPlotManager.QUALITY_GOLD)
@@ -1518,6 +1675,7 @@ func _test_crop_withers_when_season_ends_unharvested() -> void:
 	_reset_farm_plot_manager()
 	TimeManager.season_index = 0 # Spring
 	var fpm := FarmPlotManager
+	_grant_seed_for_test("parsnip")
 	fpm.plant(Vector2i(8, 8), "parsnip")
 	fpm.water(Vector2i(8, 8))
 
@@ -1535,6 +1693,7 @@ func _test_farm_plot_save_round_trip() -> void:
 	_reset_inventory_manager()
 	TimeManager.season_index = 0 # Spring
 	var fpm := FarmPlotManager
+	_grant_seed_for_test("parsnip")
 	fpm.plant(Vector2i(9, 9), "parsnip")
 	fpm.water(Vector2i(9, 9))
 	fpm._on_day_started(1, "Spring", "Mon")
@@ -1548,6 +1707,98 @@ func _test_farm_plot_save_round_trip() -> void:
 	var plot := fpm.get_plot(Vector2i(9, 9))
 	_check(plot != null and plot.crop_id == "parsnip" and plot.days_grown == 1 and not plot.watered_today,
 		"farm plot state should round-trip through save/load, got %s" % [plot.to_dict() if plot else null])
+
+## --- #91: Seed economy (seeds as items, starting grant, purchase path) ---
+
+func _test_plant_without_seed_fails_cleanly() -> void:
+	_reset_farm_plot_manager()
+	_reset_inventory_manager()
+	TimeManager.season_index = 0 # Spring
+	var fpm := FarmPlotManager
+	_check(InventoryManager.get_count(fpm.get_seed_item_id("parsnip")) == 0,
+		"sanity: no parsnip seed should be on hand before this test grants any")
+	_crop_planted_events = []
+	fpm.crop_planted.connect(_on_crop_planted_for_test)
+	var ok := fpm.plant(Vector2i(0, 0), "parsnip")
+	fpm.crop_planted.disconnect(_on_crop_planted_for_test)
+
+	_check(not ok, "plant() should fail cleanly with no seed item in inventory")
+	_check(not fpm.is_planted(Vector2i(0, 0)), "a rejected plant() should leave the plot empty")
+	_check(_crop_planted_events.is_empty(), "crop_planted should not fire on a rejected plant()")
+
+func _test_plant_consumes_one_seed_from_inventory() -> void:
+	_reset_farm_plot_manager()
+	_reset_inventory_manager()
+	TimeManager.season_index = 0 # Spring
+	var fpm := FarmPlotManager
+	var seed_item_id := fpm.get_seed_item_id("parsnip")
+	InventoryManager.add_item(seed_item_id, 2)
+
+	var ok := fpm.plant(Vector2i(0, 0), "parsnip")
+	_check(ok, "plant() should succeed when a matching seed is on hand")
+	_check(InventoryManager.get_count(seed_item_id) == 1,
+		"plant() should consume exactly one seed, got %d remaining" % InventoryManager.get_count(seed_item_id))
+
+	InventoryManager.remove_item(seed_item_id, 1) # spend the last one
+	var second_ok := fpm.plant(Vector2i(1, 0), "parsnip")
+	_check(not second_ok, "plant() should fail once the seed stock is exhausted")
+
+func _test_buy_seed_deducts_gold_and_credits_inventory() -> void:
+	_reset_inventory_manager()
+	var fpm := FarmPlotManager
+	ShippingBinManager.gold = 1000
+	var seed_item_id := fpm.get_seed_item_id("parsnip")
+	var price := fpm.get_seed_price("parsnip")
+	_check(price > 0, "sanity: parsnip should have a positive seed_price configured")
+
+	_check(InventoryManager.get_count(seed_item_id) == 0, "sanity: no seeds on hand before purchase")
+	var ok := fpm.buy_seed("parsnip", 3)
+	_check(ok, "buy_seed should succeed with enough gold")
+	_check(InventoryManager.get_count(seed_item_id) == 3,
+		"buy_seed should credit InventoryManager with the purchased quantity, got %d" % InventoryManager.get_count(seed_item_id))
+	_check(ShippingBinManager.gold == 1000 - (price * 3),
+		"buy_seed should deduct quantity * seed_price gold, got %d" % ShippingBinManager.gold)
+
+func _test_buy_seed_fails_when_gold_insufficient() -> void:
+	_reset_inventory_manager()
+	var fpm := FarmPlotManager
+	var seed_item_id := fpm.get_seed_item_id("parsnip")
+	ShippingBinManager.gold = 1 # cheaper than any seed price
+
+	var ok := fpm.buy_seed("parsnip", 1)
+	_check(not ok, "buy_seed should fail cleanly when gold is insufficient")
+	_check(ShippingBinManager.gold == 1, "a rejected buy_seed should leave gold untouched")
+	_check(InventoryManager.get_count(seed_item_id) == 0, "a rejected buy_seed should credit no seeds")
+
+func _test_buy_seed_fails_for_unknown_crop() -> void:
+	ShippingBinManager.gold = 1000
+	var ok := FarmPlotManager.buy_seed("not_a_real_crop", 1)
+	_check(not ok, "buy_seed should fail cleanly for an unregistered crop_id")
+
+func _test_new_game_grants_starting_seeds() -> void:
+	SaveManager.new_game()
+	var seed_item_id := FarmPlotManager.get_seed_item_id(FarmPlotManager.STARTING_SEED_CROP_ID)
+	_check(InventoryManager.get_count(seed_item_id) == FarmPlotManager.STARTING_SEED_QUANTITY,
+		"new_game() should grant STARTING_SEED_QUANTITY starting seeds, got %d" % InventoryManager.get_count(seed_item_id))
+
+## ENG-LIST-CROP-IDS: get_all_crop_ids() must reflect exactly what
+## _register_default_content() actually registers -- same set, same
+## count, no duplicates -- since ShopOverlay now iterates it directly
+## instead of a hand-maintained CROP_IDS list.
+func _test_get_all_crop_ids_matches_registered_roster() -> void:
+	var expected := ["parsnip", "cauliflower", "tomato", "melon", "pumpkin", "corn", "frost_kale"]
+	var ids := FarmPlotManager.get_all_crop_ids()
+	_check(ids.size() == expected.size(),
+		"get_all_crop_ids() should return %d ids, got %d" % [expected.size(), ids.size()])
+	for crop_id in expected:
+		_check(ids.has(crop_id), "get_all_crop_ids() is missing expected crop_id '%s'" % crop_id)
+	var seen := {}
+	for crop_id in ids:
+		_check(not seen.has(crop_id), "get_all_crop_ids() returned duplicate crop_id '%s'" % crop_id)
+		seen[crop_id] = true
+	for crop_id in ids:
+		_check(FarmPlotManager.get_crop_definition(crop_id) != null,
+			"get_all_crop_ids() returned '%s' with no matching CropDefinition" % crop_id)
 
 ## --- ENG-17: Foraging (ForagingManager) ---
 
@@ -2917,6 +3168,7 @@ func _test_farm_scene_renders_empty_grid_on_ready() -> void:
 func _test_farm_scene_renders_already_planted_plot_on_ready() -> void:
 	_reset_farm_plot_manager()
 	TimeManager.season_index = 0 # Spring
+	_grant_seed_for_test("parsnip")
 	FarmPlotManager.plant(Vector2i(2, 3), "parsnip")
 	var farm_scene := _make_farm_scene()
 	_check(_farm_scene_cell_source(farm_scene, Vector2i(2, 3)) == Vector2i(FarmScene.STATE_PLANTED, 0),
@@ -2927,6 +3179,7 @@ func _test_farm_scene_updates_on_crop_planted_signal() -> void:
 	_reset_farm_plot_manager()
 	TimeManager.season_index = 0 # Spring
 	var farm_scene := _make_farm_scene()
+	_grant_seed_for_test("parsnip")
 	FarmPlotManager.plant(Vector2i(1, 1), "parsnip")
 	_check(_farm_scene_cell_source(farm_scene, Vector2i(1, 1)) == Vector2i(FarmScene.STATE_PLANTED, 0),
 		"planting should reactively update the tile to STATE_PLANTED via crop_planted")
@@ -2935,6 +3188,7 @@ func _test_farm_scene_updates_on_crop_planted_signal() -> void:
 func _test_farm_scene_updates_on_crop_watered_signal() -> void:
 	_reset_farm_plot_manager()
 	TimeManager.season_index = 0 # Spring
+	_grant_seed_for_test("parsnip")
 	FarmPlotManager.plant(Vector2i(4, 4), "parsnip")
 	var farm_scene := _make_farm_scene()
 	FarmPlotManager.water(Vector2i(4, 4))
@@ -2946,6 +3200,7 @@ func _test_farm_scene_updates_on_crop_harvested_signal() -> void:
 	_reset_farm_plot_manager()
 	TimeManager.season_index = 0 # Spring
 	_reset_inventory_manager()
+	_grant_seed_for_test("parsnip")
 	FarmPlotManager.plant(Vector2i(5, 5), "parsnip")
 	FarmPlotManager.get_plot(Vector2i(5, 5)).watered_today = true
 	FarmPlotManager.get_plot(Vector2i(5, 5)).days_grown = 4
@@ -2961,6 +3216,7 @@ func _test_farm_scene_updates_on_crop_harvested_signal() -> void:
 func _test_farm_scene_updates_on_crop_withered_signal() -> void:
 	_reset_farm_plot_manager()
 	TimeManager.season_index = 0 # Spring
+	_grant_seed_for_test("parsnip")
 	FarmPlotManager.plant(Vector2i(6, 6), "parsnip")
 	var farm_scene := _make_farm_scene()
 	FarmPlotManager._plots.erase(Vector2i(6, 6)) # mirror what FarmPlotManager._on_day_started does before it emits crop_withered
@@ -2972,6 +3228,7 @@ func _test_farm_scene_updates_on_crop_withered_signal() -> void:
 func _test_farm_scene_click_plants_empty_tile() -> void:
 	_reset_farm_plot_manager()
 	TimeManager.season_index = 0 # Spring
+	_grant_seed_for_test(FarmScene.PLACEHOLDER_PLANT_CROP_ID)
 	var farm_scene := _make_farm_scene()
 	_check(FarmPlotManager.get_plot(Vector2i(0, 0)) == null, "sanity: tile should start unplanted")
 	farm_scene._handle_tile_click(Vector2i(0, 0))
@@ -2987,6 +3244,25 @@ func _test_farm_scene_click_ignores_out_of_grid_position() -> void:
 	farm_scene._handle_tile_click(Vector2i(-1, -1)) # outside the GRID_WIDTH x GRID_HEIGHT bounds
 	_check(FarmPlotManager.get_plot(Vector2i(-1, -1)) == null,
 		"a click outside the rendered grid should be a no-op, not reach FarmPlotManager")
+	farm_scene.queue_free()
+
+## Art Squad (Studio Head-greenlit free-asset pass): decorative Kenney CC0
+## props are real Sprite2D children, not TileMap tiles -- confirms they
+## actually load and instantiate (a bad res:// path would silently no-op
+## per _add_decorative_props()'s own null check) without asserting on
+## exact pixel content, same discipline every other visual-only test here
+## follows.
+func _test_farm_scene_renders_decorative_props() -> void:
+	_reset_farm_plot_manager()
+	TimeManager.season_index = 0 # Spring
+	var farm_scene := _make_farm_scene()
+	var sprite_count := 0
+	for child in farm_scene.get_children():
+		if child is Sprite2D:
+			_check(child.texture != null, "each decorative prop Sprite2D should have a loaded texture")
+			sprite_count += 1
+	_check(sprite_count == FarmScene.DECORATIVE_PROPS.size(),
+		"FarmScene should instantiate exactly one decorative Sprite2D per DECORATIVE_PROPS entry, got %d" % sprite_count)
 	farm_scene.queue_free()
 
 ## --- Frontend: RanchScene (#52 sub-scope, world/tile-rendering for
@@ -3296,6 +3572,21 @@ func _test_mine_scene_click_ignores_out_of_grid_position() -> void:
 		"a click outside the rendered grid should be a no-op, not reach MiningManager")
 	mine_scene.queue_free()
 
+## Art Squad (Studio Head-greenlit free-asset pass): same discipline as
+## FarmScene's decorative-prop test -- confirms real Sprite2D children
+## with loaded textures, nothing about pixel content.
+func _test_mine_scene_renders_decorative_props() -> void:
+	MiningManager.generate_floor(1, 42)
+	var mine_scene := _make_mine_scene()
+	var sprite_count := 0
+	for child in mine_scene.get_children():
+		if child is Sprite2D:
+			_check(child.texture != null, "each decorative prop Sprite2D should have a loaded texture")
+			sprite_count += 1
+	_check(sprite_count == MineScene.DECORATIVE_PROP_PATHS.size(),
+		"MineScene should instantiate exactly one decorative Sprite2D per DECORATIVE_PROP_PATHS entry, got %d" % sprite_count)
+	mine_scene.queue_free()
+
 ## --- ENG-15: Fishing (FishingManager) ---
 
 func _test_available_fish_filters_by_location_season_hour() -> void:
@@ -3577,6 +3868,7 @@ func _test_sprinkler_system_auto_waters_all_plots() -> void:
 	InventoryManager.add_item("stone", 500)
 	InfrastructureManager.build_automation(InfrastructureManager.SPRINKLER_SYSTEM)
 
+	_grant_seed_for_test("parsnip")
 	FarmPlotManager.plant(Vector2i(0, 0), "parsnip")
 	FarmPlotManager.plant(Vector2i(1, 0), "parsnip")
 	_check(not FarmPlotManager.get_plot(Vector2i(0, 0)).watered_today,
@@ -3633,6 +3925,7 @@ func _test_automation_not_run_when_not_built() -> void:
 	_reset_farm_plot_manager()
 	_reset_animal_manager()
 
+	_grant_seed_for_test("parsnip")
 	FarmPlotManager.plant(Vector2i(0, 0), "parsnip")
 	AnimalManager.add_animal("hen1", "chicken")
 
@@ -3867,8 +4160,8 @@ func _test_marriage_save_round_trip() -> void:
 func _test_festival_definition_flavor_text_registers_and_looks_up() -> void:
 	_reset_festival_manager()
 	var def := FestivalManager.get_festival_definition("bloomtide_fair")
-	_check(def.flavor_text == "",
-		"the default-registered festivals ship with no flavor_text yet -- a documented Content/Writer gap, not a bug")
+	_check(def.flavor_text == "The whole town turns out for the first real warmth of the year -- stalls of seedlings, ribbon-tied bouquets, and more mud on everyone's boots than usual.",
+		"the default-registered festivals now ship real flavor_text (Content/Writer-Squad pass), not the old empty placeholder")
 
 	var custom := FestivalDefinition.new()
 	custom.festival_id = "test_custom_festival"
@@ -4474,6 +4767,12 @@ func _test_audio_default_sfx_and_music_are_registered() -> void:
 	_check(AudioManager.is_sfx_registered("harvest"), "default 'harvest' sfx should be registered on ready")
 	_check(AudioManager.is_sfx_registered("heart"), "default 'heart' sfx should be registered on ready")
 	_check(AudioManager.is_sfx_registered("wedding"), "default 'wedding' sfx should be registered on ready")
+	_check(AudioManager.is_sfx_registered("levelup"), "default 'levelup' sfx should be registered on ready")
+	_check(AudioManager.is_sfx_registered("quest_complete"), "default 'quest_complete' sfx should be registered on ready")
+	_check(AudioManager.is_sfx_registered("upgrade"), "default 'upgrade' sfx should be registered on ready")
+	_check(AudioManager.is_sfx_registered("festival_start"), "default 'festival_start' sfx should be registered on ready")
+	_check(AudioManager.is_sfx_registered("festival_end"), "default 'festival_end' sfx should be registered on ready")
+	_check(AudioManager.is_sfx_registered("bundle_complete"), "default 'bundle_complete' sfx should be registered on ready")
 	_check(AudioManager.is_music_registered("ambient"), "default 'ambient' music track should be registered on ready")
 	_check(not AudioManager.is_sfx_registered("no_such_sfx"), "an unregistered sfx_id should report as not registered")
 
@@ -4602,6 +4901,72 @@ func _test_married_triggers_wedding_sfx() -> void:
 	AudioManager.sfx_played.disconnect(_on_sfx_played_for_test)
 	AudioManager.stop_sfx()
 
+func _test_level_changed_triggers_levelup_sfx() -> void:
+	_sfx_played_events = []
+	AudioManager.sfx_played.connect(_on_sfx_played_for_test)
+
+	SkillManager.level_changed.emit("farming", 2, 1)
+
+	_check(_sfx_played_events == ["levelup"],
+		"SkillManager.level_changed should trigger the 'levelup' sfx, got %s" % [_sfx_played_events])
+	AudioManager.sfx_played.disconnect(_on_sfx_played_for_test)
+	AudioManager.stop_sfx()
+
+func _test_quest_completed_triggers_quest_complete_sfx() -> void:
+	_sfx_played_events = []
+	AudioManager.sfx_played.connect(_on_sfx_played_for_test)
+
+	QuestManager.quest_completed.emit("deliver_wood", "house_tier_1_unlocked")
+
+	_check(_sfx_played_events == ["quest_complete"],
+		"QuestManager.quest_completed should trigger the 'quest_complete' sfx, got %s" % [_sfx_played_events])
+	AudioManager.sfx_played.disconnect(_on_sfx_played_for_test)
+	AudioManager.stop_sfx()
+
+func _test_tool_upgraded_triggers_upgrade_sfx() -> void:
+	_sfx_played_events = []
+	AudioManager.sfx_played.connect(_on_sfx_played_for_test)
+
+	ToolManager.tool_upgraded.emit("hoe", 2)
+
+	_check(_sfx_played_events == ["upgrade"],
+		"ToolManager.tool_upgraded should trigger the 'upgrade' sfx, got %s" % [_sfx_played_events])
+	AudioManager.sfx_played.disconnect(_on_sfx_played_for_test)
+	AudioManager.stop_sfx()
+
+func _test_festival_started_triggers_festival_start_sfx() -> void:
+	_sfx_played_events = []
+	AudioManager.sfx_played.connect(_on_sfx_played_for_test)
+
+	FestivalManager.festival_started.emit("harvest_festival")
+
+	_check(_sfx_played_events == ["festival_start"],
+		"FestivalManager.festival_started should trigger the 'festival_start' sfx, got %s" % [_sfx_played_events])
+	AudioManager.sfx_played.disconnect(_on_sfx_played_for_test)
+	AudioManager.stop_sfx()
+
+func _test_festival_ended_triggers_festival_end_sfx() -> void:
+	_sfx_played_events = []
+	AudioManager.sfx_played.connect(_on_sfx_played_for_test)
+
+	FestivalManager.festival_ended.emit("harvest_festival")
+
+	_check(_sfx_played_events == ["festival_end"],
+		"FestivalManager.festival_ended should trigger the 'festival_end' sfx, got %s" % [_sfx_played_events])
+	AudioManager.sfx_played.disconnect(_on_sfx_played_for_test)
+	AudioManager.stop_sfx()
+
+func _test_bundle_completed_triggers_bundle_complete_sfx() -> void:
+	_sfx_played_events = []
+	AudioManager.sfx_played.connect(_on_sfx_played_for_test)
+
+	CommunityGoalManager.bundle_completed.emit("pantry_bundle")
+
+	_check(_sfx_played_events == ["bundle_complete"],
+		"CommunityGoalManager.bundle_completed should trigger the 'bundle_complete' sfx, got %s" % [_sfx_played_events])
+	AudioManager.sfx_played.disconnect(_on_sfx_played_for_test)
+	AudioManager.stop_sfx()
+
 func _test_stop_sfx_is_idempotent_and_leaves_player_reusable() -> void:
 	AudioManager.stop_sfx() # nothing playing yet -- should not error
 	AudioManager.play_sfx("coin")
@@ -4614,6 +4979,46 @@ func _test_stop_sfx_is_idempotent_and_leaves_player_reusable() -> void:
 	_check(result == true, "play_sfx should still succeed after stop_sfx() left the player idle")
 	_check(_sfx_played_events == ["coin"],
 		"play_sfx after stop_sfx should still fire sfx_played normally, got %s" % [_sfx_played_events])
+	AudioManager.sfx_played.disconnect(_on_sfx_played_for_test)
+	AudioManager.stop_sfx()
+
+## register_sfx_asset() edge cases -- the four real-asset default SFX
+## (coin/harvest/heart/wedding, assets/kenney/interface-sounds/, see that
+## directory's ATTRIBUTION.md) are already covered implicitly:
+## _test_audio_default_sfx_and_music_are_registered() above would fail if
+## any of their .wav files had failed to load, since a failed load leaves
+## the sfx_id unregistered per register_sfx_asset's own fail-quiet
+## contract -- exercised directly here instead of just relied upon.
+
+func _test_register_sfx_asset_invalid_path_is_noop() -> void:
+	_check(not AudioManager.is_sfx_registered("_test_bad_asset_sfx"),
+		"sanity: this test's sfx_id should not already be registered")
+
+	AudioManager.register_sfx_asset("_test_bad_asset_sfx", "res://assets/kenney/interface-sounds/does_not_exist.wav")
+
+	_check(not AudioManager.is_sfx_registered("_test_bad_asset_sfx"),
+		"register_sfx_asset with a path that fails to load should not register the sfx_id")
+
+func _test_register_sfx_asset_empty_args_are_noop() -> void:
+	AudioManager.register_sfx_asset("", "res://assets/kenney/interface-sounds/pluck_001.wav")
+	_check(not AudioManager.is_sfx_registered(""),
+		"register_sfx_asset with an empty sfx_id should not register anything")
+
+	AudioManager.register_sfx_asset("_test_empty_path_sfx", "")
+	_check(not AudioManager.is_sfx_registered("_test_empty_path_sfx"),
+		"register_sfx_asset with an empty path should not register anything")
+
+func _test_register_sfx_asset_valid_path_is_playable() -> void:
+	AudioManager.register_sfx_asset("_test_real_asset_sfx", "res://assets/kenney/interface-sounds/pluck_001.wav")
+	_check(AudioManager.is_sfx_registered("_test_real_asset_sfx"),
+		"register_sfx_asset with a real .wav path should register the sfx_id")
+
+	_sfx_played_events = []
+	AudioManager.sfx_played.connect(_on_sfx_played_for_test)
+	var result := AudioManager.play_sfx("_test_real_asset_sfx")
+	_check(result == true, "play_sfx on a freshly registered real-asset sfx should succeed")
+	_check(_sfx_played_events == ["_test_real_asset_sfx"],
+		"play_sfx on a real-asset sfx should still fire sfx_played normally, got %s" % [_sfx_played_events])
 	AudioManager.sfx_played.disconnect(_on_sfx_played_for_test)
 	AudioManager.stop_sfx()
 
@@ -4761,3 +5166,297 @@ func _test_npc_controller_sprite_tint_is_deterministic_per_name() -> void:
 	npc_a.queue_free()
 	npc_b.queue_free()
 	npc_c.queue_free()
+
+## --- Frontend: Title screen (#92) ---
+##
+## Same discipline as the other frontend blocks: what's meaningfully
+## testable headlessly is scene instantiation, the spec §1 menu shape,
+## Continue's SaveManager.has_save_file() gating, and the state-only
+## prepare_* halves of the New Game / Continue actions. The navigating
+## buttons themselves are never emitted here -- their handlers end in
+## get_tree().change_scene_to_file()/quit(), which would swap the
+## TestRunner scene out from under this suite (same reason pause_menu.gd's
+## quit button is never emitted) -- so those handlers stay thin pairings
+## of tested prepare halves and an untested one-line navigation tail.
+## Every test bookends its disk writes with SaveManager.delete_save_file(),
+## matching the save/load round-trip tests above.
+
+func _make_title_screen() -> TitleScreen:
+	var scene: PackedScene = load("res://scenes/ui/TitleScreen.tscn")
+	var title_screen: TitleScreen = scene.instantiate()
+	add_child(title_screen)
+	return title_screen
+
+func _title_screen_continue_button(title_screen: TitleScreen) -> Button:
+	return title_screen.get_node("Root/MenuPanel/Margin/VBox/ContinueButton") as Button
+
+func _test_title_screen_instantiates_with_spec_menu_shape() -> void:
+	SaveManager.delete_save_file()
+	var title_screen := _make_title_screen()
+	var vbox: Node = title_screen.get_node("Root/MenuPanel/Margin/VBox")
+	_check(vbox.get_node_or_null("NewGameButton") is Button,
+		"Title screen should offer a New Game button per spec §1")
+	_check(_title_screen_continue_button(title_screen) != null,
+		"Title screen should offer a Continue button per spec §1")
+	_check((vbox.get_node("SettingsButton") as Button).disabled,
+		"Settings should be a disabled placeholder while no settings system exists, not a faked screen")
+	_check(vbox.get_node_or_null("QuitButton") is Button,
+		"Title screen should offer Quit per spec §1")
+	title_screen.queue_free()
+
+func _test_title_screen_continue_disabled_without_save() -> void:
+	SaveManager.delete_save_file()
+	_check(not SaveManager.has_save_file(), "sanity: no save file should exist after delete_save_file()")
+	var title_screen := _make_title_screen()
+	_check(_title_screen_continue_button(title_screen).disabled,
+		"Continue should be disabled when SaveManager.has_save_file() is false")
+	title_screen.queue_free()
+
+func _test_title_screen_continue_enabled_with_save() -> void:
+	SaveManager.delete_save_file()
+	SaveManager.save_game() # writes a save file from the managers' current state
+	_check(SaveManager.has_save_file(), "sanity: save_game() should have created the save file")
+	var title_screen := _make_title_screen()
+	_check(not _title_screen_continue_button(title_screen).disabled,
+		"Continue should be enabled when SaveManager.has_save_file() is true")
+	title_screen.queue_free()
+	SaveManager.delete_save_file()
+
+func _test_title_screen_new_game_prepares_fresh_state_and_persists() -> void:
+	SaveManager.delete_save_file()
+	SaveManager.mark_intro_seen() # dirties meta save state AND persists it to disk
+	TimeManager.year = 7 # public-field poke, same discipline as the save/load round-trip test
+	var title_screen := _make_title_screen()
+	title_screen.prepare_new_game()
+	_check(not SaveManager.has_seen_intro(),
+		"New Game should reset intro_seen via SaveManager.new_game() so the intro plays again on the fresh save")
+	_check(TimeManager.year == 1,
+		"New Game should reset time to fresh-boot defaults, got year=%d" % TimeManager.year)
+	_check(SaveManager.has_save_file(),
+		"prepare_new_game should leave a persisted fresh save for MainController's boot load-or-new to pick up")
+	title_screen.queue_free()
+	SaveManager.delete_save_file()
+
+func _test_title_screen_continue_prepare_loads_or_reports_failure() -> void:
+	SaveManager.delete_save_file()
+	var title_screen := _make_title_screen()
+	_check(not title_screen.prepare_continue(),
+		"prepare_continue should report failure with no save file, leaving the player on the title screen")
+	SaveManager.mark_intro_seen() # persists intro_seen = true
+	SaveManager.intro_seen = false # simulate a fresh boot's in-memory state (same public poke as the round-trip test)
+	_check(title_screen.prepare_continue(),
+		"prepare_continue should load an existing save and report success")
+	_check(SaveManager.has_seen_intro(),
+		"the loaded save should restore system state (intro_seen here), i.e. Continue lands where the player was")
+	# Corrupt-file edge: has_save_file() gates on existence, not readability,
+	# so Continue can be offered/clicked with garbage on disk -- the honest
+	# behavior is reporting failure here rather than routing into Main.tscn,
+	# whose load-or-new fallback would silently start a brand-new game.
+	SaveManager.delete_save_file()
+	var corrupt := FileAccess.open(SaveManager.SAVE_PATH, FileAccess.WRITE)
+	corrupt.store_string("this is not json{")
+	corrupt.close()
+	_check(SaveManager.has_save_file(), "sanity: the corrupt placeholder file should exist on disk")
+	_check(not title_screen.prepare_continue(),
+		"prepare_continue should report failure on a corrupt save instead of silently becoming a new game")
+	title_screen.queue_free()
+	SaveManager.delete_save_file()
+
+## --- Issue #90: active-festival state re-derived on boot/save-load ---
+
+func _test_festival_survives_save_reload_same_day() -> void:
+	var tm := TimeManager
+	tm.year = 1
+	tm.season_index = 0 ## Spring -- bloomtide_fair is day 13 (the #90 repro)
+	tm.day_in_season = 13
+	tm.hour = 6
+	tm.minute = 0
+	FestivalManager.end_festival() ## fresh-process baseline: nothing active
+	_check(FestivalManager.start_festival("bloomtide_fair"), "#90 setup: start_festival should succeed on its own day")
+	var saved := SaveManager.build_save_data()
+	## Simulate quit+relaunch: a brand-new process has no transient festival
+	## state and default clock values until load_game() applies the save.
+	FestivalManager.end_festival()
+	tm.year = 1
+	tm.season_index = 0
+	tm.day_in_season = 1
+	tm.hour = TimeManager.DAY_START_HOUR
+	tm.minute = 0
+	SaveManager.apply_save_data(saved)
+	_check(FestivalManager.is_festival_active(), "#90: festival saved mid-festival must be active again after reload")
+	_check(FestivalManager.get_active_festival() != null \
+		and FestivalManager.get_active_festival().festival_id == "bloomtide_fair",
+		"#90: re-derived festival should be bloomtide_fair")
+	_check(TimeManager.is_frozen(), "#90: clock should be frozen again by re-derivation")
+	FestivalManager.end_festival() ## cleanup for later tests
+
+func _test_non_festival_day_stays_inactive_after_reload() -> void:
+	var tm := TimeManager
+	FestivalManager.festival_started.connect(_on_festival_started_for_test)
+	_festival_started_events.clear()
+	tm.season_index = 0
+	tm.day_in_season = 12 ## Spring 12: the day BEFORE bloomtide_fair
+	tm.hour = 10
+	tm.minute = 0
+	FestivalManager.end_festival()
+	var saved := SaveManager.build_save_data()
+	SaveManager.apply_save_data(saved)
+	_check(not FestivalManager.is_festival_active(), "#90: non-festival-day save must stay inactive after reload")
+	_check(_festival_started_events.is_empty(), "#90: reload on a non-festival day must not emit festival_started")
+	FestivalManager.festival_started.disconnect(_on_festival_started_for_test)
+
+func _test_saved_mid_festival_loaded_past_end_stays_expired() -> void:
+	var tm := TimeManager
+	FestivalManager.festival_started.connect(_on_festival_started_for_test)
+	tm.season_index = 1 ## Summer -- sunfield_revel is day 15
+	tm.day_in_season = 15
+	tm.hour = 7
+	tm.minute = 30
+	FestivalManager.end_festival()
+	FestivalManager.start_festival("sunfield_revel")
+	var saved := SaveManager.build_save_data()
+	## The player kept playing past the festival before quitting, so the
+	## loaded state's date has moved past the festival day.
+	saved["time"]["day_in_season"] = 16
+	tm.season_index = 0
+	tm.day_in_season = 1
+	tm.hour = TimeManager.DAY_START_HOUR
+	tm.minute = 0
+	_festival_started_events.clear() ## drop the setup run's own emission
+	SaveManager.apply_save_data(saved)
+	_check(not FestivalManager.is_festival_active(), "#90: festival whose day has passed must stay expired after reload")
+	_check(_festival_started_events.is_empty(), "#90: expired festival must not emit festival_started on reload")
+	_check(tm.season_index == 1 and tm.day_in_season == 16 and tm.hour == 7, "#90: restored date/hour should match the save payload")
+	FestivalManager.festival_started.disconnect(_on_festival_started_for_test)
+
+## --- Frontend: Seed Shop overlay (#123, ENG-91/PR #122's UI-hook gap) ---
+##
+## Same discipline as the Skills/Inventory overlay blocks above: pure
+## display primed once from FarmPlotManager/CropDefinition, kept in sync
+## via seed_purchased/gold_changed, no ShopOverlay-local duplicate state.
+
+func _reset_shipping_bin_manager_gold(amount: int = ShippingBinManager.STARTING_GOLD) -> void:
+	ShippingBinManager.gold = amount
+
+func _make_shop_overlay() -> ShopOverlay:
+	var scene: PackedScene = load("res://scenes/ui/ShopOverlay.tscn")
+	var overlay: ShopOverlay = scene.instantiate()
+	add_child(overlay)
+	return overlay
+
+func _test_farm_scene_b_key_toggles_shop_overlay() -> void:
+	_reset_farm_plot_manager()
+	TimeManager.season_index = 0 # Spring
+	var farm_scene := _make_farm_scene()
+	_check(farm_scene.get_node_or_null("ShopOverlay") == null, "sanity: shop overlay should not exist until toggled")
+	var key_event := InputEventKey.new()
+	key_event.pressed = true
+	key_event.physical_keycode = KEY_B
+	farm_scene._unhandled_input(key_event)
+	_check(farm_scene.get_node_or_null("ShopOverlay") != null, "pressing B should open the ShopOverlay as a child of FarmScene")
+	farm_scene._unhandled_input(key_event)
+	_check(farm_scene.get_node_or_null("ShopOverlay") == null, "pressing B again should close the ShopOverlay")
+	farm_scene.queue_free()
+
+## --- Frontend: villager instantiation (#102) ---
+##
+## FarmScene is the representative case here (RanchScene/MineScene/
+## ForageScene all mirror the exact same _add_dynamic_layer/_add_villagers/
+## _npc_at_local_point/_open_relationships_for pattern, per each file's own
+## docstring) -- same "one scene gets full coverage, the rest mirror it
+## exactly" precedent every prior world-scene test block already follows.
+
+func _test_farm_scene_instantiates_one_npc_per_home_villager() -> void:
+	_reset_farm_plot_manager()
+	TimeManager.season_index = 0 # Spring
+	var farm_scene := _make_farm_scene()
+	var dynamic_layer: Node2D = farm_scene.get_node("DynamicLayer")
+	_check(dynamic_layer.y_sort_enabled, "dynamic entities should sit under a YSort-enabled layer per isometric-grid-spec.md section 4")
+
+	var npc_names: Array[String] = []
+	for child in dynamic_layer.get_children():
+		if child is NPCController:
+			npc_names.append(child.npc_name)
+	for expected_name in NPCRoster.npcs_for_scene("Farm"):
+		_check(npc_names.has(expected_name), "%s should be instantiated as an NPCController under FarmScene's DynamicLayer" % expected_name)
+	_check(npc_names.size() == NPCRoster.npcs_for_scene("Farm").size(),
+		"FarmScene should instantiate exactly its own NPCRoster.npcs_for_scene('Farm') villagers, no more")
+	farm_scene.queue_free()
+
+func _test_farm_scene_clicking_a_villager_opens_relationships_overlay() -> void:
+	_reset_farm_plot_manager()
+	TimeManager.season_index = 0 # Spring
+	var farm_scene := _make_farm_scene()
+	_check(farm_scene.get_node_or_null("RelationshipsOverlay") == null, "sanity: no overlay before any click")
+
+	var dynamic_layer: Node2D = farm_scene.get_node("DynamicLayer")
+	var an_npc: NPCController = null
+	for child in dynamic_layer.get_children():
+		if child is NPCController:
+			an_npc = child
+			break
+	_check(an_npc != null, "sanity: FarmScene should have at least one villager to click")
+
+	var clicked := farm_scene._npc_at_local_point(an_npc.position)
+	_check(clicked == an_npc, "a point at the villager's own anchor position should hit-test to that villager")
+	farm_scene._open_relationships_for(an_npc.npc_name)
+	_check(farm_scene.get_node_or_null("RelationshipsOverlay") != null,
+		"clicking a villager should open the existing RelationshipsOverlay, not a new dialog system")
+	farm_scene.queue_free()
+
+func _test_farm_scene_click_far_from_any_villager_does_not_open_overlay() -> void:
+	_reset_farm_plot_manager()
+	TimeManager.season_index = 0 # Spring
+	var farm_scene := _make_farm_scene()
+	var far_point := Vector2(10000, 10000)
+	_check(farm_scene._npc_at_local_point(far_point) == null, "a point far from every villager should not hit-test to any of them")
+	farm_scene.queue_free()
+
+func _test_shop_overlay_lists_all_known_crops_on_ready() -> void:
+	var overlay := _make_shop_overlay()
+	for crop_id in FarmPlotManager.get_all_crop_ids():
+		var def: CropDefinition = FarmPlotManager.get_crop_definition(crop_id)
+		var price_label: Label = overlay.get_node("Root/Panel/Margin/VBox/SeedList/Row_%s/PriceLabel_%s" % [crop_id, crop_id])
+		_check(price_label.text == "%s seed -- %d gold" % [def.display_name, def.seed_price],
+			"overlay should list %s with its real CropDefinition.seed_price" % crop_id)
+	overlay.queue_free()
+
+func _test_shop_overlay_buy_button_success_updates_status_and_gold() -> void:
+	_reset_inventory_manager()
+	_reset_shipping_bin_manager_gold(1000)
+	var overlay := _make_shop_overlay()
+	var parsnip_price := FarmPlotManager.get_seed_price("parsnip")
+	overlay.get_node("Root/Panel/Margin/VBox/SeedList/Row_parsnip/BuyButton_parsnip").pressed.emit()
+	_check(InventoryManager.get_count(FarmPlotManager.get_seed_item_id("parsnip")) == 1,
+		"buying should credit one seed via the real buy_seed() call")
+	_check(ShippingBinManager.gold == 1000 - parsnip_price,
+		"buying should spend seed_price gold via the real buy_seed() call")
+	_check(overlay.get_node("Root/Panel/Margin/VBox/StatusLabel").text == "Bought 1 Parsnip seed.",
+		"a successful purchase should report success back to the player")
+	_check(overlay.get_node("Root/Panel/Margin/VBox/Header/GoldLabel").text == "Gold: %d" % ShippingBinManager.gold,
+		"the gold label should update reactively via gold_changed")
+	overlay.queue_free()
+
+func _test_shop_overlay_buy_button_insufficient_gold_shows_failure() -> void:
+	_reset_inventory_manager()
+	_reset_shipping_bin_manager_gold(0)
+	var overlay := _make_shop_overlay()
+	overlay.get_node("Root/Panel/Margin/VBox/SeedList/Row_parsnip/BuyButton_parsnip").pressed.emit()
+	_check(InventoryManager.get_count(FarmPlotManager.get_seed_item_id("parsnip")) == 0,
+		"a failed purchase (insufficient gold) must not credit a seed")
+	_check(ShippingBinManager.gold == 0, "a failed purchase must not spend any gold")
+	_check(overlay.get_node("Root/Panel/Margin/VBox/StatusLabel").text == "Can't buy Parsnip seed -- not enough gold.",
+		"a failed purchase should report the failure back to the player")
+	overlay.queue_free()
+	_reset_shipping_bin_manager_gold()
+
+func _on_shop_overlay_closed_for_test() -> void:
+	_shop_overlay_closed_count += 1
+
+func _test_shop_overlay_close_emits_closed_signal() -> void:
+	_shop_overlay_closed_count = 0
+	var overlay := _make_shop_overlay()
+	overlay.closed.connect(_on_shop_overlay_closed_for_test)
+	overlay.get_node("Root/Panel/Margin/VBox/Header/CloseButton").pressed.emit()
+	_check(_shop_overlay_closed_count == 1, "pressing Close should emit the closed signal exactly once")
+	overlay.queue_free()
