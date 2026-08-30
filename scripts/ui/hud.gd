@@ -68,13 +68,13 @@ func _refresh_hotbar() -> void:
 			var count: int = items[item_id]
 			label.text = "x%d" % count
 			
-			# Polished: Link to asset manifest if possible
-			# We assume a naming convention: res://assets/pixelart/items/<item_id>.png
-			var path := "res://assets/pixelart/items/%s.png" % item_id
-			if FileAccess.file_exists(path):
-				icon.texture = load(path)
-			else:
-				icon.texture = null
+			# Link to generated pixelart icons (assets/pixelart/items/icon_<id>.png with fallback)
+			var tex: Texture2D = null
+			for cand in ["res://assets/pixelart/items/icon_%s.png" % item_id, "res://assets/pixelart/items/%s.png" % item_id]:
+				if FileAccess.file_exists(cand):
+					tex = load(cand)
+					break
+			icon.texture = tex
 			
 			slot.visible = true
 		else:

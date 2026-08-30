@@ -22,13 +22,13 @@ def stalk(img, x, top, bot, c):
 
 
 CROPS = {
-    "parsnip": ((240, 230, 186), (200, 176, 120), (196, 156, 96)),
-    "cauliflower": ((232, 226, 200), (208, 224, 168), (192, 170, 120)),
-    "tomato": ((96, 166, 64), (206, 74, 58), (76, 138, 50)),
-    "melon": ((116, 178, 72), (150, 196, 92), (212, 150, 74)),
-    "pumpkin": ((186, 122, 44), (214, 150, 66), (96, 156, 60)),
-    "corn": ((138, 176, 70), (208, 186, 92), (140, 106, 50)),
-    "frost_kale": ((96, 140, 150), (150, 190, 190), (66, 120, 132)),
+    "parsnip": ((118, 168, 64), (232, 214, 160), (184, 144, 92)),
+    "cauliflower": ((112, 172, 78), (238, 236, 218), (96, 148, 72)),
+    "tomato": ((84, 168, 52), (218, 62, 48), (76, 138, 50)),
+    "melon": ((104, 182, 62), (92, 186, 84), (212, 150, 74)),
+    "pumpkin": ((186, 122, 44), (232, 138, 48), (96, 156, 60)),
+    "corn": ((126, 180, 62), (232, 202, 84), (140, 106, 50)),
+    "frost_kale": ((84, 148, 162), (162, 200, 210), (66, 120, 132)),
 }
 
 
@@ -64,9 +64,12 @@ def stage_sprite(rgb_leaf, rgb_fruit, rgb_stem, stage, kind):
             for dx in (-6, -3, 3, 6):
                 leaf(img, cx + dx, base - 9 - (3 - abs(dx) // 2), rgb_leaf,
                      1 if dx >= 0 else -1)
+            # fruit cluster with highlight + shadow for readability
             rect(img, cx - 5, base - 6, cx - 3, base - 4, rgb_fruit)
             rect(img, cx - 1, base - 5, cx + 1, base - 4, rgb_fruit)
             rect(img, cx + 2, base - 7, cx + 4, base - 5, rgb_fruit)
+            px(img, cx - 4, base - 6, (min(255, rgb_fruit[0]+40), min(255, rgb_fruit[1]+40), min(255, rgb_fruit[2]+30)))
+            px(img, cx + 3, base - 6, (max(0, rgb_fruit[0]-30), max(0, rgb_fruit[1]-30), max(0, rgb_fruit[2]-20)))
     ellipse(img, cx, base - 2, 7, 2, (0, 0, 0, 66))
     return outline(img)
 

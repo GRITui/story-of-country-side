@@ -146,6 +146,20 @@ const DECORATIVE_PROPS := [
 	{"path": "res://assets/kenney/isometric-miniature-farm/cornDouble_S.png", "grid_pos": Vector2i(8, 2)},
 ]
 
+## Generated pixelart props (assets/pixelart/props/) — bottom-center anchored,
+## placed at border grid positions via TileMap.map_to_local. Complements the
+## kenney props above. Loaded with fallback (missing file = skip).
+const PIXELART_PROPS := [
+	{"path": "res://assets/pixelart/props/tree.png", "grid_pos": Vector2i(-1, 1)},
+	{"path": "res://assets/pixelart/props/pine.png", "grid_pos": Vector2i(-1, 7)},
+	{"path": "res://assets/pixelart/props/farmhouse.png", "grid_pos": Vector2i(3, -2)},
+	{"path": "res://assets/pixelart/props/shipping_bin.png", "grid_pos": Vector2i(9, 3)},
+	{"path": "res://assets/pixelart/props/fence_h.png", "grid_pos": Vector2i(1, -1)},
+	{"path": "res://assets/pixelart/props/fence_v.png", "grid_pos": Vector2i(-1, 0)},
+	{"path": "res://assets/pixelart/props/well.png", "grid_pos": Vector2i(8, 5)},
+	{"path": "res://assets/pixelart/props/bush.png", "grid_pos": Vector2i(9, 1)},
+]
+
 @onready var _tilemap: TileMap = $TileMap
 var _player_avatar: PlayerAvatar
 var _shop_overlay: ShopOverlay
@@ -166,25 +180,82 @@ func _ready() -> void:
 	FarmPlotManager.crop_harvested.connect(_on_crop_harvested)
 	FarmPlotManager.crop_withered.connect(_on_crop_withered)
 
-## Builds one TileSet at runtime via ProceduralTileArt — see class
-## docstring and scripts/world/procedural_tile_art.gd for why there's no
-## art asset to load instead. tile_shape/tile_layout/tile_size match
-## design/art/isometric-grid-spec.md sections 1-2 exactly (enforced inside
-## the shared generator).
+## Builds one TileSet at runtime: tries to load generated pixelart tiles
+## (assets/pixelart/tiles/*.png, 64x32 isometric diamonds per
+## design/art/isometric-grid-spec.md) and falls back to ProceduralTileArt
+## if any PNG is missing. Tile shape/layout/size stay locked to the spec's
+## 64x32 / TILE_SHAPE_ISOMETRIC / TILE_LAYOUT_DIAMOND_DOWN convention.
 func _build_tileset() -> void:
-	_tilemap.tile_set = ProceduralTileArt.build_isometric_tileset(STATE_COLORS, TILE_WIDTH, TILE_HEIGHT, ATLAS_SOURCE_ID, [STATE_READY])
+	var png_map := {
+		STATE_EMPTY: "res://assets/pixelart/tiles/grass.png",
+		STATE_PLANTED: "res://assets/pixelart/tiles/farmland.png",
+		STATE_WATERED: "res://assets/pixelart/tiles/farmland_watered.png",
+		STATE_READY: "res://assets/pixelart/tiles/grass_clover.png",
+		STATE_WITHERED: "res://assets/pixelart/tiles/dirt.png",
+	}
+	var tileset := _try_build_pixelart_tileset(png_map, [STATE_READY])
+	if tileset != null:
+		_tilemap.tile_set = tileset
+	else:
+		_tilemap.tile_set = ProceduralTileArt.build_isometric_tileset(STATE_COLORS, TILE_WIDTH, TILE_HEIGHT, ATLAS_SOURCE_ID, [STATE_READY])
+
+## Attempts to build an atlas TileSet from the PNGs in png_map (state->path).
+## Returns null if any file is missing or image extraction fails, letting
+## the caller fall back to ProceduralTileArt. Preserves the 64x32 isometric
+## tile_shape/layout/size contract.
+func _try_build_pixelart_tileset(png_map: Dictionary, _glow_states: Array = []) -> TileSet:
+	var states: Array = png_map.keys()
+	states.sort()
+	var textures: Dictionary = {}
+	for state in states:
+		var tex: Texture2D = load(png_map[state])
+		if tex == null or tex.get_image() == null:
+			return null
+		textures[state] = tex
+	# Stitch into a single row atlas (same layout ProceduralTileArt uses)
+	var atlas_img := Image.create(TILE_WIDTH * states.size(), TILE_HEIGHT, false, Image.FORMAT_RGBA8)
+	for i in range(states.size()):
+		var tex: Texture2D = textures[states[i]]
+		var img: Image = tex.get_image()
+		# Ensure image is the expected size; blit what we have.
+		var w: int = mini(img.get_width(), TILE_WIDTH)
+		var h: int = mini(img.get_height(), TILE_HEIGHT)
+		atlas_img.blit_rect(img, Rect2i(0, 0, w, h), Vector2i(i * TILE_WIDTH, 0))
+	var atlas_tex := ImageTexture.create_from_image(atlas_img)
+	var tile_set := TileSet.new()
+	tile_set.tile_shape = TileSet.TILE_SHAPE_ISOMETRIC
+	tile_set.tile_layout = TileSet.TILE_LAYOUT_DIAMOND_DOWN
+	tile_set.tile_size = Vector2i(TILE_WIDTH, TILE_HEIGHT)
+	var src := TileSetAtlasSource.new()
+	src.texture = atlas_tex
+	src.texture_region_size = Vector2i(TILE_WIDTH, TILE_HEIGHT)
+	for i in range(states.size()):
+		src.create_tile(Vector2i(i, 0))
+	tile_set.add_source(src, ATLAS_SOURCE_ID)
+	return tile_set
 
 func _render_all_plots() -> void:
 	for x in range(GRID_WIDTH):
 		for y in range(GRID_HEIGHT):
 			_refresh_tile(Vector2i(x, y))
 
-## Instantiates DECORATIVE_PROPS as bottom-anchored Sprite2D children (see
-## class docstring) -- map_to_local() already applies the isometric
-## transform, same as the interactive plot cells, so props line up with
-## the grid without duplicating the coordinate math.
+## Instantiates DECORATIVE_PROPS + PIXELART_PROPS as bottom-anchored
+## Sprite2D children (see class docstring) -- map_to_local() already applies
+## the isometric transform, same as the interactive plot cells, so props line
+## up with the grid without duplicating the coordinate math. Missing files
+## are skipped (fallback-safe for headless/CI where imports may lag).
 func _add_decorative_props() -> void:
 	for prop in DECORATIVE_PROPS:
+		var texture: Texture2D = load(prop["path"])
+		if texture == null:
+			continue
+		var sprite := Sprite2D.new()
+		sprite.texture = texture
+		sprite.centered = false
+		sprite.offset = Vector2(-texture.get_width() / 2.0, -texture.get_height())
+		sprite.position = _tilemap.map_to_local(prop["grid_pos"])
+		add_child(sprite)
+	for prop in PIXELART_PROPS:
 		var texture: Texture2D = load(prop["path"])
 		if texture == null:
 			continue

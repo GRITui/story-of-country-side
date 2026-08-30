@@ -18,26 +18,26 @@ from px import canvas, px, rect, ellipse, save, outline, shade_v, rgb
 FRAME_W, FRAME_H = 24, 40
 
 CHARACTERS = {
-    "player": dict(skin=rgb(240, 204, 168), hair=rgb(96, 62, 34),
-                   shirt=rgb(86, 140, 84), pants=rgb(74, 96, 148),
+    "player": dict(skin=rgb(242, 210, 172), hair=rgb(88, 54, 28),
+                   shirt=rgb(72, 160, 72), pants=rgb(68, 92, 168),
                    style="short"),
-    "colton": dict(skin=rgb(226, 186, 148), hair=rgb(52, 40, 34),
-                   shirt=rgb(78, 78, 84), pants=rgb(102, 76, 48),
+    "colton": dict(skin=rgb(228, 190, 152), hair=rgb(48, 36, 30),
+                   shirt=rgb(86, 86, 96), pants=rgb(112, 84, 52),
                    style="beard"),
-    "elena": dict(skin=rgb(246, 214, 184), hair=rgb(226, 196, 110),
-                  shirt=rgb(168, 138, 198), pants=rgb(168, 138, 198),
+    "elena": dict(skin=rgb(248, 218, 188), hair=rgb(232, 200, 92),
+                  shirt=rgb(176, 132, 210), pants=rgb(176, 132, 210),
                   style="long", dress=True),
-    "marcus": dict(skin=rgb(214, 168, 132), hair=rgb(168, 168, 172),
-                   shirt=rgb(66, 122, 118), pants=rgb(88, 78, 66),
+    "marcus": dict(skin=rgb(218, 172, 136), hair=rgb(178, 178, 184),
+                   shirt=rgb(62, 132, 128), pants=rgb(96, 84, 68),
                    style="short"),
-    "priya": dict(skin=rgb(172, 124, 88), hair=rgb(34, 26, 24),
-                  shirt=rgb(206, 92, 64), pants=rgb(226, 178, 84),
+    "priya": dict(skin=rgb(178, 128, 92), hair=rgb(30, 22, 20),
+                  shirt=rgb(214, 84, 56), pants=rgb(232, 184, 72),
                   style="long", dress=True),
-    "sana": dict(skin=rgb(238, 198, 158), hair=rgb(150, 74, 40),
-                 shirt=rgb(178, 62, 56), pants=rgb(82, 102, 152),
+    "sana": dict(skin=rgb(240, 202, 162), hair=rgb(158, 78, 38),
+                 shirt=rgb(192, 58, 52), pants=rgb(78, 98, 164),
                  style="ponytail"),
-    "tobias": dict(skin=rgb(232, 192, 152), hair=rgb(112, 82, 48),
-                   shirt=rgb(198, 172, 116), pants=rgb(96, 84, 62),
+    "tobias": dict(skin=rgb(234, 196, 156), hair=rgb(116, 86, 48),
+                   shirt=rgb(206, 180, 108), pants=rgb(98, 86, 60),
                    style="hat"),
 }
 
@@ -99,7 +99,10 @@ def draw_frame(p, direction, frame):
         rect(img, cx - 4, 5, cx + 5, 5, rgb(96, 68, 36))     # band
     if direction == "up":  # back of head is all hair
         rect(img, cx - 5, 5, cx + 6, 13, h)
-    img = shade_v(img, 1.10, 0.92, seed=7, speckle=0.0)
+    # stronger top-light + subtle highlight pixel on hair
+    img = shade_v(img, 1.14, 0.88, seed=7, speckle=0.0)
+    # shirt highlight stripe
+    px(img, cx - 2, 20, tuple(min(255, c + 28) for c in p["shirt"][:3]) + (255,))
     return outline(img)
 
 

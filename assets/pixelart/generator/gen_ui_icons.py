@@ -7,14 +7,15 @@ from px import canvas, ellipse, px, rect, rgb, save, outline
 
 def _heart(full=True):
     img = canvas(16, 16)
-    c = (226, 66, 66) if full else (150, 150, 156)
+    c = (232, 58, 58) if full else (150, 150, 156)
     px(img, 5, 5, c); px(img, 6, 4, c); px(img, 7, 4, c); px(img, 8, 4, c)
     px(img, 9, 4, c); px(img, 10, 5, c); px(img, 5, 6, c); px(img, 10, 6, c)
     px(img, 4, 6, c); px(img, 5, 7, c); px(img, 6, 8, c); px(img, 7, 9, c)
     px(img, 8, 9, c); px(img, 9, 8, c); px(img, 10, 7, c); px(img, 11, 6, c)
-    px(img, 7, 10, c)
+    px(img, 7, 10, c); px(img, 6, 6, c); px(img, 9, 6, c)
     if full:
-        px(img, 7, 5, (250, 200, 200))
+        px(img, 7, 5, (255, 210, 210))
+        px(img, 6, 5, (255, 230, 230))
     return outline(img)
 
 

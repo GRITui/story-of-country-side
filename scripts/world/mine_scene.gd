@@ -126,10 +126,48 @@ func _ready() -> void:
 	MiningManager.rock_broken.connect(_on_rock_broken)
 	MiningManager.floor_descended.connect(_on_floor_descended)
 
-## Same shared ProceduralTileArt approach as every prior world scene --
-## see class docstring for why there's no art asset to load instead.
+## Tries pixelart tiles first (mine_floor/mine_rock/path variants), falls
+## back to ProceduralTileArt. Preserves 64x32 isometric spec.
 func _build_tileset() -> void:
-	_tilemap.tile_set = ProceduralTileArt.build_isometric_tileset(STATE_COLORS, TILE_WIDTH, TILE_HEIGHT, ATLAS_SOURCE_ID, [STATE_LADDER])
+	var png_map := {
+		STATE_ROCK: "res://assets/pixelart/tiles/mine_rock.png",
+		STATE_FLOOR: "res://assets/pixelart/tiles/mine_floor.png",
+		STATE_LADDER: "res://assets/pixelart/tiles/path.png",
+	}
+	var tileset := _try_build_pixelart_tileset(png_map, [STATE_LADDER])
+	if tileset != null:
+		_tilemap.tile_set = tileset
+	else:
+		_tilemap.tile_set = ProceduralTileArt.build_isometric_tileset(STATE_COLORS, TILE_WIDTH, TILE_HEIGHT, ATLAS_SOURCE_ID, [STATE_LADDER])
+
+func _try_build_pixelart_tileset(png_map: Dictionary, _glow_states: Array = []) -> TileSet:
+	var states: Array = png_map.keys()
+	states.sort()
+	var textures: Dictionary = {}
+	for state in states:
+		var tex: Texture2D = load(png_map[state])
+		if tex == null or tex.get_image() == null:
+			return null
+		textures[state] = tex
+	var atlas_img := Image.create(TILE_WIDTH * states.size(), TILE_HEIGHT, false, Image.FORMAT_RGBA8)
+	for i in range(states.size()):
+		var tex: Texture2D = textures[states[i]]
+		var img: Image = tex.get_image()
+		var w: int = mini(img.get_width(), TILE_WIDTH)
+		var h: int = mini(img.get_height(), TILE_HEIGHT)
+		atlas_img.blit_rect(img, Rect2i(0, 0, w, h), Vector2i(i * TILE_WIDTH, 0))
+	var atlas_tex := ImageTexture.create_from_image(atlas_img)
+	var tile_set := TileSet.new()
+	tile_set.tile_shape = TileSet.TILE_SHAPE_ISOMETRIC
+	tile_set.tile_layout = TileSet.TILE_LAYOUT_DIAMOND_DOWN
+	tile_set.tile_size = Vector2i(TILE_WIDTH, TILE_HEIGHT)
+	var src := TileSetAtlasSource.new()
+	src.texture = atlas_tex
+	src.texture_region_size = Vector2i(TILE_WIDTH, TILE_HEIGHT)
+	for i in range(states.size()):
+		src.create_tile(Vector2i(i, 0))
+	tile_set.add_source(src, ATLAS_SOURCE_ID)
+	return tile_set
 
 func _render_all_tiles() -> void:
 	var floor_size := MiningManager.get_floor_size()
@@ -137,13 +175,15 @@ func _render_all_tiles() -> void:
 		for y in range(floor_size.y):
 			_refresh_tile(Vector2i(x, y))
 
-## Instantiates DECORATIVE_PROP_PATHS as bottom-anchored Sprite2D children
-## (see class docstring) at fixed positions just outside the floor's
-## border, scaled from get_floor_size() rather than hardcoded so this
-## still reads correctly if MiningManager's own floor dimensions ever
-## change. Placed once in _ready() -- floor_descended regenerates tile
-## content, not the floor's overall size, so these don't need to move on
-## that signal.
+## Instantiates DECORATIVE_PROP_PATHS + pixelart mine props as bottom-
+## anchored Sprite2D children. Positions are scaled from get_floor_size().
+const PIXELART_MINE_PROPS := [
+	"res://assets/pixelart/props/rock.png",
+	"res://assets/pixelart/props/rock_large.png",
+	"res://assets/pixelart/props/mine_cart.png",
+	"res://assets/pixelart/props/ladder.png",
+]
+
 func _add_decorative_props() -> void:
 	var floor_size := MiningManager.get_floor_size()
 	var positions := [
@@ -161,6 +201,25 @@ func _add_decorative_props() -> void:
 		sprite.centered = false
 		sprite.offset = Vector2(-texture.get_width() / 2.0, -texture.get_height())
 		sprite.position = _tilemap.map_to_local(positions[i])
+		add_child(sprite)
+	# Pixelart mine props at additional border positions
+	var pixel_positions: Array[Vector2i] = [
+		Vector2i(-1, floor_size.y / 2),
+		Vector2i(floor_size.x, 1),
+		Vector2i(floor_size.x / 2, -1),
+		Vector2i(floor_size.x - 1, floor_size.y),
+	]
+	for i in range(PIXELART_MINE_PROPS.size()):
+		if i >= pixel_positions.size():
+			break
+		var texture: Texture2D = load(PIXELART_MINE_PROPS[i])
+		if texture == null:
+			continue
+		var sprite := Sprite2D.new()
+		sprite.texture = texture
+		sprite.centered = false
+		sprite.offset = Vector2(-texture.get_width() / 2.0, -texture.get_height())
+		sprite.position = _tilemap.map_to_local(pixel_positions[i])
 		add_child(sprite)
 
 ## Player avatar (#100): mirrors farm_scene.gd's _add_player_avatar.

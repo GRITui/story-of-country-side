@@ -8,7 +8,8 @@ from px import canvas, ellipse, px, rect, rgb, save, speckle_on, outline
 
 
 def _region(img, cx, cy, w, h, seed, c):
-    return speckle_on(Image)
+    # stub kept for API compat — actual land is drawn via patch() in main()
+    return img
 
 
 def main():

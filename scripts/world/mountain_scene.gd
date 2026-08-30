@@ -69,7 +69,46 @@ func _ready() -> void:
 	ForagingManager.forage_node_rerolled.connect(_on_forage_node_rerolled)
 
 func _build_tileset() -> void:
-	_tilemap.tile_set = ProceduralTileArt.build_isometric_tileset(STATE_COLORS, TILE_WIDTH, TILE_HEIGHT, ATLAS_SOURCE_ID, [STATE_ENTRANCE, STATE_FORAGE])
+	var png_map := {
+		STATE_ROCK: "res://assets/pixelart/tiles/mine_rock.png",
+		STATE_PATH: "res://assets/pixelart/tiles/path.png",
+		STATE_ENTRANCE: "res://assets/pixelart/tiles/wood_floor.png",
+		STATE_FORAGE: "res://assets/pixelart/tiles/grass_clover.png",
+	}
+	var tileset := _try_build_pixelart_tileset(png_map, [STATE_ENTRANCE, STATE_FORAGE])
+	if tileset != null:
+		_tilemap.tile_set = tileset
+	else:
+		_tilemap.tile_set = ProceduralTileArt.build_isometric_tileset(STATE_COLORS, TILE_WIDTH, TILE_HEIGHT, ATLAS_SOURCE_ID, [STATE_ENTRANCE, STATE_FORAGE])
+
+func _try_build_pixelart_tileset(png_map: Dictionary, _glow_states: Array = []) -> TileSet:
+	var states: Array = png_map.keys()
+	states.sort()
+	var textures: Dictionary = {}
+	for state in states:
+		var tex: Texture2D = load(png_map[state])
+		if tex == null or tex.get_image() == null:
+			return null
+		textures[state] = tex
+	var atlas_img := Image.create(TILE_WIDTH * states.size(), TILE_HEIGHT, false, Image.FORMAT_RGBA8)
+	for i in range(states.size()):
+		var tex: Texture2D = textures[states[i]]
+		var img: Image = tex.get_image()
+		var w: int = mini(img.get_width(), TILE_WIDTH)
+		var h: int = mini(img.get_height(), TILE_HEIGHT)
+		atlas_img.blit_rect(img, Rect2i(0, 0, w, h), Vector2i(i * TILE_WIDTH, 0))
+	var atlas_tex := ImageTexture.create_from_image(atlas_img)
+	var tile_set := TileSet.new()
+	tile_set.tile_shape = TileSet.TILE_SHAPE_ISOMETRIC
+	tile_set.tile_layout = TileSet.TILE_LAYOUT_DIAMOND_DOWN
+	tile_set.tile_size = Vector2i(TILE_WIDTH, TILE_HEIGHT)
+	var src := TileSetAtlasSource.new()
+	src.texture = atlas_tex
+	src.texture_region_size = Vector2i(TILE_WIDTH, TILE_HEIGHT)
+	for i in range(states.size()):
+		src.create_tile(Vector2i(i, 0))
+	tile_set.add_source(src, ATLAS_SOURCE_ID)
+	return tile_set
 
 func _register_forage_nodes() -> void:
 	for x in range(GRID_WIDTH):

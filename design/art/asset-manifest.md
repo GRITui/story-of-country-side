@@ -95,6 +95,37 @@ town cluster, lake).
   only added static assets + docs, so nothing here conflicts with the
   backend/frontend build.
 
+## Polish pass — 2026-08-30 (fix/p0-avatar-input-restoration)
+
+Deterministic re-generation on this branch, no new files (still 109 PNGs).
+All outputs remain PIL-only procedural, CC0, `bottom-center` anchored, and
+reproducible via the `python3 gen_*.py` sequence in `LICENSE.txt`.
+
+- **Tiles** (`gen_tiles.py`): palette saturation + contrast pass — grass
+  spring green (more Stardew-leaning), dirt/farmland richer chocolates with
+  stronger furrow + pebble texture, watered tile darker with sheen, path
+  pebble shadow/highlight, sand shell specks, water deeper with wave-shadow,
+  mine rock highlight/shadow, snow blue ambient, wood grain highlight.
+  Diamond light 0.24 / edge 0.52 for crisper tile definition.
+- **Characters** (`gen_characters.py`): palettes re-saturated for cast
+  read (player vivid green/denim, Colton grey-beard, Priya warm sari red
+  vs Sana rancher red, etc.), stronger top-light (`shade_v` 1.14→0.88) +
+  shirt highlight, eye glint.
+- **Props** (`gen_props.py`): trees/pine/bush now layered shadow + highlight
+  tufts, trunk vertical shading, fruit-tree apple highlights, rock/bush
+  underside shadow — addresses "flat pawn / small props / no tree variety"
+  without changing footprint or anchor.
+- **Crops** (`gen_crops.py`): leaf/fruit contrast pass, fruit highlight +
+  shadow chips for harvest-ready legibility.
+- **Animals** (`gen_animals.py`): chicken eye glint + belly shadow, cow
+  Holstein spots / leg highlight, sheep wool volume (highlight/shadow).
+- **UI** (`gen_ui_icons.py`): heart fuller + extra fill pixels.
+- **Map** (`gen_map.py`): fixed dead `_region` stub (was `speckle_on(Image)`).
+
+Verified: `python3 assets/pixelart/generator/validate.py` → 109 PNGs clean,
+`godot --headless --import` still produces 109 `.import` files, anchor spec
+unchanged.
+
 ## Count check
 ```
 tiles 13 · characters 14 · crops 7 · animals 5 · items 40 · props 16 · map 1 · ui 13

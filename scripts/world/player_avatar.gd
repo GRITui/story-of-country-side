@@ -53,11 +53,23 @@ const ARRIVAL_THRESHOLD_PX := 1.0
 ## tool-swing feedback pulse (#100 ask item 3).
 const SWING_PULSE_COLOR := Color(1.5, 1.5, 1.15)
 
+## Generated pixelart spritesheet (assets/pixelart/characters/player.png):
+## 48x120, 3 rows x 2 frames, frame 24x40, rows: 0=down, 1=up, 2=side
+## (flip_h for opposite side), bottom-center anchor at feet.
+const SHEET_PATH := "res://assets/pixelart/characters/player.png"
+const FRAME_W := 24
+const FRAME_H := 40
+const FRAME_COUNT := 2
+const ANIM_FPS := 6.0
+
 @export var move_speed_px_per_sec: float = 90.0
 
 var _target_position: Vector2
 var _has_target := false
 var _sprite: Sprite2D
+var _uses_sheet := false
+var _anim_timer := 0.0
+var _frame_index := 0
 
 ## Last non-zero movement direction, in this node's local screen-space
 ## (not grid space) -- updated by both move_by_input() and the click-to-
@@ -74,12 +86,44 @@ func _ready() -> void:
 	_has_target = true
 
 func _build_sprite() -> Sprite2D:
-	var texture := ProceduralCharacterArt.build_silhouette_texture(PLAYER_COLOR, SPRITE_HEIGHT_PX)
 	var sprite := Sprite2D.new()
-	sprite.texture = texture
-	sprite.centered = false
-	sprite.offset = Vector2(-texture.get_width() / 2.0, -texture.get_height())
+	var sheet: Texture2D = load(SHEET_PATH)
+	if sheet != null:
+		_uses_sheet = true
+		sprite.texture = sheet
+		sprite.region_enabled = true
+		sprite.region_rect = Rect2(Vector2.ZERO, Vector2(FRAME_W, FRAME_H))
+		sprite.centered = false
+		sprite.offset = Vector2(-FRAME_W / 2.0, -FRAME_H)
+	else:
+		_uses_sheet = false
+		var texture := ProceduralCharacterArt.build_silhouette_texture(PLAYER_COLOR, SPRITE_HEIGHT_PX)
+		sprite.texture = texture
+		sprite.centered = false
+		sprite.offset = Vector2(-texture.get_width() / 2.0, -texture.get_height())
 	return sprite
+
+func _update_sprite_frame(moving: bool, delta: float) -> void:
+	if not _uses_sheet:
+		return
+	if moving:
+		_anim_timer += delta
+		if _anim_timer >= 1.0 / ANIM_FPS:
+			_anim_timer -= 1.0 / ANIM_FPS
+			_frame_index = (_frame_index + 1) % FRAME_COUNT
+	else:
+		_frame_index = 0
+		_anim_timer = 0.0
+	var row := 0
+	if absf(facing.x) > absf(facing.y):
+		row = 2
+	elif facing.y < 0:
+		row = 1
+	else:
+		row = 0
+	_sprite.region_rect = Rect2(Vector2(_frame_index * FRAME_W, row * FRAME_H), Vector2(FRAME_W, FRAME_H))
+	if row == 2:
+		_sprite.flip_h = facing.x < 0.0
 
 ## Sets a new movement target in this scene's local coordinate space.
 ## Callers pass whatever local position their own tile-click handler
@@ -107,15 +151,18 @@ func move_to(target: Vector2) -> void:
 ## click the player may no longer want.
 func move_by_input(direction: Vector2, delta: float) -> void:
 	if direction == Vector2.ZERO:
+		_update_sprite_frame(false, delta)
 		return
 	_has_target = false
 	facing = direction.normalized()
-	if absf(facing.x) > 0.01:
+	if not _uses_sheet and absf(facing.x) > 0.01:
 		_sprite.flip_h = facing.x < 0.0
 	position += facing * move_speed_px_per_sec * delta
+	_update_sprite_frame(true, delta)
 
 func _process(delta: float) -> void:
 	if not _has_target:
+		_update_sprite_frame(false, delta)
 		return
 	var to_target := _target_position - position
 	var dist := to_target.length()
@@ -123,8 +170,9 @@ func _process(delta: float) -> void:
 		if position != _target_position:
 			position = _target_position
 			arrived.emit()
+		_update_sprite_frame(false, delta)
 		return
-	if absf(to_target.x) > 0.5:
+	if not _uses_sheet and absf(to_target.x) > 0.5:
 		_sprite.flip_h = to_target.x < 0.0
 	facing = to_target.normalized()
 	var step := move_speed_px_per_sec * delta
@@ -133,6 +181,7 @@ func _process(delta: float) -> void:
 		arrived.emit()
 	else:
 		position += facing * step
+	_update_sprite_frame(true, delta)
 
 ## Tool-use feedback (#100 ask item 3): a brief tint pulse on the sprite.
 ## Call this right after a world scene's own tool-action call succeeds

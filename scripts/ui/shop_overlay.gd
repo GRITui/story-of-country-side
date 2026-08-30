@@ -58,15 +58,33 @@ func _add_row(crop_id: String) -> void:
 	row.name = "Row_%s" % crop_id
 	row.add_theme_constant_override("separation", 12)
 
+	# Seed icon (assets/pixelart/items/icon_<crop_id>.png fallback)
+	var icon_path := "res://assets/pixelart/items/icon_%s.png" % crop_id
+	var icon_tex: Texture2D = load(icon_path)
+	if icon_tex != null:
+		var icon := TextureRect.new()
+		icon.texture = icon_tex
+		icon.custom_minimum_size = Vector2(16, 16)
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		row.add_child(icon)
+
+	var owned: int = 0
+	if InventoryManager and InventoryManager.has_method("get_count"):
+		owned = InventoryManager.get_count("%s_seed" % crop_id)
+		if owned == 0:
+			owned = InventoryManager.get_count(crop_id)
 	var price_label := Label.new()
 	price_label.name = "PriceLabel_%s" % crop_id
-	price_label.text = "%s seed -- %d gold" % [def.display_name, def.seed_price]
+	price_label.text = "%s seed -- %d gold (owned: %d)" % [def.display_name, def.seed_price, owned]
 	price_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	price_label.tooltip_text = "Requires %d gold; you have %d gold" % [def.seed_price, ShippingBinManager.gold if ShippingBinManager else 0]
 	row.add_child(price_label)
 
 	var buy_button := Button.new()
 	buy_button.name = "BuyButton_%s" % crop_id
 	buy_button.text = "Buy x1"
+	buy_button.disabled = ShippingBinManager.gold < def.seed_price if ShippingBinManager else false
+	buy_button.tooltip_text = "Not enough gold" if buy_button.disabled else ""
 	buy_button.pressed.connect(_on_buy_pressed.bind(crop_id))
 	row.add_child(buy_button)
 
@@ -82,12 +100,25 @@ func _on_buy_pressed(crop_id: String) -> void:
 
 func _on_seed_purchased(_crop_id: String, _quantity: int, _total_cost: int) -> void:
 	_refresh_gold_label()
+	_refresh_rows()
 
 func _on_gold_changed(_new_gold: int) -> void:
 	_refresh_gold_label()
+	_refresh_rows()
 
 func _refresh_gold_label() -> void:
 	_gold_label.text = "Gold: %d" % ShippingBinManager.gold
+
+func _refresh_rows() -> void:
+	for child in _list.get_children():
+		var crop_id: String = child.name.trim_prefix("Row_")
+		var def: CropDefinition = FarmPlotManager.get_crop_definition(crop_id)
+		if def == null:
+			continue
+		var btn: Button = child.get_node_or_null("BuyButton_%s" % crop_id)
+		if btn != null and ShippingBinManager:
+			btn.disabled = ShippingBinManager.gold < def.seed_price
+			btn.tooltip_text = "Not enough gold" if btn.disabled else ""
 
 func _on_close_pressed() -> void:
 	closed.emit()

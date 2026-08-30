@@ -13,52 +13,80 @@ from px import canvas, ellipse, outline, px, rect, rgb, save
 def _tree_simple(seed_variant, trunk=(112, 82, 48), canopy=(84, 140, 62), w=48, h=60):
     img = canvas(w, h)
     cx = w // 2
-    ellipse(img, cx, h - 2, 12, 3, (0, 0, 0, 70))
-    rect(img, cx - 2, h - 24, cx + 2, h - 2, trunk)
+    ellipse(img, cx, h - 2, 12, 3, (0, 0, 0, 72))
+    # trunk with vertical highlight
+    rect(img, cx - 3, h - 24, cx + 3, h - 2, trunk)
+    rect(img, cx - 1, h - 24, cx, h - 2, (min(255, trunk[0]+22), min(255, trunk[1]+18), trunk[2]))
+    rect(img, cx + 2, h - 24, cx + 3, h - 2, (max(0, trunk[0]-18), max(0, trunk[1]-14), max(0, trunk[2]-10)))
+    # layered canopy: shadow base + main + highlight tufts
+    shadow = (max(0, canopy[0]-28), max(0, canopy[1]-26), max(0, canopy[2]-18))
+    highlight = (min(255, canopy[0]+32), min(255, canopy[1]+36), min(255, canopy[2]+26))
+    ellipse(img, cx - 11, h - 26, 9, 7, shadow)
+    ellipse(img, cx + 11, h - 26, 9, 7, shadow)
+    ellipse(img, cx, h - 22, 9, 5, shadow)
     ellipse(img, cx - 11, h - 28, 8, 6, canopy)
     ellipse(img, cx + 11, h - 28, 8, 6, canopy)
     ellipse(img, cx, h - 36, 10, 9, canopy)
     ellipse(img, cx - 6, h - 30, 9, 6, canopy)
     ellipse(img, cx + 6, h - 30, 9, 6, canopy)
     ellipse(img, cx, h - 22, 8, 4, (70, 120, 54))
+    # top highlight tufts
+    ellipse(img, cx - 4, h - 38, 4, 3, highlight)
+    ellipse(img, cx + 5, h - 32, 3, 2, highlight)
     if seed_variant:
         ellipse(img, cx + 4, h - 38, 4, 3, (110, 170, 76))
+        # autumn speckle reds
+        px(img, cx - 6, h - 30, rgb(196, 96, 48))
+        px(img, cx + 7, h - 28, rgb(196, 96, 48))
     return outline(img)
 
 
-def _pine(canopy=(58, 108, 96), trunk=(96, 68, 44), w=40, h=56):
+def _pine(canopy=(52, 112, 88), trunk=(96, 68, 44), w=40, h=56):
     img = canvas(w, h)
     cx = w // 2
-    ellipse(img, cx, h - 2, 8, 3, (0, 0, 0, 70))
+    ellipse(img, cx, h - 2, 8, 3, (0, 0, 0, 72))
     rect(img, cx - 2, h - 14, cx + 2, h - 2, trunk)
+    rect(img, cx - 1, h - 14, cx, h - 2, (min(255, trunk[0]+20), min(255, trunk[1]+16), trunk[2]))
     for i in range(3):
         ty = h - 40 + i * 11
         tw = 10 + (2 - i) * 3
+        # shadow layer slightly offset
+        rect(img, cx - tw + 1, ty + 1, cx + tw + 1, ty + 9, (max(0, canopy[0]-20), max(0, canopy[1]-18), max(0, canopy[2]-14)))
         rect(img, cx - tw, ty, cx + tw, ty + 8, canopy)
-        px(img, cx - tw + 2, ty + 2, (100, 150, 130))
+        px(img, cx - tw + 2, ty + 2, (110, 160, 136))
+        px(img, cx + tw - 3, ty + 4, (42, 92, 72))
     px(img, cx, h - 44, canopy)
+    px(img, cx + 1, h - 44, (130, 180, 150))  # tip highlight
     return outline(img)
 
 
-def _bush(canopy=(72, 128, 54), w=28, h=18):
+def _bush(canopy=(72, 138, 54), w=28, h=18):
     img = canvas(w, h)
     cx = w // 2
     ellipse(img, cx, h - 2, 9, 3, (0, 0, 0, 60))
+    shadow = (max(0, canopy[0]-22), max(0, canopy[1]-20), max(0, canopy[2]-16))
+    highlight = (min(255, canopy[0]+38), min(255, canopy[1]+32), min(255, canopy[2]+28))
+    ellipse(img, cx - 6, h - 6, 6, 4, shadow)
+    ellipse(img, cx + 6, h - 6, 6, 4, shadow)
+    ellipse(img, cx, h - 9, 7, 5, shadow)
     ellipse(img, cx - 6, h - 7, 6, 4, canopy)
     ellipse(img, cx + 6, h - 7, 6, 4, canopy)
     ellipse(img, cx, h - 10, 7, 5, canopy)
-    px(img, cx - 3, h - 6, (110, 160, 78)); px(img, cx + 3, h - 6, (110, 160, 78))
+    px(img, cx - 3, h - 6, highlight); px(img, cx + 3, h - 6, highlight)
+    px(img, cx, h - 11, highlight)
     return outline(img)
 
 
-def _rock(w=28, h=18, c1=(134, 130, 124), c2=(100, 96, 92)):
+def _rock(w=28, h=18, c1=(138, 134, 128), c2=(100, 96, 92)):
     img = canvas(w, h)
     cx = w // 2
     ellipse(img, cx, h - 1, 9, 3, (0, 0, 0, 60))
     rect(img, cx - 8, h - 10, cx + 8, h - 3, c1)
     rect(img, cx - 6, h - 13, cx + 4, h - 9, c1)
-    px(img, cx - 4, h - 9, (160, 156, 150))
-    px(img, cx + 3, h - 6, (120, 116, 112))
+    px(img, cx - 4, h - 9, (170, 166, 160))
+    px(img, cx + 3, h - 6, (116, 112, 108))
+    # dark underside
+    rect(img, cx - 8, h - 4, cx + 8, h - 3, (max(0, c1[0]-30), max(0, c1[1]-30), max(0, c1[2]-28)))
     return outline(img)
 
 
@@ -66,12 +94,20 @@ def _fruit_tree():  # apple-ish tree, distinct from plain trees
     img = canvas(48, 60)
     cx = 24
     ellipse(img, cx, 58, 12, 3, (0, 0, 0, 70))
-    rect(img, cx - 2, 36, cx + 2, 58, (112, 82, 48))
-    ellipse(img, cx - 11, 32, 8, 6, (82, 138, 66))
-    ellipse(img, cx + 11, 32, 8, 6, (82, 138, 66))
-    ellipse(img, cx, 24, 10, 9, (82, 138, 66))
-    for (bx, by) in ((20, 28), (27, 25), (22, 20)):
-        px(img, bx, by, (214, 82, 66))
+    rect(img, cx - 3, 36, cx + 3, 58, (112, 82, 48))
+    rect(img, cx - 1, 36, cx, 58, (134, 102, 64))
+    shadow = (62, 118, 50)
+    highlight = (116, 172, 84)
+    ellipse(img, cx - 11, 32, 8, 6, shadow)
+    ellipse(img, cx + 11, 32, 8, 6, shadow)
+    ellipse(img, cx, 24, 10, 9, shadow)
+    ellipse(img, cx - 11, 31, 8, 6, (82, 148, 66))
+    ellipse(img, cx + 11, 31, 8, 6, (82, 148, 66))
+    ellipse(img, cx, 23, 10, 9, (82, 148, 66))
+    ellipse(img, cx - 4, 20, 4, 3, highlight)
+    for (bx, by) in ((20, 28), (27, 25), (22, 20), (28, 29), (18, 22)):
+        ellipse(img, bx, by, 2, 2, (214, 82, 66))
+        px(img, bx, by - 1, (238, 150, 130))  # fruit highlight
     return outline(img)
 
 
