@@ -79,6 +79,19 @@ func _style_wood_frame() -> void:
 	sb.content_margin_bottom = 8
 	_panel.add_theme_stylebox_override("panel", sb)
 
+const PORTRAIT_MAP := {
+	NPCConstants.NPC_TOBY: "res://assets/16bit/characters/portrait_toby.png",
+	NPCConstants.NPC_HANNA: "res://assets/16bit/characters/portrait_hanna.png",
+	NPCConstants.NPC_CLIFF: "res://assets/16bit/characters/portrait_cliff.png",
+	NPCConstants.NPC_NINA: "res://assets/16bit/characters/portrait_nina.png",
+	NPCConstants.NPC_CID: "res://assets/16bit/characters/portrait_cid.png",
+	NPCConstants.NPC_KAI: "res://assets/16bit/characters/portrait_kai.png",
+	NPCConstants.NPC_LEO: "res://assets/16bit/characters/portrait_leo.png",
+}
+func _portrait_for(speaker: String) -> String:
+	var cn := NPCConstants.canonical(speaker)
+	return PORTRAIT_MAP.get(cn, PORTRAIT_MAP.get(speaker, ""))
+
 func show_dialogue(speaker: String, portrait_path: String, text: String, emote: String = "") -> void:
 	_full_text = text
 	_visible_count = 0
@@ -86,15 +99,26 @@ func show_dialogue(speaker: String, portrait_path: String, text: String, emote: 
 	_char_timer = 0.0
 	_blip_counter = 0
 	visible = true
-	_name_label.text = speaker
+	var cn := NPCConstants.canonical(speaker)
+	var display := cn if NPCConstants.is_canonical(cn) else speaker
+	var kata := NPCConstants.katakana(cn)
+	_name_label.text = "【 %s 】" % display + (" (%s)" % kata if kata != "" else "")
+	# Prevent wrapping/clipping — single line, auto-shrink
+	_name_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	_name_label.clip_text = false
 	_dialog_label.text = ""
 	_next_hint.visible = false
-	# Portrait
+	# Portrait — try explicit path, then canonical map, then fallback hidden
 	var tex: Texture2D = null
-	if portrait_path != "" and ResourceLoader.exists(portrait_path):
-		var maybe: Texture2D = load(portrait_path)
-		if maybe and maybe.get_image():
-			tex = maybe
+	var try_paths: Array[String] = []
+	if portrait_path != "": try_paths.append(portrait_path)
+	var mapped := _portrait_for(speaker)
+	if mapped != "": try_paths.append(mapped)
+	for p in try_paths:
+		if ResourceLoader.exists(p):
+			var maybe: Texture2D = load(p)
+			if maybe and maybe.get_image():
+				tex = maybe; break
 	_portrait_rect.texture = tex
 	_portrait_rect.visible = tex != null
 	if emote != "":

@@ -28,7 +28,7 @@ func _ready() -> void:
 	_add_decorative_props()
 	_add_dynamic_layer()
 	_add_player_avatar()
-	# No fixed villagers in river zone — Elder Taro visits at 14:00 via schedule, but his home is Village.
+	# No fixed villagers in river zone — Toby (トビー) visits at 14:00 via schedule, home Village.
 	_wire_avatar_collision()
 
 func _build_tileset() -> void:

@@ -30,7 +30,7 @@ class_name NPCRoster
 
 ## npc_name -> home world scene name. Values match each world scene's own
 ## HOME_SCENE_NAME constant and become NPCScheduleEntry.location_name.
-## PO-16BIT-WORLD-4 adds Japanese villagers Elder Taro, Hanako, Takeshi in Village zone.
+## NPC Localization refactor: canonical 7 EN-JP roster (Toby/Hanna/Cliff/Nina/Cid/Kai/Leo) via NPCConstants.
 const NPC_HOME_SCENE := {
 	"Elena": "Farm",
 	"Priya": "Farm",
@@ -38,9 +38,13 @@ const NPC_HOME_SCENE := {
 	"Colton": "Mine",
 	"Tobias": "Mine",
 	"Marcus": "Forage",
-	"Elder Taro": "Village",
-	"Hanako": "Village",
-	"Takeshi": "Village",
+	NPCConstants.NPC_TOBY: "Village",
+	NPCConstants.NPC_HANNA: "Village",
+	NPCConstants.NPC_CLIFF: "Village",
+	NPCConstants.NPC_NINA: "Village",
+	NPCConstants.NPC_CID: "Village",
+	NPCConstants.NPC_KAI: "Village",
+	NPCConstants.NPC_LEO: "Village",
 }
 
 ## npc_name -> ordered list of {hour, minute, grid_pos} placeholder stops
@@ -79,29 +83,49 @@ const NPC_DAILY_STOPS := {
 		{"hour": 12, "minute": 30, "grid_pos": Vector2i(4, 0)},
 		{"hour": 19, "minute": 0, "grid_pos": Vector2i(7, 7)},
 	],
-	# PO-16BIT-WORLD-4 Japanese villagers — schedules use per-stop location_name for zone movement.
-	# Elder Taro: Shrine 06:00 → River 14:00 → Home 20:00 (Village→Path_River→Village, crosses colliders via waypoint)
-	"Elder Taro": [
+	# NPC Localization — canonical 7 (Toby Shrine→River, Hanna Store, Cliff Blacksmith, Nina Tea House, Cid Builder, Kai Fisher, Leo Farm)
+	NPCConstants.NPC_TOBY: [
 		{"hour": 6, "minute": 0, "grid_pos": Vector2i(4, 1), "location": "Shrine"},
 		{"hour": 14, "minute": 0, "grid_pos": Vector2i(4, 4), "location": "River"},
 		{"hour": 20, "minute": 0, "grid_pos": Vector2i(1, 6), "location": "Home"},
 	],
-	# Hanako: Store 09:00-17:00 seed sales (Village Store), home otherwise
-	"Hanako": [
+	NPCConstants.NPC_HANNA: [
 		{"hour": 6, "minute": 0, "grid_pos": Vector2i(1, 1), "location": "Home"},
 		{"hour": 9, "minute": 0, "grid_pos": Vector2i(4, 3), "location": "Store"},
 		{"hour": 17, "minute": 0, "grid_pos": Vector2i(1, 1), "location": "Home"},
 	],
-	# Takeshi: Blacksmith 08:00-12:00, Townhall 13:00-16:00, Home 18:00 (Village)
-	"Takeshi": [
+	NPCConstants.NPC_CLIFF: [
 		{"hour": 8, "minute": 0, "grid_pos": Vector2i(5, 2), "location": "Blacksmith"},
 		{"hour": 13, "minute": 0, "grid_pos": Vector2i(3, 5), "location": "Townhall"},
 		{"hour": 18, "minute": 0, "grid_pos": Vector2i(1, 6), "location": "Home"},
+	],
+	NPCConstants.NPC_NINA: [
+		{"hour": 10, "minute": 0, "grid_pos": Vector2i(2, 4), "location": "Tea House"},
+		{"hour": 14, "minute": 0, "grid_pos": Vector2i(4, 2), "location": "Village"},
+		{"hour": 19, "minute": 0, "grid_pos": Vector2i(2, 4), "location": "Tea House"},
+	],
+	NPCConstants.NPC_CID: [
+		{"hour": 7, "minute": 0, "grid_pos": Vector2i(1, 5), "location": "Carpenter"},
+		{"hour": 12, "minute": 0, "grid_pos": Vector2i(4, 4), "location": "Village"},
+		{"hour": 18, "minute": 0, "grid_pos": Vector2i(1, 5), "location": "Home"},
+	],
+	NPCConstants.NPC_KAI: [
+		{"hour": 6, "minute": 0, "grid_pos": Vector2i(6, 2), "location": "River"},
+		{"hour": 13, "minute": 0, "grid_pos": Vector2i(4, 6), "location": "Village"},
+		{"hour": 20, "minute": 0, "grid_pos": Vector2i(6, 2), "location": "River"},
+	],
+	NPCConstants.NPC_LEO: [
+		{"hour": 7, "minute": 0, "grid_pos": Vector2i(2, 1), "location": "Farm"},
+		{"hour": 15, "minute": 0, "grid_pos": Vector2i(4, 4), "location": "Village"},
+		{"hour": 21, "minute": 0, "grid_pos": Vector2i(2, 6), "location": "Home"},
 	],
 }
 
 ## Villager names whose home scene is `scene_name` -- a world scene iterates
 ## this to know which NPCControllers it should instantiate.
+static func canonical(npc_name: String) -> String:
+	return NPCConstants.canonical(npc_name)
+
 static func npcs_for_scene(scene_name: String) -> Array[String]:
 	var result: Array[String] = []
 	for npc_name in NPC_HOME_SCENE:
@@ -115,15 +139,15 @@ static func npcs_for_scene(scene_name: String) -> Array[String]:
 ## tile-click placement, so an NPC lines up on the isometric grid exactly
 ## like everything else in that scene.
 static func build_schedule(npc_name: String, tilemap: TileMap) -> NPCSchedule:
+	var cn := NPCConstants.canonical(npc_name)
 	var schedule := NPCSchedule.new()
-	var stops: Array = NPC_DAILY_STOPS.get(npc_name, [])
-	var home_loc: String = NPC_HOME_SCENE.get(npc_name, "")
+	var stops: Array = NPC_DAILY_STOPS.get(cn, NPC_DAILY_STOPS.get(npc_name, []))
+	var home_loc: String = NPC_HOME_SCENE.get(cn, NPC_HOME_SCENE.get(npc_name, ""))
 	for stop in stops:
 		var entry := NPCScheduleEntry.new()
 		entry.hour = stop["hour"]
 		entry.minute = stop["minute"]
 		entry.position = tilemap.map_to_local(stop["grid_pos"])
-		# Per-stop location overrides home scene (PO-16BIT-WORLD-4: Shrine/River/Home etc.)
 		entry.location_name = stop.get("location", home_loc)
 		schedule.entries.append(entry)
 	return schedule
@@ -133,27 +157,28 @@ static func build_schedule(npc_name: String, tilemap: TileMap) -> NPCSchedule:
 static func build_schedule_world(npc_name: String, tilemap: TileMap, use_world_landmarks: bool = false) -> NPCSchedule:
 	if not use_world_landmarks:
 		return build_schedule(npc_name, tilemap)
+	var cn := NPCConstants.canonical(npc_name)
 	var landmark_map := {
-		"Elder Taro": [
+		NPCConstants.NPC_TOBY: [
 			{"hour": 6, "minute": 0, "landmark": "shrine", "location": "Shrine"},
 			{"hour": 14, "minute": 0, "landmark": "river_center", "location": "River"},
 			{"hour": 20, "minute": 0, "landmark": "elder_home", "location": "Home"},
 		],
-		"Hanako": [
+		NPCConstants.NPC_HANNA: [
 			{"hour": 6, "minute": 0, "landmark": "hanako_home", "location": "Home"},
 			{"hour": 9, "minute": 0, "landmark": "store", "location": "Store"},
 			{"hour": 17, "minute": 0, "landmark": "hanako_home", "location": "Home"},
 		],
-		"Takeshi": [
+		NPCConstants.NPC_CLIFF: [
 			{"hour": 8, "minute": 0, "landmark": "blacksmith", "location": "Blacksmith"},
 			{"hour": 13, "minute": 0, "landmark": "townhall", "location": "Townhall"},
 			{"hour": 18, "minute": 0, "landmark": "elder_home", "location": "Home"},
 		],
 	}
-	if not landmark_map.has(npc_name):
+	if not landmark_map.has(cn):
 		return build_schedule(npc_name, tilemap)
 	var schedule := NPCSchedule.new()
-	for stop in landmark_map[npc_name]:
+	for stop in landmark_map[cn]:
 		var entry := NPCScheduleEntry.new()
 		entry.hour = stop["hour"]
 		entry.minute = stop["minute"]

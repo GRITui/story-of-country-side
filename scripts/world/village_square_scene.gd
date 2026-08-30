@@ -3,7 +3,7 @@ class_name VillageSquareScene
 ## PO-16BIT-WORLD-4 Zone3 Village Square (Store, Blacksmith, Shrine, Townhall).
 ## 8x8 grid logical zone within 64x64 WorldMap (ZONE_VILLAGE 40x24 tile slice).
 ## Props: kawara_roof + jizo_statue (Shrine), farmhouse as Store, barn as Blacksmith.
-## NPCs: Elder Taro, Hanako, Takeshi via NPCRoster. Waypoint pathfinding via WorldMap blocked rects.
+## NPCs: Toby, Hanna, Cliff (+ Nina/Cid/Kai/Leo) via NPCRoster canonical roster. Waypoint pathfinding via WorldMap blocked rects.
 ## Interaction: Talk -> RelationshipManager.talk_to + emote, Gift -> give_gift + DialogueBox + emote.
 ## Reuses FarmScene patterns (YSort DynamicLayer, TileMap, PlayerAvatar, DialogueBox) without duplication.
 
