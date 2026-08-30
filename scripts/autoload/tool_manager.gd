@@ -52,15 +52,33 @@ func _register_default_content() -> void:
 
 	register_tier("Hoe", _make_tier(1, "iron_ore", 5, 200, cross, 4))
 	register_tier("Hoe", _make_tier(2, "gold_ore", 5, 500, _full_3x3_offsets(), 3))
+	register_tier("Hoe", _make_tier(3, "diamond", 3, 900, _full_3x3_offsets(), 2))
 
 	register_tier("WateringCan", _make_tier(1, "iron_ore", 4, 150, cross, 4))
 	register_tier("WateringCan", _make_tier(2, "gold_ore", 4, 400, _full_3x3_offsets(), 3))
+	register_tier("WateringCan", _make_tier(3, "diamond", 2, 750, _full_3x3_offsets(), 2))
 
 	register_tier("Axe", _make_tier(1, "iron_ore", 5, 220, cross, 4))
 	register_tier("Axe", _make_tier(2, "gold_ore", 6, 550, _full_3x3_offsets(), 3))
+	register_tier("Axe", _make_tier(3, "diamond", 4, 1000, _full_3x3_offsets(), 2))
 
 	register_tier("Pickaxe", _make_tier(1, "iron_ore", 6, 260, cross, 4))
 	register_tier("Pickaxe", _make_tier(2, "gold_ore", 7, 650, _full_3x3_offsets(), 3))
+	register_tier("Pickaxe", _make_tier(3, "diamond", 5, 1200, _full_3x3_offsets(), 2))
+	register_tier("Sickle", _make_tier(1, "iron_ore", 3, 120, cross, 3))
+	register_tier("Sickle", _make_tier(2, "gold_ore", 3, 350, _full_3x3_offsets(), 2))
+
+## Hold-to-charge: 0-400ms L1 1x1, 400-800ms L2 1x3/ cross, >800ms L3 3x3 (requires tier)
+func get_charge_level(tool_name: String, hold_ms: int) -> int:
+	var tier := get_tool_tier(tool_name)
+	if hold_ms > 800 and tier >= 2: return 3
+	if hold_ms > 400 and tier >= 1: return 2
+	return 1
+
+func get_aoe_for_charge(tool_name: String, charge_level: int) -> Array[Vector2i]:
+	if charge_level == 3: return _full_3x3_offsets()
+	if charge_level == 2: return [Vector2i(-1,0),Vector2i(0,0),Vector2i(1,0)] if tool_name in ["Hoe","WateringCan","Sickle"] else [Vector2i(0,0),Vector2i(1,0),Vector2i(-1,0),Vector2i(0,1),Vector2i(0,-1)]
+	return [Vector2i.ZERO]
 
 func _make_tier(tier_index: int, ore_item_id: String, ore_quantity: int, gold_cost: int,
 	aoe_offsets: Array[Vector2i], stamina_cost: int) -> ToolUpgradeTier:
