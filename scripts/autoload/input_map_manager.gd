@@ -54,7 +54,23 @@ const ACTION_LABELS := {
 	"hotbar_8": "Hotbar 8",
 	"hotbar_next": "Next Tool (Tab/Scroll)",
 	"hotbar_prev": "Prev Tool (Shift+Tab)",
+	"cancel": "Cancel / Back",
 }
+
+## Short prompt labels per input source, for the context bar (#176).
+const PROMPT_KEYS := {
+	"primary_action": {"pad": "A", "key": "Space"},
+	"interact": {"pad": "X", "key": "E"},
+	"secondary_action": {"pad": "X", "key": "E"},
+	"advance_dialog": {"pad": "A", "key": "Space"},
+	"cancel": {"pad": "B", "key": "Esc"},
+	"menu": {"pad": "Start", "key": "Esc"},
+	"hotbar_next": {"pad": "RB", "key": "Tab"},
+	"hotbar_prev": {"pad": "LB", "key": "Shift+Tab"},
+}
+
+## Last detected input source: "pad" or "key". Starts "key" (desktop-first).
+var last_input_source := "key"
 
 # Foot collision spec for reference — actual clamp lives in PlayerAvatar.
 const FEET_COLLISION_SIZE := Vector2(12, 8)
@@ -69,6 +85,11 @@ func _unhandled_input(event: InputEvent) -> void:
 	# Focus safety: any click refocuses canvas (prevents browser losing focus).
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		ensure_canvas_focus()
+	# Input-source tracking for the context bar (#176): pad vs key.
+	if event is InputEventJoypadButton or event is InputEventJoypadMotion:
+		last_input_source = "pad"
+	elif event is InputEventKey or event is InputEventMouseButton:
+		last_input_source = "key"
 	# Prevent browser/window scroll: consume wheel events (Godot doesn't scroll window but HTML5 host does if not consumed).
 	if consume_scroll(event):
 		get_viewport().set_input_as_handled()
@@ -171,6 +192,13 @@ func _register_all_actions() -> void:
 		_make_key(KEY_ESCAPE),
 		_make_joy_button(JOY_BUTTON_START),
 	])
+	# Cancel/back — gamepad B is the universal back button (#176). Pause menu
+	# still keeps its historical ui_cancel binding; this action is the
+	# remappable alias for context-bar prompts and future UI back-outs.
+	_register_action("cancel", [
+		_make_key(KEY_ESCAPE),
+		_make_joy_button(JOY_BUTTON_B),
+	])
 	# Hotbar 1..8 — number keys + Joy face/shoulder as fallback for gamepad
 	for i in range(1, 9):
 		_register_action("hotbar_%d" % i, [
@@ -235,3 +263,51 @@ func get_action_name(action: String) -> String:
 ## Returns true if the given action name has been registered with InputMap.
 func is_action_registered(action: String) -> bool:
 	return InputMap.has_action(action)
+
+## --- #176: context-bar prompts + remapping API -----------------------------
+
+## Prompt label for an action in the currently active input source,
+## e.g. get_prompt("interact") -> "X" (pad) or "E" (keyboard).
+func get_prompt(action: String) -> String:
+	var per_action: Dictionary = PROMPT_KEYS.get(action, {})
+	return per_action.get(last_input_source, per_action.get("key", action))
+
+## Events the player may rebind (keyboard keys and gamepad buttons; movement
+## axes, the mouse wheel, and Joy Start are locked — Start must always open
+## the menu so a player can never soft-lock themselves out of remapping).
+func get_remappable_actions() -> Array:
+	return ["primary_action", "interact", "cancel", "menu",
+		"hotbar_next", "hotbar_prev"]
+
+## Returns the remappable events (key/joy button) currently bound to an action.
+func get_bindings(action: String) -> Array:
+	var out: Array = []
+	for ev in InputMap.action_get_events(action):
+		if ev is InputEventKey or ev is InputEventJoypadButton:
+			out.append(ev)
+	return out
+
+## Replaces a binding: removes old_event from, adds new_event to the action.
+## Validates that new_event is a key or joypad button; returns false otherwise.
+func remap_action(action: String, old_event: InputEvent, new_event: InputEvent) -> bool:
+	if not InputMap.has_action(action):
+		return false
+	if not (new_event is InputEventKey or new_event is InputEventJoypadButton):
+		return false
+	if old_event != null and InputMap.action_has_event(action, old_event):
+		InputMap.action_erase_event(action, old_event)
+	if not InputMap.action_has_event(action, new_event):
+		InputMap.action_add_event(action, new_event)
+	return true
+
+## Restores the default bindings (clears every action and re-registers).
+func reset_to_defaults() -> void:
+	var actions := ["move_up", "move_down", "move_left", "move_right",
+		"interact", "secondary_action", "primary_action", "advance_dialog",
+		"menu", "cancel", "hotbar_next", "hotbar_prev"]
+	for i in range(1, 10):
+		actions.append("hotbar_%d" % i)
+	for action in actions:
+		if InputMap.has_action(action):
+			InputMap.action_erase_events(action)
+	_register_all_actions()
