@@ -25,7 +25,7 @@ signal travel_requested(location: String)
 signal closed
 
 const LOCATIONS := ["Farm", "Ranch", "Forage", "Mine", "SeaCoast", "Mountain"]
-const WORLD_MAP_PATH := "res://assets/pixelart/map/world_map.png"
+const WORLD_MAP_PATH := "res://assets/16bit/map/world_map.png"
 
 @onready var _current_label: Label = $Root/Panel/Margin/VBox/CurrentLabel
 @onready var _location_list: VBoxContainer = $Root/Panel/Margin/VBox/LocationList
@@ -50,7 +50,8 @@ func _ready() -> void:
 func _add_world_map() -> void:
 	var container: VBoxContainer = $Root/Panel/Margin/VBox
 	var tex: Texture2D = load(WORLD_MAP_PATH)
-	if tex == null:
+	if tex == null or tex.get_image() == null:
+		push_error("Missing 16-bit map asset: %s" % WORLD_MAP_PATH)
 		return
 	var map_rect := TextureRect.new()
 	map_rect.name = "WorldMap"
@@ -58,11 +59,9 @@ func _add_world_map() -> void:
 	map_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	map_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	map_rect.custom_minimum_size = Vector2(256, 256)
-	# Insert below CurrentLabel (index 1) so label stays on top
 	var insert_index := 1
 	if container.get_child_count() > 1:
 		insert_index = 1
-		# Find CurrentLabel index and place after it
 		for i in range(container.get_child_count()):
 			if container.get_child(i) == _current_label:
 				insert_index = i + 1
@@ -75,6 +74,7 @@ func _add_world_map() -> void:
 	caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	container.add_child(caption)
 	container.move_child(caption, insert_index + 1)
+
 
 func _on_travel_pressed(location: String) -> void:
 	travel_requested.emit(location)

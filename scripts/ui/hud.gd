@@ -68,9 +68,9 @@ func _refresh_hotbar() -> void:
 			var count: int = items[item_id]
 			label.text = "x%d" % count
 			
-			# Link to generated pixelart icons (assets/pixelart/items/icon_<id>.png with fallback)
+			# Link to generated 16bit icons (assets/16bit/items/icon_<id>.png with fallback)
 			var tex: Texture2D = null
-			for cand in ["res://assets/pixelart/items/icon_%s.png" % item_id, "res://assets/pixelart/items/%s.png" % item_id]:
+			for cand in ["res://assets/16bit/items/icon_%s.png" % item_id]:
 				if FileAccess.file_exists(cand):
 					tex = load(cand)
 					break

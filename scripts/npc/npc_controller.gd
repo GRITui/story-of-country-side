@@ -13,7 +13,7 @@ signal arrived_at(location_name: String)
 const ARRIVAL_THRESHOLD_PX := 1.0
 const SPRITE_HEIGHT_PX := 48
 
-## Pixelart spritesheet spec matching assets/pixelart/characters/<name>.png:
+## Pixelart spritesheet spec matching assets/16bit/characters/<name>.png:
 ## 48x120, 3 rows x 2 frames, frame 24x40, rows 0=down 1=up 2=side (flip_h).
 const FRAME_W := 24
 const FRAME_H := 40
@@ -34,29 +34,26 @@ func _ready() -> void:
 		TimeManager.minute_passed.connect(_on_minute_passed)
 		_refresh_target(TimeManager.hour, TimeManager.minute)
 
-## Tries generated pixelart sheet (sana.png etc.) first, falls back to the
+## Tries generated 16-bit sheet (sana.png etc.) first, falls back to the
 ## procedural silhouette tinted deterministically from npc_name.
 func _add_character_sprite() -> void:
 	_sprite = Sprite2D.new()
-	var sheet_path := "res://assets/pixelart/characters/%s.png" % npc_name.to_lower()
+	var sheet_path := "res://assets/16bit/characters/%s.png" % npc_name.to_lower()
 	var sheet: Texture2D = load(sheet_path) if npc_name != "" else null
 	if sheet == null and npc_name != "":
-		# Fallback: try exact name as stored (e.g. capital letter file already lowercase)
-		sheet = load("res://assets/pixelart/characters/%s.png" % npc_name) as Texture2D
-	if sheet != null:
-		_uses_sheet = true
-		_sprite.texture = sheet
-		_sprite.region_enabled = true
-		_sprite.region_rect = Rect2(Vector2.ZERO, Vector2(FRAME_W, FRAME_H))
-		_sprite.centered = false
-		_sprite.offset = Vector2(-FRAME_W / 2.0, -FRAME_H)
-	else:
-		_uses_sheet = false
-		var texture := ProceduralCharacterArt.build_silhouette_texture(_color_for_npc_name(npc_name), SPRITE_HEIGHT_PX)
-		_sprite.texture = texture
-		_sprite.centered = false
-		_sprite.offset = Vector2(-texture.get_width() / 2.0, -texture.get_height())
+		sheet = load("res://assets/16bit/characters/%s.png" % npc_name) as Texture2D
+	if sheet == null or sheet.get_image() == null:
+		push_error("Missing 16-bit character asset: %s" % sheet_path)
+		add_child(_sprite)
+		return
+	_uses_sheet = true
+	_sprite.texture = sheet
+	_sprite.region_enabled = true
+	_sprite.region_rect = Rect2(Vector2.ZERO, Vector2(FRAME_W, FRAME_H))
+	_sprite.centered = false
+	_sprite.offset = Vector2(-FRAME_W / 2.0, -FRAME_H)
 	add_child(_sprite)
+
 
 ## Back-compat alias used by older scene wiring or tests that call the
 ## placeholder method directly.
@@ -86,12 +83,6 @@ func _update_sprite_frame(moving: bool, delta: float) -> void:
 	if row == 2:
 		_sprite.flip_h = _facing.x < 0.0
 
-## Deterministic per-name tint so repeated NPCs (or a scene re-entered
-## after save/load) always render the same NPC the same color, without
-## needing any stored/authored color list.
-func _color_for_npc_name(name: String) -> Color:
-	var h: int = absi(hash(name if name != "" else "npc"))
-	return Color.from_hsv(float(h % 360) / 360.0, 0.45, 0.85)
 
 func _on_minute_passed(hour: int, minute: int) -> void:
 	_refresh_target(hour, minute)

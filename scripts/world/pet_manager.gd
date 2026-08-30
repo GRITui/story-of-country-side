@@ -21,4 +21,4 @@ func update_pet_position(player_pos: Vector2) -> void:
 
 func get_pet_sprite() -> String:
 	if current_pet == "none": return ""
-	return "res://assets/pixelart/pets/%s.png" % current_pet
+	return "res://assets/16bit/animals/%s.png" % current_pet

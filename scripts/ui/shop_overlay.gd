@@ -58,10 +58,12 @@ func _add_row(crop_id: String) -> void:
 	row.name = "Row_%s" % crop_id
 	row.add_theme_constant_override("separation", 12)
 
-	# Seed icon (assets/pixelart/items/icon_<crop_id>.png fallback)
-	var icon_path := "res://assets/pixelart/items/icon_%s.png" % crop_id
+	# Seed icon (assets/16bit/items/icon_<crop_id>.png fallback)
+	var icon_path := "res://assets/16bit/items/icon_%s.png" % crop_id
 	var icon_tex: Texture2D = load(icon_path)
-	if icon_tex != null:
+	if icon_tex == null or icon_tex.get_image() == null:
+		push_error("Missing 16-bit item icon: %s" % icon_path)
+	else:
 		var icon := TextureRect.new()
 		icon.texture = icon_tex
 		icon.custom_minimum_size = Vector2(16, 16)

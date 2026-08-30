@@ -4,7 +4,6 @@ class_name PlayerAvatar
 ## scene -- previously a disembodied cursor, per the issue's own framing
 ## ("Player avatar: a visible main character in world scenes (you are
 ## currently a disembodied cursor)"). Adds a bottom-anchored Sprite2D
-## placeholder using the same ProceduralCharacterArt generator
 ## NPCController already uses (see that file's and
 ## scripts/npc/procedural_character_art.gd's docstrings for the "no
 ## image-generation tool / no illustrated art asset" disclosure this
@@ -53,10 +52,10 @@ const ARRIVAL_THRESHOLD_PX := 1.0
 ## tool-swing feedback pulse (#100 ask item 3).
 const SWING_PULSE_COLOR := Color(1.5, 1.5, 1.15)
 
-## Generated pixelart spritesheet (assets/pixelart/characters/player.png):
+## Generated 16-bit spritesheet (assets/16bit/characters/player.png):
 ## 48x120, 3 rows x 2 frames, frame 24x40, rows: 0=down, 1=up, 2=side
 ## (flip_h for opposite side), bottom-center anchor at feet.
-const SHEET_PATH := "res://assets/pixelart/characters/player.png"
+const SHEET_PATH := "res://assets/16bit/characters/player.png"
 const FRAME_W := 24
 const FRAME_H := 40
 const FRAME_COUNT := 2
@@ -88,20 +87,17 @@ func _ready() -> void:
 func _build_sprite() -> Sprite2D:
 	var sprite := Sprite2D.new()
 	var sheet: Texture2D = load(SHEET_PATH)
-	if sheet != null:
-		_uses_sheet = true
-		sprite.texture = sheet
-		sprite.region_enabled = true
-		sprite.region_rect = Rect2(Vector2.ZERO, Vector2(FRAME_W, FRAME_H))
-		sprite.centered = false
-		sprite.offset = Vector2(-FRAME_W / 2.0, -FRAME_H)
-	else:
-		_uses_sheet = false
-		var texture := ProceduralCharacterArt.build_silhouette_texture(PLAYER_COLOR, SPRITE_HEIGHT_PX)
-		sprite.texture = texture
-		sprite.centered = false
-		sprite.offset = Vector2(-texture.get_width() / 2.0, -texture.get_height())
+	if sheet == null or sheet.get_image() == null:
+		push_error("Missing 16-bit player asset: %s" % SHEET_PATH)
+		return sprite
+	_uses_sheet = true
+	sprite.texture = sheet
+	sprite.region_enabled = true
+	sprite.region_rect = Rect2(Vector2.ZERO, Vector2(FRAME_W, FRAME_H))
+	sprite.centered = false
+	sprite.offset = Vector2(-FRAME_W / 2.0, -FRAME_H)
 	return sprite
+
 
 func _update_sprite_frame(moving: bool, delta: float) -> void:
 	if not _uses_sheet:
