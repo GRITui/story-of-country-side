@@ -2716,3 +2716,84 @@ marketing/presenter/README.md. Reuses existing farm asset set; no scene wiring.
     PR: see squad-handshake-frontend.md for number/link.
   </description>
 </task_item>
+
+<!-- PO DIRECTIVE 2026-08-30: 16-Bit Japanese Rural Farming Adventure Overhaul — 5-Agent Squad Orchestration -->
+
+<task_item>
+  <id>PO-16BIT-CORE-1</id>
+  <source>OWNER_POPUP</source>
+  <status>READY_FOR_PM</status>
+  <priority>HIGH</priority>
+  <title>[AGENT 1: CORE] Farming Sim Engine — 16x16 soil, crop lifecycle, stamina, time/calendar & shipping</title>
+  <description>
+    Sprint 1-2 foundation. Build deterministic farming state machine on 16x16 px tile grid:
+    - SoilState: 'dry_grass'|'tilled_dry'|'tilled_watered'|'planted'|'harvestable'|'withered'|'blocked_rock'|'blocked_wood' metadata {soilState,cropType,growthStage,daysWatered,daysWithoutWater}. Daily midnight/dawn tick: watered→dry, crop advances only if watered prior day, wither if &gt;2 days unwatered.
+    - Crops Turnip 4d, Radish 5d, Eggplant 7d, Strawberry multi-harvest — integrate with existing FarmPlotManager/CropDefinition or replace.
+    - Tools: Hoe, Watering Can 1x1/1x3, Sickle, Axe/Hammer, Seed Bags; Stamina 100 max, 0→50% move speed + collapse risk.
+    - Time 4 Seasons×30d, 1 real sec=1 in-game min 06:00-24:00, Shipping Box daily profit at 06:00 next morning.
+    Target: Web/Canvas 16x16 tile engine, Y-sort ready. See AGENT 2 for rendering.
+  </description>
+  <researcher_notes>Chibi spec 16x32 char on 16x16 grid already shipped in assets/16bit — this agent owns simulation, not sprites.</researcher_notes>
+</task_item>
+
+<task_item>
+  <id>PO-16BIT-GFX-2</id>
+  <source>OWNER_POPUP</source>
+  <status>READY_FOR_PM</status>
+  <priority>HIGH</priority>
+  <title>[AGENT 2: GRAPHICS] 16-Bit Chibi Engine — 16x16 tilemap, Y-sort, sprite & day/night LUT</title>
+  <description>
+    Build visual pipeline per strict chibi spec (1:2.0-2.5 16x24/24x32/32x32, head 55-60%, eyes 3-6px catchlight, hue-shifted 3-4 shades sel-out navy/burgundy, 3/4 oblique 30-45°, shadow 8x4/12x6):
+    - Grid: 16x16 px base, multi-layer Canvas: Ground→Tilled/Watered Overlay→Y-Sorted Entities (sort a.footY-b.footY)→Canopy→Weather/DayNight overlay.
+    - Character pipeline: 24x32 px 1:2.2 head, 4 dirs Down/Up/Left/Right: Idle 2F breath/blink, Walk 4F 1px head bob 1F hair lag, Tool Swing 3F Anticipation/Impact/Recovery, Holding overhead.
+    - Tileset: farmland, mossy stone walls, wooden houses kawara roofs, dirt paths, canals animated water, Jizō statues — replace flat 64x32 isodiamond with 16x16 source but keep Godot 64x32 isodiamond compat layer via design/art/isometric-grid-spec.md.
+    - Lighting LUT: 06:00 warm amber, 10:00 crisp saturated, 17:00 golden vermilion, 20:00 cool indigo + lantern points.
+  </description>
+  <researcher_notes>Assets/16bit already holds 109 PNGs 32x32 but spec now requires 16x16 base — agent must either resample or regenerate gen_tiles to 16x16 source.</researcher_notes>
+</task_item>
+
+<task_item>
+  <id>PO-16BIT-HCI-3</id>
+  <source>OWNER_POPUP</source>
+  <status>READY_FOR_PM</status>
+  <priority>HIGH</priority>
+  <title>[AGENT 3: HCI/UI] Retro Input & Diegetic UI — focus, keyboard/gamepad/touch, HUD & dialogue</title>
+  <description>
+    - Input Manager focus safety: canvas auto-focus on mount/click, prevent browser scroll.
+      Keyboard: Move WASD/Arrows 4/8-way collision 12x8 feet, Primary Space/J, Secondary E/K, Hotbar 1-8 / Scroll / Tab cycle.
+      Mobile D-pad left + A/B right, Gamepad mapped.
+    - HUD: Top-Right wooden placard Season/Day/Weekday + clock/weather, Top-Left stamina bamboo bar + gold G, Bottom 8-slot hotbar + water gauge.
+    - Dialogue: wood-bordered frame bottom, 16-bit portrait left, typewriter + blip, manga emotes over head (sweatdrop 3x5, anger 4x4, heart, !) already in assets/16bit/ui/emote_*.png.
+    Target Web/Canvas HTML5 responsive Keyboard+Touch.
+  </description>
+  <researcher_notes>Existing InputMapManager already has move_up/down/left/right/interact; need J/K/Space/Tab + collision clamp + mobile D-pad overlay.</researcher_notes>
+</task_item>
+
+<task_item>
+  <id>PO-16BIT-WORLD-4</id>
+  <source>OWNER_POPUP</source>
+  <status>READY_FOR_PM</status>
+  <priority>HIGH</priority>
+  <title>[AGENT 4: WORLD/NPC] Japanese Village World & Routine — 64x64 map, 3 NPCs, gifting</title>
+  <description>
+    - World 64x64 tiles: Zone1 Farm (farmhouse, tillable field, shipping bin, well, shed), Zone2 Path & River (fishing, bamboo shoots foraging), Zone3 Village Square (Store, Blacksmith, Shrine, Townhall). Use assets/16bit props (farmhouse/barn/coop etc.) + Jizō shrine.
+    - NPC Engine: 3 villagers with daily time schedules e.g. Elder Taro Shrine 06:00→River 14:00→Home 20:00, Hanako Store 09:00-17:00 seed sales, A* / waypoint across colliders (from NPCSchedule/NPCRoster).
+    - Interaction: Talk → friendship affinity, Gift crops/forage → custom dialogue + emote.
+  </description>
+  <researcher_notes>NPCRoster+Nebula already has 6 villagers with placeholder schedules; needs Japanese reskin and 64x64 zone layout.</researcher_notes>
+</task_item>
+
+<task_item>
+  <id>PO-16BIT-QA-5</id>
+  <source>OWNER_POPUP</source>
+  <status>READY_FOR_PM</status>
+  <priority>HIGH</priority>
+  <title>[AGENT 5: QA/E2E] Headed Visual + Farming Loop Integration Gate</title>
+  <description>
+    - Smoke visual: New Game → avatar sprite non-blank pixel density at player coords, KeyD/ArrowRight → X coord + animation frame tick.
+    - Full loop: Hoe (5,5)→tilled_dry, Turnip Seed→planted, Water→tilled_watered, Advance 4 days daily water→harvestable, Interact harvest→Shipping Bin→next morning gold increase.
+    - Collision: fences/water/houses block 12x8 feet, Y-sort no jitter above/below trees.
+    - CI: Playwright headed, 60 FPS lock, responsive.
+  </description>
+  <researcher_notes>Currently headless-only 874 checks false-positive; this replaces with headed browser assertions.</researcher_notes>
+</task_item>

@@ -149,6 +149,9 @@ const DECORATIVE_PROPS := [
 	{"path": "res://assets/16bit/props/fence_h.png", "grid_pos": Vector2i(1, -1)},
 	{"path": "res://assets/16bit/props/fence_v.png", "grid_pos": Vector2i(-1, 5)},
 	{"path": "res://assets/16bit/props/shipping_bin.png", "grid_pos": Vector2i(8, 6)},
+	# PO-16BIT-GFX-2 Japanese placeholders (reuse 16bit prop pipeline, documented in 16bit-style-guide)
+	{"path": "res://assets/16bit/props/kawara_roof.png", "grid_pos": Vector2i(3, -1)},
+	{"path": "res://assets/16bit/props/jizo_statue.png", "grid_pos": Vector2i(9, 5)},
 ]
 
 @onready var _tilemap: TileMap = $TileMap
@@ -165,11 +168,18 @@ func _ready() -> void:
 	_add_dynamic_layer()
 	_add_player_avatar()
 	_add_villagers()
+	_add_day_night_overlay()
 
 	FarmPlotManager.crop_planted.connect(_on_crop_planted)
 	FarmPlotManager.crop_watered.connect(_on_crop_watered)
 	FarmPlotManager.crop_harvested.connect(_on_crop_harvested)
 	FarmPlotManager.crop_withered.connect(_on_crop_withered)
+
+## PO-16BIT-GFX-2 Day/Night LUT — CanvasModulate + ColorRect overlay driven by TimeManager.hour.
+## Layer: Canopy→Weather/DayNight overlay (top). Minimal, deterministic, no shader.
+func _add_day_night_overlay() -> void:
+	var overlay := DayNightOverlay.new()
+	add_child(overlay)
 
 ## Builds one TileSet at runtime: tries to load generated 16-bit tiles
 ## (assets/16bit/tiles/*.png, 64x32 isometric diamonds per
@@ -445,4 +455,4 @@ func _handle_tile_click(position: Vector2i) -> void:
 	elif not plot.watered_today:
 		acted = FarmPlotManager.water(position)
 	if acted:
-		_player_avatar.pulse_tool_use()
+		_player_avatar.play_tool_swing()

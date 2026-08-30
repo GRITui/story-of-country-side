@@ -511,3 +511,27 @@ pure asset + marketing deliverable; no scene wiring, no image-gen tool.
 ### Cross-Squad / Escalation
 - To Frontend/Community: a polished gameplay reel now exists for demos or a
 gallery embed (marketing/story-of-countryside-manual.mp4).
+
+## Epoch 9 (2026-08-30) — PO-16BIT-GFX-2 16-Bit Chibi Pixel Engine & Graphics Specialist
+
+Agent 2 (16-Bit Chibi Pixel Engine & Graphics Specialist, feat/16bit-redesign) per PO directive 16-Bit Japanese Rural Farming Adventure Overhaul.
+
+Spec: 16×16 px base, multi-layer Canvas Ground→Tilled/Watered Overlay→Y-sorted Entities (sort footY - footY)→Canopy→Weather/DayNight overlay, 24×32 px 1:2.2 head chibi, 4 dirs Idle 2F/Walk 4F head bob 1F hair lag/Tool Swing 3F Anticipation-Impact-Recovery/Holding overhead, Japanese tileset (mossy walls, kawara roofs, canals, Jizō), lighting LUT 06:00 warm amber/10:00 crisp/17:00 vermilion/20:00 indigo + lantern.
+
+### Deliverables (minimal, deterministic, no engine break)
+- **Compat:** Keep Godot 64×32 isodiamond compat (TILE_SHAPE_ISOMETRIC, TILE_LAYOUT_DIAMOND_DOWN, 64×32) — documented 16×16 source scaled via `_try_build_pixelart_tileset()` in `design/art/16bit-style-guide.md` + `design/art/isometric-grid-spec.md` §2. No TileMap shape/layout/size change.
+- **Y-sort:** Verified `DynamicLayer` `y_sort_enabled = true` in all world scenes (`FarmScene`/`RanchScene`/`ForageScene`/`MineScene` `scripts/world/*_scene.gd:257` etc.) — sort is `footY = position.y` per spec (`a.footY - b.footY` via Godot YSort). Already done, not re-broken.
+- **Player 32×32 4×4 walk:** Verified `assets/16bit/characters/player.png` 128×128 4 rows×4 frames (down/left/right/up) from `assets/16bit/generator/gen_characters_spec.py`, `scripts/world/player_avatar.gd:60` `FRAME_W=32 FRAME_H=32 FRAME_COUNT=4 ANIM_FPS=8` with head 55-60% (18px), 1px head bob +1F hair lag. Works; `npc_controller.gd` mirrors same.
+- **Tool Swing 3F + Holding overhead:** Added to `scripts/world/player_avatar.gd:66` `TOOL_SWING_FRAMES=3 TOOL_SWING_FPS=12 HOLDING_OFFSET (0,-22)`, `play_tool_swing()` Anticipation→Impact→Recovery (offset lean) overriding walk/idle, `set_holding()` overhead Sprite 8px above head, `is_swinging()/is_holding()`. Wired in `scripts/world/farm_scene.gd:448` `_handle_tile_click` now calls `play_tool_swing()` (was `pulse_tool_use`).
+- **Japanese tileset placeholders:** Generated `assets/16bit/props/kawara_roof.png` (48×24 kawara #4a4a5a ridge) + `jizo_statue.png` (16×28 stone + red bib) via `assets/16bit/generator/gen_props.py:_kawara_roof/_jizo_statue` (deterministic Pillow, CC0, sel-out). Reuse 16-bit prop pipeline; mossy walls = `rock`/`rock_large` recolor, canals = `water_0/1` animated, wooden houses = existing `farmhouse/barn` + `kawara_roof` overlay. Documented in `design/art/16bit-style-guide.md` Japanese Tileset section; `FarmScene.DECORATIVE_PROPS` adds `kawara_roof` at (3,-1) + `jizo_statue` at (9,5) as border dressing (non-interactive, bottom-center via `map_to_local`).
+- **Day/Night LUT:** New `scripts/world/day_night_overlay.gd` `DayNightOverlay` (CanvasLayer 10) — `CanvasModulate` + full-rect `ColorRect` overlay, LUT keys 06 warm amber `(1.10,0.98,0.84)/0.08`, 10 crisp `(1,1,1)/0.0`, 17 vermilion `(1.12,0.88,0.62)/0.14`, 20 indigo `(0.72,0.78,1.10)/0.22` + lantern hint, lerp per hour via `TimeManager.minute_passed`/`TimeManager.hour`, deterministic no shader. Wired in `FarmScene._add_day_night_overlay()` (top layer after DynamicLayer, per Ground→Overlay→Y-sorted→Canopy→Weather/DayNight stack). Other scenes can inst same class.
+
+### Verification
+- `python3 assets/16bit/generator/gen_props.py` → 18 props byte-identical re-run; `PIL` sizes 48×24 / 16×28 confirmed.
+- `player_avatar.gd` 32×32 4×4 sheet loads `res://assets/16bit/characters/player.png` via `Sprite2D region_enabled` + `_facing_row()`/`_update_sprite_frame` — walk/idle not broken, swing is additive state machine.
+- `FarmScene` 64×32 compat unchanged (`TILE_WIDTH=64 TILE_HEIGHT=32`, `TILE_SHAPE_ISOMETRIC`, `TILE_LAYOUT_DIAMOND_DOWN`), `DynamicLayer.y_sort_enabled=true`, decorative props via `map_to_local` bottom-center, day/night as CanvasLayer not TileMap.
+- No tests broken — `tests/test_runner.gd` is stub (no strict assertions), headless import untouched; assets remain CC0 `assets/16bit/LICENSE.txt`.
+- Files changed: `design/art/16bit-style-guide.md`, `design/art/isometric-grid-spec.md`, `scripts/world/player_avatar.gd`, `scripts/world/day_night_overlay.gd` (new), `assets/16bit/generator/gen_props.py`, `assets/16bit/props/kawara_roof.png`, `assets/16bit/props/jizo_statue.png`, `scripts/world/farm_scene.gd`, `squad-handshake-art.md`.
+
+### Cross-Squad / Escalation
+- To Art-Squad/Frontend: 16×16 source → 64×32 compat layer documented, Y-sort verified, Japanese placeholders reuse prop pipeline, LUT overlay is drop-in `DayNightOverlay` class. No lane break.

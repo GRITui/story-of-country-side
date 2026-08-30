@@ -23,7 +23,7 @@ nothing against the ENG-STACK decision (#30, Godot).
 
 ## 2. Base tile dimensions
 
-**64×32 px** ground tile footprint. Large enough for readable pixel-art
+**64×32 px** ground tile footprint at runtime (Godot `TILE_SHAPE_ISOMETRIC`). Source authoring is **16×16 px** (PO-16BIT-GFX-2) — deterministic Pillow tiles are generated at 16×16 and scaled/stitched to 64×32 atlas via `_try_build_pixelart_tileset()` so the engine compat layer is untouched. Large enough for readable pixel-art
 detail at typical modern display scales, small enough to keep the
 environment-art backlog's per-tile-variant cost (flagged in DEC-E's
 resolution comment on #6) from ballooning further. Object/prop sprites are

@@ -52,16 +52,28 @@ const ARRIVAL_THRESHOLD_PX := 1.0
 ## tool-swing feedback pulse (#100 ask item 3).
 const SWING_PULSE_COLOR := Color(1.5, 1.5, 1.15)
 
-## Generated 16-bit spritesheet (assets/16bit/characters/player.png):
-## 48x120, 3 rows x 2 frames, frame 24x40, rows: 0=down, 1=up, 2=side
-## (flip_h for opposite side), bottom-center anchor at feet.
+## Strict 16-bit chibi spritesheet per Design Spec (1:2.3, 32x32, 55% head):
+## 128x128, 4 rows x 4 frames, frame 32x32, rows: 0=down(front), 1=left(3/4), 2=right(3/4), 3=up(back)
+## 4-frame walk: Contact L (-2 leg, head bob -1) | Pass (0) | Contact R (+2) | Pass — hair delayed 1F
+## Idle 2-4F breathing + blink, emotes sweatdrop 3x5 / anger 4x4 / surprise ! on ui/emote_*
+## Bottom-center anchor at feet, shadow 12x6 at y=26
+## Tool Swing 3F: Anticipation (wind-up back) → Impact (strike) → Recovery (return). Holding overhead: item 8px above head, arms raised.
 const SHEET_PATH := "res://assets/16bit/characters/player.png"
-const FRAME_W := 24
-const FRAME_H := 40
-const FRAME_COUNT := 2
-const ANIM_FPS := 6.0
+const FRAME_W := 32
+const FRAME_H := 32
+const FRAME_COUNT := 4
+const ANIM_FPS := 8.0
+## Tool swing + holding — PO-16BIT-GFX-2
+const TOOL_SWING_FRAMES := 3
+const TOOL_SWING_FPS := 12.0
+const HOLDING_OFFSET := Vector2(0, -22) # overhead 8px above head (head top y=2, head 18px)
 
 @export var move_speed_px_per_sec: float = 90.0
+
+## PO-16BIT-HCI-3: 12x8 feet collision — bottom-center anchored at position (feet).
+const FEET_WIDTH := 12.0
+const FEET_HEIGHT := 8.0
+const FEET_COLLISION_SIZE := Vector2(FEET_WIDTH, FEET_HEIGHT)
 
 var _target_position: Vector2
 var _has_target := false
@@ -69,6 +81,16 @@ var _sprite: Sprite2D
 var _uses_sheet := false
 var _anim_timer := 0.0
 var _frame_index := 0
+# Tool swing / holding state — PO-16BIT-GFX-2
+var _is_swinging := false
+var _swing_frame := 0
+var _swing_timer := 0.0
+var _holding := false
+var _holding_sprite: Sprite2D = null
+# PO-16BIT-HCI-3: world bounds + blocked rects for 12x8 feet clamp.
+var _world_bounds := Rect2()
+var _has_world_bounds := false
+var _blocked_rects: Array[Rect2] = []
 
 ## Last non-zero movement direction, in this node's local screen-space
 ## (not grid space) -- updated by both move_by_input() and the click-to-
@@ -102,6 +124,31 @@ func _build_sprite() -> Sprite2D:
 func _update_sprite_frame(moving: bool, delta: float) -> void:
 	if not _uses_sheet:
 		return
+	# Tool swing overrides walk/idle while active — 3F Anticipation-Impact-Recovery
+	if _is_swinging:
+		_swing_timer += delta
+		if _swing_timer >= 1.0 / TOOL_SWING_FPS:
+			_swing_timer -= 1.0 / TOOL_SWING_FPS
+			_swing_frame += 1
+			if _swing_frame >= TOOL_SWING_FRAMES:
+				_is_swinging = false
+				_swing_frame = 0
+				_swing_timer = 0.0
+		# Map swing 0→Anticipation (frame 0), 1→Impact (frame 1 with offset), 2→Recovery (frame 2)
+		var row := _facing_row()
+		# Use walk frames as stand-in but offset for Anticipation/Impact lean; deterministic without new art
+		var swing_frame_map := [0, 1, 0]
+		_frame_index = swing_frame_map[_swing_frame]
+		_sprite.region_rect = Rect2(Vector2(_frame_index * FRAME_W, row * FRAME_H), Vector2(FRAME_W, FRAME_H))
+		# Anticipation leans back, Impact leans forward via sprite offset
+		if _swing_frame == 0:
+			_sprite.offset = Vector2(-FRAME_W / 2.0 + 1, -FRAME_H + 1)
+		elif _swing_frame == 1:
+			_sprite.offset = Vector2(-FRAME_W / 2.0 - 1, -FRAME_H - 1)
+		else:
+			_sprite.offset = Vector2(-FRAME_W / 2.0, -FRAME_H)
+		_sprite.flip_h = false
+		return
 	if moving:
 		_anim_timer += delta
 		if _anim_timer >= 1.0 / ANIM_FPS:
@@ -110,16 +157,56 @@ func _update_sprite_frame(moving: bool, delta: float) -> void:
 	else:
 		_frame_index = 0
 		_anim_timer = 0.0
-	var row := 0
-	if absf(facing.x) > absf(facing.y):
-		row = 2
-	elif facing.y < 0:
-		row = 1
-	else:
-		row = 0
+	var row := _facing_row()
 	_sprite.region_rect = Rect2(Vector2(_frame_index * FRAME_W, row * FRAME_H), Vector2(FRAME_W, FRAME_H))
-	if row == 2:
-		_sprite.flip_h = facing.x < 0.0
+	_sprite.offset = Vector2(-FRAME_W / 2.0, -FRAME_H)
+	_sprite.flip_h = false
+	# Holding overhead: keep item sprite above head, arms visually raised via offset already
+	if _holding and _holding_sprite:
+		_holding_sprite.position = HOLDING_OFFSET
+
+func _facing_row() -> int:
+	if facing.y < -0.3 and absf(facing.y) > absf(facing.x):
+		return 3 # up/back
+	elif facing.x < -0.3:
+		return 1 # left 3/4
+	elif facing.x > 0.3:
+		return 2 # right 3/4
+	else:
+		return 0 # down/front
+
+## PO-16BIT-GFX-2: 3-frame tool swing hook — Anticipation→Impact→Recovery.
+## Call instead of pulse_tool_use for full animation; keeps pulse as fallback.
+func play_tool_swing() -> void:
+	if not _uses_sheet:
+		pulse_tool_use()
+		return
+	_is_swinging = true
+	_swing_frame = 0
+	_swing_timer = 0.0
+	_anim_timer = 0.0
+
+func is_swinging() -> bool:
+	return _is_swinging
+
+## PO-16BIT-GFX-2: Holding overhead pose — shows item sprite 8px above head.
+func set_holding(holding: bool, item_texture: Texture2D = null) -> void:
+	_holding = holding
+	if holding:
+		if _holding_sprite == null:
+			_holding_sprite = Sprite2D.new()
+			_holding_sprite.centered = true
+			_holding_sprite.position = HOLDING_OFFSET
+			add_child(_holding_sprite)
+		if item_texture != null:
+			_holding_sprite.texture = item_texture
+		_holding_sprite.visible = true
+	else:
+		if _holding_sprite != null:
+			_holding_sprite.visible = false
+
+func is_holding() -> bool:
+	return _holding
 
 ## Sets a new movement target in this scene's local coordinate space.
 ## Callers pass whatever local position their own tile-click handler
@@ -145,6 +232,52 @@ func move_to(target: Vector2) -> void:
 ## decision, not an oversight: re-clicking (or pressing a key again) is a
 ## simpler mental model than a walk that silently resumes toward an old
 ## click the player may no longer want.
+## PO-16BIT-HCI-3: feet rect at given world position (bottom-center anchor).
+func get_feet_rect(at_pos: Vector2 = Vector2.INF) -> Rect2:
+	var p := at_pos if at_pos != Vector2.INF else position
+	return Rect2(p.x - FEET_WIDTH * 0.5, p.y - FEET_HEIGHT, FEET_WIDTH, FEET_HEIGHT)
+
+func would_collide(at_pos: Vector2) -> bool:
+	var feet := get_feet_rect(at_pos)
+	if _has_world_bounds and not _world_bounds.encloses(feet):
+		return true
+	for r in _blocked_rects:
+		if feet.intersects(r):
+			return true
+	return false
+
+func set_world_bounds(bounds: Rect2) -> void:
+	_world_bounds = bounds
+	_has_world_bounds = true
+
+func clear_world_bounds() -> void:
+	_has_world_bounds = false
+
+func set_blocked_rects(rects: Array[Rect2]) -> void:
+	_blocked_rects = rects
+
+func add_blocked_rect(r: Rect2) -> void:
+	_blocked_rects.append(r)
+
+func _try_move(desired: Vector2) -> Vector2:
+	if not would_collide(desired):
+		return desired
+	# Axis-separated slide — try X then Y for 8-way feel, else block.
+	var try_x := Vector2(desired.x, position.y)
+	var try_y := Vector2(position.x, desired.y)
+	var can_x := not would_collide(try_x)
+	var can_y := not would_collide(try_y)
+	if can_x and not can_y:
+		return try_x
+	if can_y and not can_x:
+		return try_y
+	if can_x and can_y:
+		# Prefer larger axis progress (keeps diagonal slide intuitive).
+		if absf(desired.x - position.x) > absf(desired.y - position.y):
+			return try_x
+		return try_y
+	return position
+
 func move_by_input(direction: Vector2, delta: float) -> void:
 	if direction == Vector2.ZERO:
 		_update_sprite_frame(false, delta)
@@ -153,7 +286,8 @@ func move_by_input(direction: Vector2, delta: float) -> void:
 	facing = direction.normalized()
 	if not _uses_sheet and absf(facing.x) > 0.01:
 		_sprite.flip_h = facing.x < 0.0
-	position += facing * move_speed_px_per_sec * delta
+	var desired := position + facing * move_speed_px_per_sec * delta
+	position = _try_move(desired)
 	_update_sprite_frame(true, delta)
 
 func _process(delta: float) -> void:
@@ -164,7 +298,11 @@ func _process(delta: float) -> void:
 	var dist := to_target.length()
 	if dist <= ARRIVAL_THRESHOLD_PX:
 		if position != _target_position:
-			position = _target_position
+			var clamped_target := _target_position
+			if would_collide(clamped_target):
+				_has_target = false
+			else:
+				position = clamped_target
 			arrived.emit()
 		_update_sprite_frame(false, delta)
 		return
@@ -172,11 +310,21 @@ func _process(delta: float) -> void:
 		_sprite.flip_h = to_target.x < 0.0
 	facing = to_target.normalized()
 	var step := move_speed_px_per_sec * delta
+	var desired: Vector2
 	if step >= dist:
-		position = _target_position
-		arrived.emit()
+		desired = _target_position
 	else:
-		position += facing * step
+		desired = position + facing * step
+	var next_pos := _try_move(desired)
+	# If blocked and can't advance, cancel target (don't jitter against wall).
+	if next_pos == position and desired != position:
+		_has_target = false
+		_update_sprite_frame(false, delta)
+		return
+	position = next_pos
+	if position == _target_position:
+		arrived.emit()
+		_has_target = false
 	_update_sprite_frame(true, delta)
 
 ## Tool-use feedback (#100 ask item 3): a brief tint pulse on the sprite.

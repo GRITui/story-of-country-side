@@ -10,10 +10,10 @@ signal day_started(day_in_season: int, season: String, day_of_week: String)
 signal day_ended(day_in_season: int, season: String)
 
 const SEASONS: Array[String] = ["Spring", "Summer", "Fall", "Winter"]
-const DAYS_PER_SEASON := 28
+const DAYS_PER_SEASON := 30 ## PO-16BIT-CORE-1: 4x30d seasons
 const DAY_START_HOUR := 6
-const DAY_END_HOUR := 2 ## day rolls over at 2:00 AM, then resets to DAY_START_HOUR
-const MINUTES_PER_REAL_SECOND := 7.0 ## tuning constant, not final balance
+const DAY_END_HOUR := 24 ## PO-16BIT-CORE-1: 06:00-24:00 (midnight = 0); rolls to 06:00 next morning
+const MINUTES_PER_REAL_SECOND := 1.0 ## PO-16BIT-CORE-1: 1 real sec = 1 in-game min
 const DAYS_OF_WEEK: Array[String] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
 var year: int = 1
@@ -39,7 +39,10 @@ func _advance_minute() -> void:
 		minute = 0
 		hour = (hour + 1) % 24
 	minute_passed.emit(hour, minute)
-	if hour == DAY_END_HOUR and minute == 0:
+	# PO-16BIT-CORE-1: day ends at midnight (hour 0) -> rolls to 06:00 next morning
+	if hour == 0 and minute == 0:
+		_end_day()
+	elif hour == DAY_END_HOUR and minute == 0:
 		_end_day()
 
 func _end_day() -> void:
