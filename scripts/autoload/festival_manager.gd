@@ -20,11 +20,16 @@ func _ready() -> void:
 	TimeManager.day_started.connect(_on_day_started)
 
 func _register_default_content() -> void:
+	# Milestone 3.0 Polish — JP seasonal quartet + legacy keeps
+	register_festival(_make_festival("hanami_picnic", "Hanami — Cherry Blossom Picnic", "Spring", 15, "Gather under sakura — villagers share bentos, Elder Taro recites haiku."))
+	register_festival(_make_festival("hanabi_taikai", "Hanabi Taikai — Summer Fireworks", "Summer", 20, "Evening fireworks over the river — lantern palette, yukata dialogue."))
+	register_festival(_make_festival("harvest_contest", "Harvest Moon Cooking & Crop Contest", "Fall", 10, "Submit one crop — judges score quality tiers (normal/silver/gold)."))
+	register_festival(_make_festival("winter_starlight", "Winter Starlight Gathering", "Winter", 24, "Lantern ambiance — warm indigo night, hot tea, village lights."))
+	# Legacy hearth/starlight kept for save compat
 	register_festival(_make_festival("bloomtide_fair", "Bloomtide Fair", "Spring", 13, "Spring blossoms!"))
 	register_festival(_make_festival("sunfield_revel", "Sunfield Revel", "Summer", 15, "Summer sun!"))
 	register_festival(_make_festival("harvest_moon_festival", "Harvest Moon Festival", "Fall", 16, "Fall harvest!"))
 	register_festival(_make_festival("hearthlight_festival", "Hearthlight Festival", "Winter", 21, "Winter warmth!"))
-	# Implementation of #115: Adding the late-winter capstone festival
 	register_festival(_make_festival("starlight_veiling", "Starlight Veiling", "Winter", 28, "The longest night of the year."))
 
 func _make_festival(festival_id: String, display_name: String, season: String, day_of_season: int, flavor_text: String = "") -> FestivalDefinition:

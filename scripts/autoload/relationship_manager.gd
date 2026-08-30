@@ -154,6 +154,14 @@ func give_gift(npc_name: String, item_id: String, preferences: GiftPreferenceTab
 ## marriageable NPC nobody's written preferences for): no-op, returns false,
 ## same "rejected" shape has_gifted_today()-gated give_gift() already uses,
 ## rather than crashing or silently treating every item as neutral.
+func get_gift_emote(item_id: String, preferences: GiftPreferenceTable) -> String:
+	if preferences == null: return "emote_surprise"
+	var cat := preferences.get_category_for(item_id) if preferences.has_method("get_category_for") else "neutral"
+	if cat == "loved": return "emote_heart"
+	if cat == "liked": return "emote_surprise"
+	if cat == "disliked": return "emote_anger"
+	if cat == "hated": return "emote_sweatdrop"
+	return "emote_surprise"
 func give_gift_by_npc_name(npc_name: String, item_id: String) -> bool:
 	if not GIFT_PREFERENCE_PATHS.has(npc_name):
 		return false

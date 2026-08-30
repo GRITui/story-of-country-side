@@ -54,6 +54,14 @@ func spend(amount: int) -> bool:
 	gold_changed.emit(gold)
 	return true
 
+const TEA_MENU := {"green_tea": {"price": 30, "stamina": 25}, "dango": {"price": 50, "stamina": 45}}
+func buy_tea(item:String)->bool:
+	var entry=TEA_MENU.get(item)
+	if entry==null: return false
+	if not spend(int(entry["price"])): return false
+	if StaminaManager.has_method("restore"): StaminaManager.restore(int(entry["stamina"]))
+	return true
+func get_tea_menu()->Dictionary: return TEA_MENU.duplicate()
 func handle_pass_out_penalty() -> void:
 	var penalty := 0
 	if StaminaManager and StaminaManager.has_method("get_pass_out_penalty"):
