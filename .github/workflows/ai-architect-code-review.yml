@@ -1,0 +1,48 @@
+name: AI Architect Code Review
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  code-review:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: read
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Generate PR Diff
+        run: |
+          git diff origin/${{ github.base_ref }}...HEAD > pr_diff.patch
+      - name: Run Architect Code Audit
+        env:
+          AI_API_KEY: ${{ secrets.AI_API_KEY }}
+          AI_MODEL: ${{ vars.AI_ARCHITECT_MODEL }} # Swap model anytime via GitHub settings
+        run: |
+          PROMPT="You are the Lead Architect for a Godot 4 GDScript repository. Review this PR diff:
+          $(cat pr_diff.patch | head -n 250)
+
+          Check for:
+          1. Dynamic aspect-ratio UI compatibility (Control nodes, containers).
+          2. Signal leaks or missing disconnect calls.
+          3. Unsafe hardcoded node paths.
+          4. Cross-platform mobile performance hazards.
+
+          Provide clear, constructive PR feedback."
+  
+          curl -s https://api.anthropic.com/v1/messages \
+            -H "x-api-key: $AI_API_KEY" \
+            -H "anthropic-version: 2023-06-01" \
+            -H "content-type: application/json" \
+            -d "{              \"model\": \"$AI_MODEL\",
+              \"max_tokens\": 1200,
+              \"messages\": [{\"role\": \"user\", \"content\": $(jq -R -s . <<< "$PROMPT")}]            }" | jq -r '.content[0].text' > review_comment.md
+      - name: Post PR Review Comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          gh pr comment "$PR_NUMBER" --body-file review_comment.md

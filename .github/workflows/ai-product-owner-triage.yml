@@ -1,0 +1,47 @@
+name: AI Product Owner Triage
+on:
+  issues:
+    types: [opened, labeled]
+
+jobs:
+  groom-issue:
+    if: github.event.label.name == 'needs-grooming' || github.event.action == 'opened'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      contents: read
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+      - name: Run PO Assessment
+        id: po_assessment
+        env:
+          AI_API_KEY: ${{ secrets.AI_API_KEY }}
+          AI_MODEL: ${{ vars.AI_PO_MODEL }} # Dynamically pulled from repository variables
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          PROMPT="You are the Agile Product Owner for a Godot 4 Japanese rural sim. Evaluate this issue:
+          Title: $ISSUE_TITLE
+          Body: $ISSUE_BODY
+
+          Task:
+          1. Evaluate alignment with game scope.
+          2. Output User Story: 'As a [player], I want [feature] so that [benefit]'.
+          3. Provide 3-4 clear Godot 4 Acceptance Criteria (Nodes, Signals, Logic).
+          4. Recommend estimated complexity (S/M/L)."
+  
+          curl -s https://api.anthropic.com/v1/messages \
+            -H "x-api-key: $AI_API_KEY" \
+            -H "anthropic-version: 2023-06-01" \
+            -H "content-type: application/json" \
+            -d "{              \"model\": \"$AI_MODEL\",
+              \"max_tokens\": 1000,
+              \"messages\": [{\"role\": \"user\", \"content\": $(jq -R -s . <<< "$PROMPT")}]            }" | jq -r '.content[0].text' > po_response.md
+      - name: Comment on Issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_URL: ${{ github.event.issue.html_url }}
+        run: |
+          gh issue comment "$ISSUE_URL" --body-file po_response.md
+          gh issue edit "$ISSUE_URL" --add-label "sprint-ready" --remove-label "needs-grooming"
