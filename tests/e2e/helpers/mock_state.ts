@@ -7,7 +7,15 @@
  *          scripts/world/player_avatar.gd (FEET 12x8, move, anim),
  *          Y-sort (sort by footY) — PO-16BIT-QA-5.
  * Keep in sync with GDScript; tests assert same transitions.
+ * NPC Localization — canonical EN-JP roster (Issue #160)
  */
+export const NPC_CANONICAL = ['Toby','Hanna','Cliff','Nina','Cid','Kai','Leo'] as const;
+export const NPC_KATAKANA: Record<string,string> = { Toby:'トビー', Hanna:'ハンナ', Cliff:'クリフ', Nina:'ニーナ', Cid:'シド', Kai:'カイ', Leo:'レオ' };
+export const NPC_NAME_MIGRATION: Record<string,string> = {
+  'Elder Taro':'Toby','OldMan':'Toby','Hanako':'Hanna','Shopkeeper':'Hanna','Blacksmith':'Cliff','ForgeNPC':'Cliff','Takeshi':'Cliff',
+  'Barkeeper':'Nina','TeaNPC':'Nina','Carpenter':'Cid','Fisherman':'Kai','Boy1':'Leo','RivalNPC':'Leo',
+};
+export function canonicalNPC(name:string){ return NPC_NAME_MIGRATION[name] ?? name; }
 export enum SoilState {
   DRY_GRASS = 0,
   TILLED_DRY = 1,
