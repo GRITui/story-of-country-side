@@ -4,7 +4,6 @@ class_name RanchScene
 ## scene for AnimalManager + visible player avatar.
 ##
 ## Pen rendering unchanged from pre-avatar implementation (reactive
-## TileMap, ProceduralTileArt, 5x4 pens). Squad Alpha adds the same
 ## PlayerAvatar wiring as FarmScene: WASD/arrows, clamped to pen bounds,
 ## faces clicked tile, tool swing on feed/brush/collect, bed tile that
 ## calls TimeManager.sleep() via the public can_sleep()/sleep() API only.
@@ -32,15 +31,12 @@ class_name RanchScene
 ## frontend scene has documented; no image-generation tool exists in this
 ## environment either, see squad-handshake-art.md): Art Squad replaced
 ## this scene's flat-color placeholder tileset with a procedurally-
-## generated one (ProceduralTileArt.build_isometric_tileset, in
-## scripts/world/procedural_tile_art.gd) -- real alpha-masked isometric
 ## diamonds with directional shading, an edge outline, and speckle-grain
 ## texture, still one base color per pen state:
 ##   empty              -> bare pen dirt   (Color(0.42, 0.34, 0.24))
 ##   occupied, not fed  -> neutral hay     (Color(0.62, 0.55, 0.32))
 ##   occupied, fed      -> content green   (Color(0.35, 0.58, 0.30))
 ##   product ready      -> bright gold     (Color(0.86, 0.71, 0.18))
-## product ready also gets ProceduralTileArt's center-weighted glow accent
 ## so a ready pen visually calls attention to itself.
 ## Species and happiness-tier detail (silver/gold quality) have no visual
 ## representation yet -- out of scope for a tileset with no illustrated
@@ -98,6 +94,18 @@ const ATLAS_SOURCE_ID := 0
 ## Matches NPCRoster.NPC_HOME_SCENE's "Ranch" value -- see npc_roster.gd.
 const HOME_SCENE_NAME := "Ranch"
 
+
+const DECORATIVE_PROPS := [
+	{"path": "res://assets/16bit/props/barn.png", "grid_pos": Vector2i(-1, 0)},
+	{"path": "res://assets/16bit/props/coop.png", "grid_pos": Vector2i(5, 1)},
+	{"path": "res://assets/16bit/props/fence_h.png", "grid_pos": Vector2i(1, -1)},
+	{"path": "res://assets/16bit/props/fence_v.png", "grid_pos": Vector2i(-1, 1)},
+	{"path": "res://assets/16bit/props/bush.png", "grid_pos": Vector2i(5, 3)},
+	{"path": "res://assets/16bit/props/tree.png", "grid_pos": Vector2i(-1, 3)},
+	{"path": "res://assets/16bit/props/tree_2.png", "grid_pos": Vector2i(5, 0)},
+	{"path": "res://assets/16bit/props/pine.png", "grid_pos": Vector2i(-1, 4)},
+]
+
 @onready var _tilemap: TileMap = $TileMap
 var _player_avatar: PlayerAvatar
 var _relationships_overlay: RelationshipsOverlay
@@ -107,6 +115,7 @@ var _npcs: Array[NPCController] = []
 func _ready() -> void:
 	_build_tileset()
 	_render_all_pens()
+	_add_decorative_props()
 	_add_dynamic_layer()
 	_add_player_avatar()
 	_add_villagers()
@@ -116,10 +125,65 @@ func _ready() -> void:
 	AnimalManager.animal_brushed.connect(_on_animal_changed)
 	AnimalManager.product_collected.connect(_on_product_collected)
 
-## Same shared ProceduralTileArt approach as FarmScene._build_tileset —
-## see class docstring for why there's no art asset to load instead.
+## Tries 16-bit tiles first (grass/dirt/farmland variants), falls back
 func _build_tileset() -> void:
-	_tilemap.tile_set = ProceduralTileArt.build_isometric_tileset(STATE_COLORS, TILE_WIDTH, TILE_HEIGHT, ATLAS_SOURCE_ID, [STATE_READY])
+	var png_map := {
+		STATE_EMPTY: "res://assets/16bit/tiles/dirt.png",
+		STATE_UNFED: "res://assets/16bit/tiles/farmland.png",
+		STATE_FED: "res://assets/16bit/tiles/grass.png",
+		STATE_READY: "res://assets/16bit/tiles/grass_clover.png"
+	}
+	var tileset := _try_build_pixelart_tileset(png_map, [STATE_READY])
+	_tilemap.tile_set = tileset
+
+func _try_build_pixelart_tileset(png_map: Dictionary, _glow_states: Array = []) -> TileSet:
+	var states: Array = png_map.keys()
+	states.sort()
+	var textures: Dictionary = {}
+	for state in states:
+		var tex: Texture2D = load(png_map[state])
+		if tex == null or tex.get_image() == null:
+			push_error("Missing 16-bit tile asset: %s" % png_map[state])
+			continue
+		textures[state] = tex
+	if textures.size() != png_map.size():
+		push_error("16-bit tileset build failed: missing required PNGs")
+	var atlas_img := Image.create(TILE_WIDTH * states.size(), TILE_HEIGHT, false, Image.FORMAT_RGBA8)
+	for i in range(states.size()):
+		if not textures.has(states[i]):
+			continue
+		var tex: Texture2D = textures[states[i]]
+		var img: Image = tex.get_image()
+		var w: int = mini(img.get_width(), TILE_WIDTH)
+		var h: int = mini(img.get_height(), TILE_HEIGHT)
+		atlas_img.blit_rect(img, Rect2i(0, 0, w, h), Vector2i(i * TILE_WIDTH, 0))
+	var atlas_tex := ImageTexture.create_from_image(atlas_img)
+	var tile_set := TileSet.new()
+	tile_set.tile_shape = TileSet.TILE_SHAPE_ISOMETRIC
+	tile_set.tile_layout = TileSet.TILE_LAYOUT_DIAMOND_DOWN
+	tile_set.tile_size = Vector2i(TILE_WIDTH, TILE_HEIGHT)
+	var src := TileSetAtlasSource.new()
+	src.texture = atlas_tex
+	src.texture_region_size = Vector2i(TILE_WIDTH, TILE_HEIGHT)
+	for i in range(states.size()):
+		src.create_tile(Vector2i(i, 0))
+	tile_set.add_source(src, ATLAS_SOURCE_ID)
+	return tile_set
+
+
+func _add_decorative_props() -> void:
+	for prop in DECORATIVE_PROPS:
+		var texture: Texture2D = load(prop["path"])
+		if texture == null:
+			push_error("Missing 16-bit prop asset: %s" % prop["path"])
+			continue
+		var sprite := Sprite2D.new()
+		sprite.texture = texture
+		sprite.centered = false
+		sprite.offset = Vector2(-texture.get_width() / 2.0, -texture.get_height())
+		sprite.position = _tilemap.map_to_local(prop["grid_pos"])
+		add_child(sprite)
+
 
 func _render_all_pens() -> void:
 	for x in range(GRID_WIDTH):

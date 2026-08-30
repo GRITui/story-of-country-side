@@ -8,7 +8,6 @@ class_name SeaCoastScene
 ## happened to be active, so ocean pools were reachable but had no thematic
 ## home. This scene is that home -- a shoreline + pier rendered via the same
 ## isometric TileMap contract every world scene already uses (64x32px,
-## TILE_SHAPE_ISOMETRIC / TILE_LAYOUT_DIAMOND_DOWN, ProceduralTileArt).
 ##
 ## Grid: 8x8, same as FarmScene/ForageScene. No design-doc number dictates a
 ## different size, so this reuses the established footprint (SQUAD-SPLIT
@@ -43,7 +42,6 @@ class_name SeaCoastScene
 ## so beach shells can share the same grid (mirrors the spec's optional
 ## garnish #105.4).
 ##
-## VISUALS: ProceduralTileArt.build_isometric_tileset with a coast palette
 ## (water deep blue, sand warm beige, pier brown, forage lush) -- same
 ## alpha-masked diamond + shading pipeline every prior world scene uses.
 ## PIER and FORAGE get the center-weighted glow accent as the interactive
@@ -78,6 +76,14 @@ const PIER_TILES: Array[Vector2i] = [
 ## visually reaches into it.
 const WATER_ROWS := 4
 
+const DECORATIVE_PROPS := [
+	{"path": "res://assets/16bit/props/pine.png", "grid_pos": Vector2i(-1, 6)},
+	{"path": "res://assets/16bit/props/bush.png", "grid_pos": Vector2i(-1, 2)},
+	{"path": "res://assets/16bit/props/rock.png", "grid_pos": Vector2i(8, 2)},
+	{"path": "res://assets/16bit/props/rock_large.png", "grid_pos": Vector2i(8, 6)},
+	{"path": "res://assets/16bit/props/tree.png", "grid_pos": Vector2i(-1, 0)},
+]
+
 @onready var _tilemap: TileMap = $TileMap
 
 func _ready() -> void:
@@ -89,7 +95,62 @@ func _ready() -> void:
 	ForagingManager.forage_node_rerolled.connect(_on_forage_node_rerolled)
 
 func _build_tileset() -> void:
-	_tilemap.tile_set = ProceduralTileArt.build_isometric_tileset(STATE_COLORS, TILE_WIDTH, TILE_HEIGHT, ATLAS_SOURCE_ID, [STATE_PIER, STATE_FORAGE])
+	var png_map := {
+		STATE_WATER: "res://assets/16bit/tiles/water_0.png",
+		STATE_SAND: "res://assets/16bit/tiles/sand.png",
+		STATE_PIER: "res://assets/16bit/tiles/wood_floor.png",
+		STATE_FORAGE: "res://assets/16bit/tiles/grass_clover.png"
+	}
+	var tileset := _try_build_pixelart_tileset(png_map, [STATE_PIER, STATE_FORAGE])
+	_tilemap.tile_set = tileset
+
+func _try_build_pixelart_tileset(png_map: Dictionary, _glow_states: Array = []) -> TileSet:
+	var states: Array = png_map.keys()
+	states.sort()
+	var textures: Dictionary = {}
+	for state in states:
+		var tex: Texture2D = load(png_map[state])
+		if tex == null or tex.get_image() == null:
+			push_error("Missing 16-bit tile asset: %s" % png_map[state])
+			continue
+		textures[state] = tex
+	if textures.size() != png_map.size():
+		push_error("16-bit tileset build failed: missing required PNGs")
+	var atlas_img := Image.create(TILE_WIDTH * states.size(), TILE_HEIGHT, false, Image.FORMAT_RGBA8)
+	for i in range(states.size()):
+		if not textures.has(states[i]):
+			continue
+		var tex: Texture2D = textures[states[i]]
+		var img: Image = tex.get_image()
+		var w: int = mini(img.get_width(), TILE_WIDTH)
+		var h: int = mini(img.get_height(), TILE_HEIGHT)
+		atlas_img.blit_rect(img, Rect2i(0, 0, w, h), Vector2i(i * TILE_WIDTH, 0))
+	var atlas_tex := ImageTexture.create_from_image(atlas_img)
+	var tile_set := TileSet.new()
+	tile_set.tile_shape = TileSet.TILE_SHAPE_ISOMETRIC
+	tile_set.tile_layout = TileSet.TILE_LAYOUT_DIAMOND_DOWN
+	tile_set.tile_size = Vector2i(TILE_WIDTH, TILE_HEIGHT)
+	var src := TileSetAtlasSource.new()
+	src.texture = atlas_tex
+	src.texture_region_size = Vector2i(TILE_WIDTH, TILE_HEIGHT)
+	for i in range(states.size()):
+		src.create_tile(Vector2i(i, 0))
+	tile_set.add_source(src, ATLAS_SOURCE_ID)
+	return tile_set
+
+
+func _add_decorative_props() -> void:
+	for prop in DECORATIVE_PROPS:
+		var texture: Texture2D = load(prop["path"])
+		if texture == null:
+			push_error("Missing 16-bit prop asset: %s" % prop["path"])
+			continue
+		var sprite := Sprite2D.new()
+		sprite.texture = texture
+		sprite.centered = false
+		sprite.offset = Vector2(-texture.get_width() / 2.0, -texture.get_height())
+		sprite.position = _tilemap.map_to_local(prop["grid_pos"])
+		add_child(sprite)
 
 func _register_forage_nodes() -> void:
 	for pos in _sand_positions():

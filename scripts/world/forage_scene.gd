@@ -29,14 +29,11 @@ class_name ForageScene
 ## frontend scene has documented; no image-generation tool exists in this
 ## environment either, see squad-handshake-art.md): Art Squad replaced
 ## this scene's flat-color placeholder tileset with a procedurally-
-## generated one (ProceduralTileArt.build_isometric_tileset, in
-## scripts/world/procedural_tile_art.gd) -- real alpha-masked isometric
 ## diamonds with directional shading, an edge outline, and speckle-grain
 ## texture, still one base color per node state:
 ##   dormant (no season-valid item) -> bare forest floor (Color(0.30, 0.26, 0.18))
 ##   on cooldown (gathered recently) -> disturbed earth   (Color(0.40, 0.33, 0.22))
 ##   available to gather              -> lush undergrowth (Color(0.28, 0.50, 0.22))
-## available-to-gather also gets ProceduralTileArt's center-weighted glow
 ## accent so a gatherable node visually calls attention to itself.
 ## No per-forageable sprite variety (wild_berries vs. mushroom, etc.) --
 ## out of scope for a tileset with no illustrated art asset behind it. A
@@ -84,6 +81,18 @@ const ATLAS_SOURCE_ID := 0
 ## Matches NPCRoster.NPC_HOME_SCENE's "Forage" value -- see npc_roster.gd.
 const HOME_SCENE_NAME := "Forage"
 
+
+const DECORATIVE_PROPS := [
+	{"path": "res://assets/16bit/props/tree.png", "grid_pos": Vector2i(-1, 1)},
+	{"path": "res://assets/16bit/props/tree_2.png", "grid_pos": Vector2i(8, 2)},
+	{"path": "res://assets/16bit/props/pine.png", "grid_pos": Vector2i(-1, 6)},
+	{"path": "res://assets/16bit/props/bush.png", "grid_pos": Vector2i(8, 6)},
+	{"path": "res://assets/16bit/props/fruit_tree.png", "grid_pos": Vector2i(3, -1)},
+	{"path": "res://assets/16bit/props/rock.png", "grid_pos": Vector2i(5, -1)},
+	{"path": "res://assets/16bit/props/rock_large.png", "grid_pos": Vector2i(8, 4)},
+	{"path": "res://assets/16bit/props/well.png", "grid_pos": Vector2i(-1, 3)},
+]
+
 @onready var _tilemap: TileMap = $TileMap
 var _player_avatar: PlayerAvatar
 var _relationships_overlay: RelationshipsOverlay
@@ -93,6 +102,7 @@ var _npcs: Array[NPCController] = []
 func _ready() -> void:
 	_build_tileset()
 	_populate_and_render_all_nodes()
+	_add_decorative_props()
 	_add_dynamic_layer()
 	_add_player_avatar()
 	_add_villagers()
@@ -100,10 +110,64 @@ func _ready() -> void:
 	ForagingManager.forage_gathered.connect(_on_forage_gathered)
 	ForagingManager.forage_node_rerolled.connect(_on_forage_node_rerolled)
 
-## Same shared ProceduralTileArt approach as FarmScene/RanchScene -- see
-## class docstring for why there's no art asset to load instead.
+## 64x32 isometric spec.
 func _build_tileset() -> void:
-	_tilemap.tile_set = ProceduralTileArt.build_isometric_tileset(STATE_COLORS, TILE_WIDTH, TILE_HEIGHT, ATLAS_SOURCE_ID, [STATE_AVAILABLE])
+	var png_map := {
+		STATE_DORMANT: "res://assets/16bit/tiles/dirt.png",
+		STATE_COOLDOWN: "res://assets/16bit/tiles/path.png",
+		STATE_AVAILABLE: "res://assets/16bit/tiles/grass_clover.png"
+	}
+	var tileset := _try_build_pixelart_tileset(png_map, [STATE_AVAILABLE])
+	_tilemap.tile_set = tileset
+
+func _try_build_pixelart_tileset(png_map: Dictionary, _glow_states: Array = []) -> TileSet:
+	var states: Array = png_map.keys()
+	states.sort()
+	var textures: Dictionary = {}
+	for state in states:
+		var tex: Texture2D = load(png_map[state])
+		if tex == null or tex.get_image() == null:
+			push_error("Missing 16-bit tile asset: %s" % png_map[state])
+			continue
+		textures[state] = tex
+	if textures.size() != png_map.size():
+		push_error("16-bit tileset build failed: missing required PNGs")
+	var atlas_img := Image.create(TILE_WIDTH * states.size(), TILE_HEIGHT, false, Image.FORMAT_RGBA8)
+	for i in range(states.size()):
+		if not textures.has(states[i]):
+			continue
+		var tex: Texture2D = textures[states[i]]
+		var img: Image = tex.get_image()
+		var w: int = mini(img.get_width(), TILE_WIDTH)
+		var h: int = mini(img.get_height(), TILE_HEIGHT)
+		atlas_img.blit_rect(img, Rect2i(0, 0, w, h), Vector2i(i * TILE_WIDTH, 0))
+	var atlas_tex := ImageTexture.create_from_image(atlas_img)
+	var tile_set := TileSet.new()
+	tile_set.tile_shape = TileSet.TILE_SHAPE_ISOMETRIC
+	tile_set.tile_layout = TileSet.TILE_LAYOUT_DIAMOND_DOWN
+	tile_set.tile_size = Vector2i(TILE_WIDTH, TILE_HEIGHT)
+	var src := TileSetAtlasSource.new()
+	src.texture = atlas_tex
+	src.texture_region_size = Vector2i(TILE_WIDTH, TILE_HEIGHT)
+	for i in range(states.size()):
+		src.create_tile(Vector2i(i, 0))
+	tile_set.add_source(src, ATLAS_SOURCE_ID)
+	return tile_set
+
+
+func _add_decorative_props() -> void:
+	for prop in DECORATIVE_PROPS:
+		var texture: Texture2D = load(prop["path"])
+		if texture == null:
+			push_error("Missing 16-bit prop asset: %s" % prop["path"])
+			continue
+		var sprite := Sprite2D.new()
+		sprite.texture = texture
+		sprite.centered = false
+		sprite.offset = Vector2(-texture.get_width() / 2.0, -texture.get_height())
+		sprite.position = _tilemap.map_to_local(prop["grid_pos"])
+		add_child(sprite)
+
 
 func _populate_and_render_all_nodes() -> void:
 	for x in range(GRID_WIDTH):

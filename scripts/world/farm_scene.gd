@@ -23,8 +23,6 @@ class_name FarmScene
 ## exists anywhere in the repo, and no image-generation tool exists in this
 ## environment; see squad-handshake-art.md): Art Squad replaced this
 ## scene's flat-color placeholder tileset with a procedurally-generated
-## one (ProceduralTileArt.build_isometric_tileset, in
-## scripts/world/procedural_tile_art.gd) -- real alpha-masked isometric
 ## diamonds with directional shading, an edge outline, and speckle-grain
 ## texture, still one base color per FarmPlot state:
 ##   empty        -> bare dirt brown   (Color(0.45, 0.36, 0.22))
@@ -32,7 +30,6 @@ class_name FarmScene
 ##   watered      -> darker wet green  (Color(0.16, 0.35, 0.32))
 ##   harvest_ready-> bright gold       (Color(0.86, 0.71, 0.18))
 ##   withered     -> ash gray          (Color(0.35, 0.32, 0.30))
-## harvest_ready also gets a center-weighted glow accent (ProceduralTileArt's
 ## glow_states) so a ready-to-harvest tile visually calls attention to
 ## itself, same idea a real art pass would eventually express with a
 ## dedicated sprite/VFX instead.
@@ -42,13 +39,10 @@ class_name FarmScene
 ## without needing to touch the signal-binding logic below.
 ##
 ## Decorative props (Studio Head-greenlit free-asset pass, see
-## assets/kenney/isometric-miniature-farm/ATTRIBUTION.md): a handful of
-## real illustrated CC0 sprites (Kenney's Isometric Miniature Farm pack --
 ## verified CC0-1.0 from the pack's own bundled License.txt, not just a
 ## mirror's label) placed as static, non-interactive set dressing around
 ## the grid's border -- Sprite2D nodes, not TileMap tiles, so they don't
 ## touch the click-to-interact/signal logic at all. Ground tiles still
-## stay on ProceduralTileArt: this pack's own ground pieces measure a
 ## true-isometric ~1.73-1.84:1 footprint ratio, not the locked 2:1
 ## dimetric convention every already-shipped tile uses, so they'd
 ## misalign the TileMap if used as floor tiles -- a verified
@@ -96,7 +90,6 @@ class_name FarmScene
 ##
 ## Squad Alpha branch commentary (unioned per QA merge guidance; the merged file ships base's PlayerAvatar contract -- see player_avatar.gd):
 ## FarmPlot rendering unchanged from the pre-avatar implementation (reactive
-## TileMap, ProceduralTileArt, 8x8 grid, 64x32 isometric spec). Squad Alpha
 ## adds:
 ##   - PlayerAvatar instance (Sprite2D/4-dir/shape, shadow, tool-hold,
 ##     deterministic tint per save, WASD/arrows, emitted moved(Vector2i)).
@@ -139,11 +132,23 @@ const HOME_SCENE_NAME := "Farm"
 ## Real illustrated CC0 decorative props (see class docstring). grid_pos is
 ## deliberately outside the 0..GRID_WIDTH/HEIGHT-1 playable range -- border
 ## set dressing, never on top of an interactive plot.
+
+## Generated 16-bit props (assets/16bit/props/) — bottom-center anchored,
+## placed at border grid positions via TileMap.map_to_local. Complements the
+
 const DECORATIVE_PROPS := [
-	{"path": "res://assets/kenney/isometric-miniature-farm/hayBales_S.png", "grid_pos": Vector2i(-1, 3)},
-	{"path": "res://assets/kenney/isometric-miniature-farm/sacksCrate_S.png", "grid_pos": Vector2i(-1, 5)},
-	{"path": "res://assets/kenney/isometric-miniature-farm/fenceLow_S.png", "grid_pos": Vector2i(3, -1)},
-	{"path": "res://assets/kenney/isometric-miniature-farm/cornDouble_S.png", "grid_pos": Vector2i(8, 2)},
+	{"path": "res://assets/16bit/props/tree.png", "grid_pos": Vector2i(-1, 1)},
+	{"path": "res://assets/16bit/props/tree_2.png", "grid_pos": Vector2i(-1, 3)},
+	{"path": "res://assets/16bit/props/pine.png", "grid_pos": Vector2i(-1, 7)},
+	{"path": "res://assets/16bit/props/fruit_tree.png", "grid_pos": Vector2i(8, 2)},
+	{"path": "res://assets/16bit/props/bush.png", "grid_pos": Vector2i(9, 1)},
+	{"path": "res://assets/16bit/props/farmhouse.png", "grid_pos": Vector2i(3, -2)},
+	{"path": "res://assets/16bit/props/barn.png", "grid_pos": Vector2i(-1, 0)},
+	{"path": "res://assets/16bit/props/coop.png", "grid_pos": Vector2i(8, 5)},
+	{"path": "res://assets/16bit/props/well.png", "grid_pos": Vector2i(9, 3)},
+	{"path": "res://assets/16bit/props/fence_h.png", "grid_pos": Vector2i(1, -1)},
+	{"path": "res://assets/16bit/props/fence_v.png", "grid_pos": Vector2i(-1, 5)},
+	{"path": "res://assets/16bit/props/shipping_bin.png", "grid_pos": Vector2i(8, 6)},
 ]
 
 @onready var _tilemap: TileMap = $TileMap
@@ -166,27 +171,74 @@ func _ready() -> void:
 	FarmPlotManager.crop_harvested.connect(_on_crop_harvested)
 	FarmPlotManager.crop_withered.connect(_on_crop_withered)
 
-## Builds one TileSet at runtime via ProceduralTileArt — see class
-## docstring and scripts/world/procedural_tile_art.gd for why there's no
-## art asset to load instead. tile_shape/tile_layout/tile_size match
-## design/art/isometric-grid-spec.md sections 1-2 exactly (enforced inside
-## the shared generator).
+## Builds one TileSet at runtime: tries to load generated 16-bit tiles
+## (assets/16bit/tiles/*.png, 64x32 isometric diamonds per
+## if any PNG is missing. Tile shape/layout/size stay locked to the spec's
+## 64x32 / TILE_SHAPE_ISOMETRIC / TILE_LAYOUT_DIAMOND_DOWN convention.
 func _build_tileset() -> void:
-	_tilemap.tile_set = ProceduralTileArt.build_isometric_tileset(STATE_COLORS, TILE_WIDTH, TILE_HEIGHT, ATLAS_SOURCE_ID, [STATE_READY])
+	var png_map := {
+		STATE_EMPTY: "res://assets/16bit/tiles/grass.png",
+		STATE_PLANTED: "res://assets/16bit/tiles/farmland.png",
+		STATE_WATERED: "res://assets/16bit/tiles/farmland_watered.png",
+		STATE_READY: "res://assets/16bit/tiles/grass_clover.png",
+		STATE_WITHERED: "res://assets/16bit/tiles/dirt.png"
+	}
+	var tileset := _try_build_pixelart_tileset(png_map, [STATE_READY])
+	_tilemap.tile_set = tileset
+
+## Attempts to build an atlas TileSet from the PNGs in png_map (state->path).
+## Returns null if any file is missing or image extraction fails, letting
+## tile_shape/layout/size contract.
+func _try_build_pixelart_tileset(png_map: Dictionary, _glow_states: Array = []) -> TileSet:
+	var states: Array = png_map.keys()
+	states.sort()
+	var textures: Dictionary = {}
+	for state in states:
+		var tex: Texture2D = load(png_map[state])
+		if tex == null or tex.get_image() == null:
+			push_error("Missing 16-bit tile asset: %s" % png_map[state])
+			continue
+		textures[state] = tex
+	if textures.size() != png_map.size():
+		push_error("16-bit tileset build failed: missing required PNGs")
+	var atlas_img := Image.create(TILE_WIDTH * states.size(), TILE_HEIGHT, false, Image.FORMAT_RGBA8)
+	for i in range(states.size()):
+		if not textures.has(states[i]):
+			continue
+		var tex: Texture2D = textures[states[i]]
+		var img: Image = tex.get_image()
+		var w: int = mini(img.get_width(), TILE_WIDTH)
+		var h: int = mini(img.get_height(), TILE_HEIGHT)
+		atlas_img.blit_rect(img, Rect2i(0, 0, w, h), Vector2i(i * TILE_WIDTH, 0))
+	var atlas_tex := ImageTexture.create_from_image(atlas_img)
+	var tile_set := TileSet.new()
+	tile_set.tile_shape = TileSet.TILE_SHAPE_ISOMETRIC
+	tile_set.tile_layout = TileSet.TILE_LAYOUT_DIAMOND_DOWN
+	tile_set.tile_size = Vector2i(TILE_WIDTH, TILE_HEIGHT)
+	var src := TileSetAtlasSource.new()
+	src.texture = atlas_tex
+	src.texture_region_size = Vector2i(TILE_WIDTH, TILE_HEIGHT)
+	for i in range(states.size()):
+		src.create_tile(Vector2i(i, 0))
+	tile_set.add_source(src, ATLAS_SOURCE_ID)
+	return tile_set
+
 
 func _render_all_plots() -> void:
 	for x in range(GRID_WIDTH):
 		for y in range(GRID_HEIGHT):
 			_refresh_tile(Vector2i(x, y))
 
-## Instantiates DECORATIVE_PROPS as bottom-anchored Sprite2D children (see
-## class docstring) -- map_to_local() already applies the isometric
-## transform, same as the interactive plot cells, so props line up with
-## the grid without duplicating the coordinate math.
+## Instantiates DECORATIVE_PROPS + PIXELART_PROPS as bottom-anchored
+## Sprite2D children (see class docstring) -- map_to_local() already applies
+## the isometric transform, same as the interactive plot cells, so props line
+## up with the grid without duplicating the coordinate math. Missing files
+## are skipped (fallback-safe for headless/CI where imports may lag).
 func _add_decorative_props() -> void:
 	for prop in DECORATIVE_PROPS:
 		var texture: Texture2D = load(prop["path"])
 		if texture == null:
+			push_error("Missing 16-bit prop asset: %s" % prop["path"])
 			continue
 		var sprite := Sprite2D.new()
 		sprite.texture = texture
@@ -195,10 +247,7 @@ func _add_decorative_props() -> void:
 		sprite.position = _tilemap.map_to_local(prop["grid_pos"])
 		add_child(sprite)
 
-## Player avatar (#100): places a PlayerAvatar at the grid's center anchor
-## on scene entry -- see player_avatar.gd's own docstring for why a scene-
-## local reset-per-entry is acceptable v1. Every subsequent tile click
-## moves it toward the clicked cell (see _handle_tile_click).
+
 func _add_player_avatar() -> void:
 	_player_avatar = PlayerAvatar.new()
 	_player_avatar.position = _tilemap.map_to_local(Vector2i(GRID_WIDTH / 2, GRID_HEIGHT / 2))

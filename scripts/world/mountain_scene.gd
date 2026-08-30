@@ -7,7 +7,6 @@ class_name MountainScene
 ## so the underground floors existed with no above-ground geography. This
 ## scene is that geography -- a rocky mountainside rendered via the same
 ## isometric TileMap contract every world scene already uses (64x32px,
-## TILE_SHAPE_ISOMETRIC / TILE_LAYOUT_DIAMOND_DOWN, ProceduralTileArt).
 ##
 ## Grid: 8x8, same footprint as FarmScene/ForageScene/SeaCoastScene.
 ## No design-doc number dictates a different size; placeholder sizing
@@ -26,7 +25,6 @@ class_name MountainScene
 ## via ForagingManager.register_node() -- no-op on re-enter after a save
 ## load, mirrors ForageScene/SeaCoastScene.
 ##
-## VISUALS: ProceduralTileArt with a high-altitude palette (rock gray,
 ## path tan, entrance warm gold, forage green) -- same diamond mask +
 ## shading pipeline. ENTRANCE and FORAGE get glow accent.
 
@@ -58,6 +56,16 @@ const PATH_TILES: Array[Vector2i] = [
 
 signal travel_requested(location: String)
 
+const DECORATIVE_PROPS := [
+	{"path": "res://assets/16bit/props/pine.png", "grid_pos": Vector2i(-1, 1)},
+	{"path": "res://assets/16bit/props/rock.png", "grid_pos": Vector2i(-1, 4)},
+	{"path": "res://assets/16bit/props/rock_large.png", "grid_pos": Vector2i(8, 1)},
+	{"path": "res://assets/16bit/props/tree.png", "grid_pos": Vector2i(8, 5)},
+	{"path": "res://assets/16bit/props/ladder.png", "grid_pos": Vector2i(4, -1)},
+	{"path": "res://assets/16bit/props/mine_cart.png", "grid_pos": Vector2i(1, -1)},
+	{"path": "res://assets/16bit/props/bush.png", "grid_pos": Vector2i(2, -1)},
+]
+
 @onready var _tilemap: TileMap = $TileMap
 
 func _ready() -> void:
@@ -69,7 +77,62 @@ func _ready() -> void:
 	ForagingManager.forage_node_rerolled.connect(_on_forage_node_rerolled)
 
 func _build_tileset() -> void:
-	_tilemap.tile_set = ProceduralTileArt.build_isometric_tileset(STATE_COLORS, TILE_WIDTH, TILE_HEIGHT, ATLAS_SOURCE_ID, [STATE_ENTRANCE, STATE_FORAGE])
+	var png_map := {
+		STATE_ROCK: "res://assets/16bit/tiles/mine_rock.png",
+		STATE_PATH: "res://assets/16bit/tiles/path.png",
+		STATE_ENTRANCE: "res://assets/16bit/tiles/wood_floor.png",
+		STATE_FORAGE: "res://assets/16bit/tiles/grass_clover.png"
+	}
+	var tileset := _try_build_pixelart_tileset(png_map, [STATE_ENTRANCE, STATE_FORAGE])
+	_tilemap.tile_set = tileset
+
+func _try_build_pixelart_tileset(png_map: Dictionary, _glow_states: Array = []) -> TileSet:
+	var states: Array = png_map.keys()
+	states.sort()
+	var textures: Dictionary = {}
+	for state in states:
+		var tex: Texture2D = load(png_map[state])
+		if tex == null or tex.get_image() == null:
+			push_error("Missing 16-bit tile asset: %s" % png_map[state])
+			continue
+		textures[state] = tex
+	if textures.size() != png_map.size():
+		push_error("16-bit tileset build failed: missing required PNGs")
+	var atlas_img := Image.create(TILE_WIDTH * states.size(), TILE_HEIGHT, false, Image.FORMAT_RGBA8)
+	for i in range(states.size()):
+		if not textures.has(states[i]):
+			continue
+		var tex: Texture2D = textures[states[i]]
+		var img: Image = tex.get_image()
+		var w: int = mini(img.get_width(), TILE_WIDTH)
+		var h: int = mini(img.get_height(), TILE_HEIGHT)
+		atlas_img.blit_rect(img, Rect2i(0, 0, w, h), Vector2i(i * TILE_WIDTH, 0))
+	var atlas_tex := ImageTexture.create_from_image(atlas_img)
+	var tile_set := TileSet.new()
+	tile_set.tile_shape = TileSet.TILE_SHAPE_ISOMETRIC
+	tile_set.tile_layout = TileSet.TILE_LAYOUT_DIAMOND_DOWN
+	tile_set.tile_size = Vector2i(TILE_WIDTH, TILE_HEIGHT)
+	var src := TileSetAtlasSource.new()
+	src.texture = atlas_tex
+	src.texture_region_size = Vector2i(TILE_WIDTH, TILE_HEIGHT)
+	for i in range(states.size()):
+		src.create_tile(Vector2i(i, 0))
+	tile_set.add_source(src, ATLAS_SOURCE_ID)
+	return tile_set
+
+
+func _add_decorative_props() -> void:
+	for prop in DECORATIVE_PROPS:
+		var texture: Texture2D = load(prop["path"])
+		if texture == null:
+			push_error("Missing 16-bit prop asset: %s" % prop["path"])
+			continue
+		var sprite := Sprite2D.new()
+		sprite.texture = texture
+		sprite.centered = false
+		sprite.offset = Vector2(-texture.get_width() / 2.0, -texture.get_height())
+		sprite.position = _tilemap.map_to_local(prop["grid_pos"])
+		add_child(sprite)
 
 func _register_forage_nodes() -> void:
 	for x in range(GRID_WIDTH):

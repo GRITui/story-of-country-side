@@ -28,14 +28,11 @@ class_name MineScene
 ## frontend scene has documented; no image-generation tool exists in this
 ## environment either, see squad-handshake-art.md): Art Squad replaced
 ## this scene's flat-color placeholder tileset with a procedurally-
-## generated one (ProceduralTileArt.build_isometric_tileset, in
-## scripts/world/procedural_tile_art.gd) -- real alpha-masked isometric
 ## diamonds with directional shading, an edge outline, and speckle-grain
 ## texture, still one base color per tile state:
 ##   rock (unbroken)  -> mine wall gray  (Color(0.38, 0.36, 0.34))
 ##   floor (broken)   -> cleared floor   (Color(0.20, 0.18, 0.16))
 ##   ladder           -> descent gold    (Color(0.70, 0.58, 0.22))
-## ladder also gets ProceduralTileArt's center-weighted glow accent so it
 ## visually reads as the interactive exit tile.
 ## No visual distinction between plain stone and ore-bearing rock (can't
 ## be, see above), no per-ore-type sprite variety once broken (the tile
@@ -44,12 +41,8 @@ class_name MineScene
 ## art without needing to touch the signal-binding logic below.
 ##
 ## Decorative props (Studio Head-greenlit free-asset pass, see
-## assets/kenney/isometric-miniature-dungeon/ATTRIBUTION.md): real
-## illustrated CC0 sprites (Kenney's Isometric Miniature Dungeon pack --
 ## same license verification and same measured ~1.84:1 ground-tile
 ## incompatibility with the locked 2:1 convention as
-## assets/kenney/isometric-miniature-farm's ATTRIBUTION.md documents, so
-## floor/rock/ladder tiles stay on ProceduralTileArt) placed as static,
 ## non-interactive Sprite2D set dressing around the floor's border --
 ## barrels, stacked barrels, a chest, a stone column. Positions are
 ## computed from get_floor_size() at _ready() time, not hardcoded, since
@@ -102,11 +95,14 @@ const HOME_SCENE_NAME := "Mine"
 ## Paired with grid positions computed from get_floor_size() in
 ## _add_decorative_props() -- not hardcoded, since this scene's grid size
 ## isn't a fixed constant the way FarmScene's is.
-const DECORATIVE_PROP_PATHS := [
-	"res://assets/kenney/isometric-miniature-dungeon/barrel_S.png",
-	"res://assets/kenney/isometric-miniature-dungeon/barrelsStacked_S.png",
-	"res://assets/kenney/isometric-miniature-dungeon/chestClosed_S.png",
-	"res://assets/kenney/isometric-miniature-dungeon/stoneColumn_S.png",
+
+const DECORATIVE_PROPS := [
+	{"path": "res://assets/16bit/props/rock.png", "grid_pos": Vector2i(-1, 1)},
+	{"path": "res://assets/16bit/props/rock_large.png", "grid_pos": Vector2i(-1, 3)},
+	{"path": "res://assets/16bit/props/mine_cart.png", "grid_pos": Vector2i(2, -1)},
+	{"path": "res://assets/16bit/props/ladder.png", "grid_pos": Vector2i(5, 1)},
+	{"path": "res://assets/16bit/props/bush.png", "grid_pos": Vector2i(5, -1)},
+	{"path": "res://assets/16bit/props/pine.png", "grid_pos": Vector2i(-1, 4)},
 ]
 
 @onready var _tilemap: TileMap = $TileMap
@@ -126,10 +122,50 @@ func _ready() -> void:
 	MiningManager.rock_broken.connect(_on_rock_broken)
 	MiningManager.floor_descended.connect(_on_floor_descended)
 
-## Same shared ProceduralTileArt approach as every prior world scene --
-## see class docstring for why there's no art asset to load instead.
+## Tries 16-bit tiles first (mine_floor/mine_rock/path variants), falls
 func _build_tileset() -> void:
-	_tilemap.tile_set = ProceduralTileArt.build_isometric_tileset(STATE_COLORS, TILE_WIDTH, TILE_HEIGHT, ATLAS_SOURCE_ID, [STATE_LADDER])
+	var png_map := {
+		STATE_ROCK: "res://assets/16bit/tiles/mine_rock.png",
+		STATE_FLOOR: "res://assets/16bit/tiles/mine_floor.png",
+		STATE_LADDER: "res://assets/16bit/tiles/path.png"
+	}
+	var tileset := _try_build_pixelart_tileset(png_map, [STATE_LADDER])
+	_tilemap.tile_set = tileset
+
+func _try_build_pixelart_tileset(png_map: Dictionary, _glow_states: Array = []) -> TileSet:
+	var states: Array = png_map.keys()
+	states.sort()
+	var textures: Dictionary = {}
+	for state in states:
+		var tex: Texture2D = load(png_map[state])
+		if tex == null or tex.get_image() == null:
+			push_error("Missing 16-bit tile asset: %s" % png_map[state])
+			continue
+		textures[state] = tex
+	if textures.size() != png_map.size():
+		push_error("16-bit tileset build failed: missing required PNGs")
+	var atlas_img := Image.create(TILE_WIDTH * states.size(), TILE_HEIGHT, false, Image.FORMAT_RGBA8)
+	for i in range(states.size()):
+		if not textures.has(states[i]):
+			continue
+		var tex: Texture2D = textures[states[i]]
+		var img: Image = tex.get_image()
+		var w: int = mini(img.get_width(), TILE_WIDTH)
+		var h: int = mini(img.get_height(), TILE_HEIGHT)
+		atlas_img.blit_rect(img, Rect2i(0, 0, w, h), Vector2i(i * TILE_WIDTH, 0))
+	var atlas_tex := ImageTexture.create_from_image(atlas_img)
+	var tile_set := TileSet.new()
+	tile_set.tile_shape = TileSet.TILE_SHAPE_ISOMETRIC
+	tile_set.tile_layout = TileSet.TILE_LAYOUT_DIAMOND_DOWN
+	tile_set.tile_size = Vector2i(TILE_WIDTH, TILE_HEIGHT)
+	var src := TileSetAtlasSource.new()
+	src.texture = atlas_tex
+	src.texture_region_size = Vector2i(TILE_WIDTH, TILE_HEIGHT)
+	for i in range(states.size()):
+		src.create_tile(Vector2i(i, 0))
+	tile_set.add_source(src, ATLAS_SOURCE_ID)
+	return tile_set
+
 
 func _render_all_tiles() -> void:
 	var floor_size := MiningManager.get_floor_size()
@@ -137,36 +173,23 @@ func _render_all_tiles() -> void:
 		for y in range(floor_size.y):
 			_refresh_tile(Vector2i(x, y))
 
-## Instantiates DECORATIVE_PROP_PATHS as bottom-anchored Sprite2D children
-## (see class docstring) at fixed positions just outside the floor's
-## border, scaled from get_floor_size() rather than hardcoded so this
-## still reads correctly if MiningManager's own floor dimensions ever
-## change. Placed once in _ready() -- floor_descended regenerates tile
-## content, not the floor's overall size, so these don't need to move on
-## that signal.
+## Instantiates DECORATIVE_PROP_PATHS + 16-bit mine props as bottom-
+## anchored Sprite2D children. Positions are scaled from get_floor_size().
+
 func _add_decorative_props() -> void:
-	var floor_size := MiningManager.get_floor_size()
-	var positions := [
-		Vector2i(-1, 1),
-		Vector2i(-1, floor_size.y - 2),
-		Vector2i(1, -1),
-		Vector2i(floor_size.x - 2, -1),
-	]
-	for i in range(DECORATIVE_PROP_PATHS.size()):
-		var texture: Texture2D = load(DECORATIVE_PROP_PATHS[i])
+	for prop in DECORATIVE_PROPS:
+		var texture: Texture2D = load(prop["path"])
 		if texture == null:
+			push_error("Missing 16-bit prop asset: %s" % prop["path"])
 			continue
 		var sprite := Sprite2D.new()
 		sprite.texture = texture
 		sprite.centered = false
 		sprite.offset = Vector2(-texture.get_width() / 2.0, -texture.get_height())
-		sprite.position = _tilemap.map_to_local(positions[i])
+		sprite.position = _tilemap.map_to_local(prop["grid_pos"])
 		add_child(sprite)
 
-## Player avatar (#100): mirrors farm_scene.gd's _add_player_avatar.
-## Anchored at the floor's center (from get_floor_size(), same "don't
-## hardcode a size this scene doesn't own" discipline _add_decorative_props
-## already follows), moved toward each clicked tile thereafter.
+
 func _add_player_avatar() -> void:
 	var floor_size := MiningManager.get_floor_size()
 	_player_avatar = PlayerAvatar.new()
