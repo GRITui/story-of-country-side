@@ -247,6 +247,61 @@ def _mine_cart():
     return outline(img)
 
 
+def _kawara_roof():
+    # Japanese kawara tile roof segment 48x24 — dark grey #4a4a5a with ridge highlight
+    img = canvas(48, 24)
+    base = (74, 74, 90)
+    ridge = (92, 92, 110)
+    shadow = (52, 52, 64)
+    highlight = (108, 108, 128)
+    # tiles rows
+    for row in range(3):
+        y0 = row * 7 + 2
+        for col in range(6):
+            x0 = col * 8
+            rect(img, x0, y0, x0 + 7, y0 + 6, base)
+            rect(img, x0, y0, x0 + 7, y0 + 1, highlight)
+            rect(img, x0, y0 + 6, x0 + 7, y0 + 6, shadow)
+            if col < 5:
+                rect(img, x0 + 7, y0, x0 + 7, y0 + 6, shadow)
+            if row == 0:
+                px(img, x0 + 3, y0, ridge)
+    # ridge cap
+    rect(img, 8, 0, 40, 2, ridge)
+    rect(img, 8, 2, 40, 2, shadow)
+    return outline(img)
+
+
+def _jizo_statue():
+    # Jizō stone 16x28 — mossy stone with red bib, sel-out
+    img = canvas(16, 28)
+    stone = (138, 134, 128)
+    shadow_s = (100, 96, 92)
+    highlight_s = (168, 166, 160)
+    bib = (176, 52, 52)
+    # base / pedestal
+    rect(img, 3, 22, 13, 27, stone)
+    rect(img, 3, 22, 13, 23, highlight_s)
+    rect(img, 3, 26, 13, 27, shadow_s)
+    # body
+    rect(img, 5, 14, 11, 23, stone)
+    rect(img, 5, 14, 6, 23, highlight_s)
+    rect(img, 10, 14, 11, 23, shadow_s)
+    # red bib triangle
+    rect(img, 6, 16, 10, 20, bib)
+    px(img, 7, 15, bib); px(img, 9, 15, bib)
+    # head
+    ellipse(img, 8, 10, 6, 6, stone)
+    ellipse(img, 8, 8, 3, 2, highlight_s)
+    ellipse(img, 8, 12, 4, 2, shadow_s)
+    # face dots
+    px(img, 6, 10, (40, 32, 28)); px(img, 10, 10, (40, 32, 28))
+    # moss hint
+    px(img, 4, 24, (72, 110, 68)); px(img, 12, 24, (72, 110, 68))
+    ellipse(img, 8, 27, 7, 2, (0, 0, 0, 60))
+    return outline(img)
+
+
 PROPS = {
     "tree": lambda: _tree_simple(False),
     "tree_2": lambda: _tree_simple(True, canopy=(150, 120, 60)),   # autumn
@@ -264,6 +319,8 @@ PROPS = {
     "shipping_bin": _shipping_bin,
     "ladder": _ladder,
     "mine_cart": _mine_cart,
+    "kawara_roof": _kawara_roof,
+    "jizo_statue": _jizo_statue,
 }
 
 
