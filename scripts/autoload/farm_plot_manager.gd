@@ -309,7 +309,7 @@ func water(position: Vector2i) -> bool:
 	soil_state_changed.emit(position, plot.soil_state)
 	return true
 
-## Watering Can 1x3 (horizontal 3 tiles centered on position)
+## Watering Can 1x3 (horizontal 3 tiles centered on position) -- legacy bool overload
 func water_area(center: Vector2i, upgraded: bool = false) -> int:
 	var count := 0
 	var offsets: Array[Vector2i] = [Vector2i.ZERO]
@@ -319,6 +319,67 @@ func water_area(center: Vector2i, upgraded: bool = false) -> int:
 		if water(center + off):
 			count += 1
 	return count
+
+## Charge-aware AOE (147/148/149): uses ToolManager.get_aoe_for_charge if available
+func till_area(center: Vector2i, tool_name: String = "Hoe", hold_ms: int = 0) -> int:
+	var lvl := 1
+	if ToolManager.has_method("get_charge_level"):
+		lvl = ToolManager.get_charge_level(tool_name, hold_ms)
+	var offsets: Array[Vector2i] = [Vector2i.ZERO]
+	if ToolManager.has_method("get_aoe_for_charge"):
+		offsets = ToolManager.get_aoe_for_charge(tool_name, lvl)
+	var c := 0
+	for off in offsets:
+		if till(center + off):
+			c+=1
+	return c
+
+func water_area_charged(center: Vector2i, hold_ms: int = 0) -> int:
+	var lvl := 1
+	if ToolManager.has_method("get_charge_level"):
+		lvl = ToolManager.get_charge_level("WateringCan", hold_ms)
+	var offsets: Array[Vector2i] = [Vector2i.ZERO]
+	if ToolManager.has_method("get_aoe_for_charge"):
+		offsets = ToolManager.get_aoe_for_charge("WateringCan", lvl)
+	var c:=0
+	for off in offsets:
+		if water(center+off):
+			c+=1
+	return c
+
+## Pasture grass (147): plantable via pasture seed, yields hay on sickle
+func plant_pasture(position: Vector2i) -> bool:
+	return plant(position, "pasture_grass") if _definitions.has("pasture_grass") else false
+
+var _silo_hay: int = 0
+func get_silo_hay() -> int: return _silo_hay
+func add_to_silo(amount:int) -> void: _silo_hay+=maxi(0,amount)
+func take_from_silo(amount:int) -> bool:
+	if _silo_hay < amount: return false
+	_silo_hay-=amount; return true
+
+## Placeable infrastructure (149): grid-aligned fences/paths/sprinklers/planters
+var _placeables: Dictionary = {} # Vector2i -> String type
+var _sprinklers: Array[Vector2i] = []
+func place_object(pos:Vector2i, type:String)->bool:
+	if _placeables.has(pos) or get_soil_state(pos)==SoilState.BLOCKED_ROCK: return false
+	_placeables[pos]=type
+	if type=="sprinkler": _sprinklers.append(pos)
+	return true
+func get_placeable(pos:Vector2i)->String: return _placeables.get(pos,"")
+func has_collision(pos:Vector2i)->bool: return _placeables.get(pos,"")=="fence" or get_soil_state(pos) in [SoilState.BLOCKED_ROCK,SoilState.BLOCKED_WOOD]
+func _run_sprinklers():
+	for s in _sprinklers:
+		for dx in range(-1,2):
+			for dy in range(-1,2):
+				water(s+Vector2i(dx,dy))
+
+## Hotbar inventory array (8 slots) -- mirrors InventoryManager
+var _hotbar: Array = [null,null,null,null,null,null,null,null]
+func get_hotbar()->Array: return _hotbar.duplicate()
+func set_hotbar_slot(idx:int, item_id:String)->bool:
+	if idx<0 or idx>=8: return false
+	_hotbar[idx]=item_id; return true
 
 func harvest(position: Vector2i, forced_quality: String = "") -> Dictionary:
 	var plot: FarmPlot = _plots.get(position)
@@ -421,6 +482,9 @@ func _on_day_started(_day_in_season: int, season: String, _day_of_week: String) 
 			plot.soil_state = SoilState.PLANTED
 		elif plot.harvest_ready:
 			plot.soil_state = SoilState.HARVESTABLE
+
+	# 149 sprinkler auto-water before wither check next tick
+	_run_sprinklers()
 
 	for position in withered_positions:
 		var plot: FarmPlot = _plots[position]
