@@ -7,7 +7,10 @@
     "test": "tests"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "npx playwright test tests/e2e/16bit_farming_loop.spec.ts --project chromium-headed",
+    "test:e2e": "npx playwright test tests/e2e/16bit_farming_loop.spec.ts --project chromium-headed --headed",
+    "test:e2e:headless": "npx playwright test tests/e2e/16bit_farming_loop.spec.ts --project chromium-headed",
+    "test:unit": "godot --headless --path . --script res://tests/integration/test_16bit_qa_gdscript.gd",
     "demo:record": "node scripts/record_showcase.js"
   },
   "repository": {
