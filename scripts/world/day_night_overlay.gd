@@ -53,13 +53,15 @@ func _lut_for_hour(hour: int) -> Dictionary:
 	# Find lower/upper
 	var lower := keys[0]
 	var upper := keys[0]
+	var found_upper := false
 	for k in keys:
 		if k <= hour:
 			lower = k
 		if k > hour:
 			upper = k
+			found_upper = true
 			break
-	else:
+	if not found_upper:
 		# hour beyond last key (e.g. 22) -> wrap to first key next day
 		upper = keys[0] + 24
 	# Handle wrap where upper < lower (e.g. hour 0-5)
