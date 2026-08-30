@@ -43,7 +43,7 @@ export const CROPS: Record<string, CropDef> = {
   radish:     { crop_id: 'radish', valid_seasons: ['Spring','Summer'], days_to_grow: 5, regrowable: false, regrow_days: 0, base_sell_price: 55, seed_price: 14 },
   eggplant:   { crop_id: 'eggplant', valid_seasons: ['Summer','Fall'], days_to_grow: 7, regrowable: false, regrow_days: 0, base_sell_price: 90, seed_price: 22 },
   strawberry: { crop_id: 'strawberry', valid_seasons: ['Spring','Summer'], days_to_grow: 6, regrowable: true, regrow_days: 3, base_sell_price: 30, seed_price: 20 },
-  parsnip:    { crop_id: 'parsnip', valid_seasons: ['Spring'], days_to_grow: 4, regrowable: false, regrow_days: 0, base_sell_price: 35, seed_price: 12 },
+  parsnip:    { crop_id: 'parsnip', valid_seasons: ['Spring'], days_to_grow: 4, regrowable: false, regrow_days: 0, base_sell_price: 55, seed_price: 12 },
 };
 
 export type TileMeta = { soilState: string; cropType: string; growthStage: number; daysWatered: number; daysWithoutWater: number; soil_state: SoilState };

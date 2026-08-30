@@ -88,9 +88,25 @@ const PORTRAIT_MAP := {
 	NPCConstants.NPC_KAI: "res://assets/16bit/characters/portrait_kai.png",
 	NPCConstants.NPC_LEO: "res://assets/16bit/characters/portrait_leo.png",
 }
+const PORTRAIT_ALIASES := {
+	"portrait_oldman.png": "res://assets/16bit/characters/portrait_toby.png",
+	"portrait_shopkeeper.png": "res://assets/16bit/characters/portrait_hanna.png",
+	"portrait_blacksmith.png": "res://assets/16bit/characters/portrait_cliff.png",
+	"portrait_barkeeper.png": "res://assets/16bit/characters/portrait_nina.png",
+	"portrait_carpenter.png": "res://assets/16bit/characters/portrait_cid.png",
+	"portrait_fisherman.png": "res://assets/16bit/characters/portrait_kai.png",
+	"portrait_boy1.png": "res://assets/16bit/characters/portrait_leo.png",
+}
+const FALLBACK_PORTRAIT := "res://assets/16bit/characters/portrait_player.png"
+
 func _portrait_for(speaker: String) -> String:
 	var cn := NPCConstants.canonical(speaker)
-	return PORTRAIT_MAP.get(cn, PORTRAIT_MAP.get(speaker, ""))
+	if PORTRAIT_MAP.has(cn): return PORTRAIT_MAP[cn]
+	if PORTRAIT_MAP.has(speaker): return PORTRAIT_MAP[speaker]
+	# legacy alias lookup
+	var legacy := "portrait_%s.png" % speaker.to_lower()
+	if PORTRAIT_ALIASES.has(legacy): return PORTRAIT_ALIASES[legacy]
+	return ""
 
 func show_dialogue(speaker: String, portrait_path: String, text: String, emote: String = "") -> void:
 	_full_text = text
@@ -103,9 +119,13 @@ func show_dialogue(speaker: String, portrait_path: String, text: String, emote: 
 	var display := cn if NPCConstants.is_canonical(cn) else speaker
 	var kata := NPCConstants.katakana(cn)
 	_name_label.text = "【 %s 】" % display + (" (%s)" % kata if kata != "" else "")
-	# Prevent wrapping/clipping — single line, auto-shrink
+	# 16-bit header: validate width/line-height — single line 16-bit bracket, no wrap/clip
 	_name_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	_name_label.clip_text = false
+	_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	# Ensure 16-bit font metrics: 14px + Katakana fallback same line-height (DialogLabel 14px), header never wraps
+	_name_label.add_theme_font_size_override("font_size", 14)
+	_name_label.add_theme_constant_override("line_spacing", 0)
 	_dialog_label.text = ""
 	_next_hint.visible = false
 	# Portrait — try explicit path, then canonical map, then fallback hidden
@@ -114,13 +134,26 @@ func show_dialogue(speaker: String, portrait_path: String, text: String, emote: 
 	if portrait_path != "": try_paths.append(portrait_path)
 	var mapped := _portrait_for(speaker)
 	if mapped != "": try_paths.append(mapped)
+	# alias fallback for legacy names + final fallback
+	try_paths.append(FALLBACK_PORTRAIT)
 	for p in try_paths:
-		if ResourceLoader.exists(p):
+		# handle legacy alias redirect
+		var actual := PORTRAIT_ALIASES.get(p.get_file(), p)
+		if ResourceLoader.exists(actual):
+			var maybe: Texture2D = load(actual)
+			if maybe and maybe.get_image():
+				tex = maybe; break
+		elif ResourceLoader.exists(p):
 			var maybe: Texture2D = load(p)
 			if maybe and maybe.get_image():
 				tex = maybe; break
 	_portrait_rect.texture = tex
-	_portrait_rect.visible = tex != null
+	# Fallback: always visible with placeholder if no portrait, never broken image
+	_portrait_rect.visible = true
+	if tex == null:
+		_portrait_rect.modulate = Color(0.6,0.6,0.6,0.5)
+	else:
+		_portrait_rect.modulate = Color(1,1,1,1)
 	if emote != "":
 		show_emote(emote)
 	# Freeze time while dialogue is open (matches pause menu convention)
