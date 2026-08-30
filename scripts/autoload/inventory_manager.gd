@@ -85,9 +85,8 @@ func to_save_dict() -> Dictionary:
 
 func from_save_dict(data: Dictionary) -> void:
 	_counts = (data.get("counts", {}) as Dictionary).duplicate()
-	if _counts.is_empty():
-		for seed_id: String in STARTER_SEEDS:
-			add_item(seed_id, STARTER_SEEDS[seed_id])
-	if _counts.is_empty():
-		for seed_id: String in STARTER_SEEDS:
-			add_item(seed_id, STARTER_SEEDS[seed_id])
+	## Starter-seed grant is handled centrally by SaveManager.new_game() →
+	## FarmPlotManager.grant_starting_seeds() (#91). We do NOT re-grant here:
+	## double-granting produced 23 seeds (15 STARTER_SEEDS + 8 STARTING_SEED)
+	## instead of the intended 8. Loading an existing save must preserve the
+	## saved ledger exactly, not layer on top of it.

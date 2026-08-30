@@ -178,7 +178,7 @@ func _ready() -> void:
 	_test_buy_seed_reduces_gold_and_adds_seed()
 	_test_buy_seed_fails_clean_when_unregistered_or_poor()
 	_test_plant_requires_and_consumes_matching_seed()
-	_test_inventory_from_nothing_defaults_to_starter_grant()
+	_test_inventory_from_nothing_defaults_to_empty()
 	_test_starter_grant_applies_once_on_new_game()
 	_test_earn_gold_quest_completes_on_payout()
 	_test_earn_gold_quest_save_round_trip()
@@ -1937,11 +1937,14 @@ func _test_plant_requires_and_consumes_matching_seed() -> void:
 	_check(not fpm.plant(Vector2i(1, 0), "parsnip"),
 		"a second plant with no seeds left should fail")
 
-func _test_inventory_from_nothing_defaults_to_starter_grant() -> void:
+func _test_inventory_from_nothing_defaults_to_empty() -> void:
 	InventoryManager._counts = {}
 	InventoryManager.from_save_dict({})
-	_check(InventoryManager.get_count("parsnip_seed") == InventoryManager.STARTER_SEEDS["parsnip_seed"],
-		"from_save_dict({}) is the from-nothing default and should yield the starter grant")
+	# Starter seeds are granted centrally by SaveManager.new_game() via
+	# FarmPlotManager.grant_starting_seeds(), NOT by from_save_dict({}).
+	# Granting here would double up (15 STARTER_SEEDS + 8 STARTING_SEED = 23).
+	_check(InventoryManager.get_count("parsnip_seed") == 0,
+		"from_save_dict({}) resets to empty; starter grants come from new_game() only")
 
 func _test_starter_grant_applies_once_on_new_game() -> void:
 	SaveManager.delete_save_file()
@@ -1950,12 +1953,12 @@ func _test_starter_grant_applies_once_on_new_game() -> void:
 
 	SaveManager.new_game()
 
-	_check(InventoryManager.get_count("parsnip_seed") == InventoryManager.STARTER_SEEDS["parsnip_seed"],
+	_check(InventoryManager.get_count("parsnip_seed") == FarmPlotManager.STARTING_SEED_QUANTITY,
 		"new_game should grant the starter parsnip seeds exactly once, got %d" % InventoryManager.get_count("parsnip_seed"))
 	_check(InventoryManager.get_count("junk_item") == 0,
 		"new_game replaces the ledger with the grant rather than adding on top of old state")
 
-	InventoryManager.remove_item("parsnip_seed", 14)
+	InventoryManager.remove_item("parsnip_seed", 7)
 	var saved := SaveManager.build_save_data()
 	InventoryManager.from_save_dict({})
 	SaveManager.apply_save_data(saved)
