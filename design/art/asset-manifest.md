@@ -179,3 +179,17 @@ tiles 13 · characters 14 · crops 7 · animals 5 · items 40 · props 16 · map
 TOTAL 109 PNGs
 ```
 (verified above with `find assets/pixelart -name '*.png' | wc -l` → 109)
+
+## JRL pack — 2026-08-30 cozy activities icons (design/190-cozy-activities)
+
+Issue #190. Generator: `assets/16bit/generator/gen_jp_cozy.py`
+(deterministic; re-run reproduces byte-identical PNGs; `validate.py` → OK,
+114 PNGs total). Sel-out `#4A3320`, transparent bg, pastel Ghibli.
+
+### `items/` — cozy icons (16×16) + `cozy_sheet.png` (48×16)
+| file | use |
+|---|---|
+| `icon_tea_set.png` | matcha chawan + bamboo chasen — Cozy Corner tea set (spec: `design/systems/cozy-activities-spec.md`) |
+| `icon_ikebana.png` | celadon vase, 2 stems, 1 sakura blossom — ikebana vase |
+| `icon_journal.png` | washi-bound book (red stab binding, title slip, hanko) + brush — writing desk |
+| `cozy_sheet.png` | combined 48×16 strip, order: tea_set, ikebana, journal |
