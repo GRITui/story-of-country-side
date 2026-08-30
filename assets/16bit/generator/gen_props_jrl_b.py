@@ -158,11 +158,15 @@ def main():
             for x in range(16):
                 strip.putpixel((i*16+x,y), w.getpixel((x,y)))
     save(strip, "tiles", "canal_strip.png")
-    # chimney smoke frames 8x8
+    # chimney smoke frames 16x16 (drifting puffs, min 4x4 opaque for validate.py)
+    from px import ellipse
     for f in range(3):
         sm = canvas(16,16)
-        a = [180, 110, 60][f]
-        px(sm,8,8, (245,240,224,a)); px(sm,9,6, (245,240,224, int(a*0.7))); px(sm,10,4, (245,240,224, int(a*0.4)))
+        a = [200, 130, 70][f]
+        ellipse(sm, 7+f, 10-f*2, 3, 2, (245,240,224,a))
+        ellipse(sm, 9+f, 7-f*2, 2, 2, (232,220,200, int(a*0.7)))
+        px(sm, 11+f, 3-f, (220,210,190, int(a*0.45)))
+        px(sm, 12+f, 2-f, (220,210,190, int(a*0.3)))
         save(sm, "props", f"smoke_{f}.png")
 
 if __name__=="__main__": main()
