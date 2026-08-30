@@ -14,7 +14,54 @@ animals, items, props, map, UI) is placed as standalone `Sprite2D` assets
 anchored **bottom-center**, the convention locked in `squad-handshake-art.md`
 epoch 3/4 — not subject to the TileMap diamond math.
 
-## Directory / file inventory (109 PNGs)
+> **2026-08-30 — JRL supersede notice (`feat/jrl-art-pack`).** The Western
+> placeholder set below (animals, western characters/portraits, western crops,
+> old item icons, barn/coop/mine props, old tile set, old UI icons — 122 PNGs)
+> has been **removed** and replaced by the Japanese countryside pack in
+> § "JRL pack" below. The old inventory is kept for reference of what game
+> code still references (see GitHub issue "JRL art pack — rework list").
+
+## JRL pack (current source of truth)
+
+Style: "High-Bit Kominka Crisp", pastel Ghibli, sel-out `#4A3320`,
+transparent backgrounds, deterministic Pillow generators
+(`gen_jp_pack.py`, `gen_jp_characters.py`, plus earlier `gen_*_jrl_b.py`).
+
+### `crops/` — unified sheet `crops_jp_sheet.png` (80×80, 16px cells)
+Rows: rice, daikon, nasu, edamame, sweet_potato. Cols: growth stage 0–3 +
+harvest icon. Rice stages sit on a flooded-paddy base; the rest on soil.
+Per-crop files: `<name>_0..3.png` + `<name>.png` (64×16 strip);
+harvest icons in `items/icon_{rice,daikon,nasu,edamame,sweet_potato}.png`.
+Also present from the earlier batch: turnip, watermelon stages/strips.
+
+### `items/` — `tools_jp_sheet.png` (80×16)
+kuwa (hoe), kama (sickle), bamboo watering can, bug net, bamboo fishing
+rod; also as individual `icon_*.png`.
+
+### `ui/` — `ui_jp_sheet.png` (160×16)
+washi_slot, hotbar_slot, hotbar_slot_sel, bento_full/half/empty
+(stamina gauge), season indicators: sakura, ginkgo, momiji, snowflake.
+`washi_panel.png` (48×48) = 9-patch inventory/dialog panel.
+
+### `characters/`
+- `player_jp.png` (384×256): 24×32 cells, 16 cols (Down/Up/Left/Right ×
+  4 frames) × 8 rows: idle, walk, sit_engawa, hoe, plant, net, fish, bow.
+  Bottom-center pivot identical across all frames (feet y=31, cx=11.5) —
+  wire as `AnimatedSprite2D` region anim. `player_jp_winter.png` /
+  `player_jp_yukata.png` are palette-swap variants (hanten+knit cap /
+  festival yukata+obi with asanoha dots).
+- `npc_chiyo.png` (384×64): rows idle/walk, same grid; grey bun, plum
+  kimono, kappogi apron, bamboo broom on idle.
+- `portrait_chiyo_<expr>.png` 128×128 (4× nearest upscale; 32×32 masters
+  saved as `*_32.png` for the existing dialogue UI). Expressions:
+  gentle_smile, chuckling, nostalgic, surprised, concerned.
+
+### `props/`, `tiles/` (earlier JRL-B batch)
+farmhouse + 4 seasonal variants, sakura + 4 seasonal variants, jizo_shrine,
+hanna_store, smoke_0..2; grass seasonal variants, soil till/water states,
+paddy canal_strip, tatami, animated water_0..3, palette_jrl_b reference.
+
+## Directory / file inventory (109 PNGs) — SUPERSEDED, see notice above
 
 ### `tiles/` (13)
 | file | intended use |
@@ -132,3 +179,17 @@ tiles 13 · characters 14 · crops 7 · animals 5 · items 40 · props 16 · map
 TOTAL 109 PNGs
 ```
 (verified above with `find assets/pixelart -name '*.png' | wc -l` → 109)
+
+## JRL pack — 2026-08-30 cozy activities icons (design/190-cozy-activities)
+
+Issue #190. Generator: `assets/16bit/generator/gen_jp_cozy.py`
+(deterministic; re-run reproduces byte-identical PNGs; `validate.py` → OK,
+114 PNGs total). Sel-out `#4A3320`, transparent bg, pastel Ghibli.
+
+### `items/` — cozy icons (16×16) + `cozy_sheet.png` (48×16)
+| file | use |
+|---|---|
+| `icon_tea_set.png` | matcha chawan + bamboo chasen — Cozy Corner tea set (spec: `design/systems/cozy-activities-spec.md`) |
+| `icon_ikebana.png` | celadon vase, 2 stems, 1 sakura blossom — ikebana vase |
+| `icon_journal.png` | washi-bound book (red stab binding, title slip, hanko) + brush — writing desk |
+| `cozy_sheet.png` | combined 48×16 strip, order: tea_set, ikebana, journal |

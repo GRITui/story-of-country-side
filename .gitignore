@@ -9,3 +9,6 @@ export_presets.cfg
 playwright-report/
 test-results/
 node_modules/
+
+# macOS
+.DS_Store
