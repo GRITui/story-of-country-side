@@ -67,20 +67,20 @@ func cook(recipe_id: String) -> bool:
 			return false
 	if not recipe.output_item_id.is_empty():
 		InventoryManager.add_item(recipe.output_item_id, recipe.output_quantity)
-	if recipe.stamina_restored > 0 and StaminaManager:
-		StaminaManager.restore(recipe.stamina_restored)
+	if recipe.stamina_restore > 0 and StaminaManager:
+		StaminaManager.restore(recipe.stamina_restore)
 	cooked.emit(recipe_id, recipe.output_item_id, recipe.output_quantity)
 	return true
 
 ## Helper to build a recipe resource programmatically.
-func _make_recipe(recipe_id: String, display_name: String, ingredients: Dictionary, output_item_id: String, output_quantity: int, stamina_restored: int, description: String = "") -> CookingRecipe:
+func _make_recipe(recipe_id: String, display_name: String, ingredients: Dictionary, output_item_id: String, output_quantity: int, stamina_restore: int, description: String = "") -> CookingRecipe:
 	var r := CookingRecipe.new()
 	r.recipe_id = recipe_id
 	r.display_name = display_name
 	r.ingredients = ingredients.duplicate()
 	r.output_item_id = output_item_id
 	r.output_quantity = output_quantity
-	r.stamina_restored = stamina_restored
+	r.stamina_restore = stamina_restore
 	r.description = description
 	return r
 

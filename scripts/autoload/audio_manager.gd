@@ -131,7 +131,7 @@ func _connect_signals() -> void:
 	if MarriageManager:
 		MarriageManager.married.connect(_on_married)
 	if SkillManager:
-		SkillManager.level_changed.connect(_on_level_changed)
+		SkillManager.skill_leveled.connect(_on_skill_leveled)
 	if QuestManager:
 		QuestManager.quest_completed.connect(_on_quest_completed)
 	if ToolManager:
@@ -156,7 +156,7 @@ func _on_heart_event_triggered(_name: String) -> void:
 func _on_married(_name: String) -> void:
 	play_sfx("wedding")
 
-func _on_level_changed(_skill: String, _new: int, _old: int) -> void:
+func _on_skill_leveled(_skill: String, _new: int) -> void:
 	play_sfx("levelup")
 
 func _on_quest_completed(_id: String, _flag: String) -> void:
