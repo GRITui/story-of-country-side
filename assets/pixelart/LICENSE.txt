@@ -1,0 +1,34 @@
+# CC0 1.0 Universal
+
+The pixel-art assets under `assets/pixelart/` were generated fresh and
+deterministically **for this project** by the scripts in
+`assets/pixelart/generator/` (Python 3 + Pillow). No licensed third-party
+art was copied, traced, or bundled.
+
+These original assets are dedicated to the public domain under the
+**Creative Commons CC0 1.0 Universal** license. You may copy, modify,
+distribute and perform the work, even for commercial purposes, all
+without asking permission.
+
+- Full license text: https://creativecommons.org/publicdomain/zero/1.0/legalcode
+- Summary: https://creativecommons.org/publicdomain/zero/1.0/
+
+## Regeneration
+
+Every `.png` in this directory is byte-derived from a deterministic script
+under `assets/pixelart/generator/`. Re-running it reproduces the same set:
+
+```
+cd assets/pixelart/generator
+python3 gen_tiles.py
+python3 gen_characters.py
+python3 gen_crops.py
+python3 gen_animals.py
+python3 gen_items.py
+python3 gen_props.py
+python3 gen_map.py
+python3 gen_ui_icons.py
+```
+
+Requires Python 3.9+ and Pillow (`python3 -c "import PIL"` to check). No
+network access is used — all color and geometry is authored in the scripts.

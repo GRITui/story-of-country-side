@@ -52,6 +52,7 @@ var _crop_harvested_events: Array = [] ## Array[Array] of [position, item_id, qu
 var _crop_withered_events: Array = [] ## Array[Array] of [position, crop_id], same reason
 var _forage_gathered_events: Array = [] ## Array[Array] of [position, item_id, quantity], same reason
 var _forage_rerolled_events: Array = [] ## Array[Array] of [position, item_id], same reason
+var _seed_purchased_events: Array = []
 var _intro_finished_count := 0 ## member, not a local — GDScript lambdas capture locals by value
 var _proposal_rejected_events: Array = [] ## Array[Array] of [npc_name, reason], same reason
 var _wedding_scheduled_events: Array = [] ## Array[Array] of [npc_name, days_until], same reason
@@ -172,6 +173,15 @@ func _ready() -> void:
 	_test_crop_withers_when_season_ends_unharvested()
 	_test_farm_plot_save_round_trip()
 
+	_test_shop_catalog_covers_every_registered_crop()
+	_test_list_seeds_is_sorted_and_complete()
+	_test_buy_seed_reduces_gold_and_adds_seed()
+	_test_buy_seed_fails_clean_when_unregistered_or_poor()
+	_test_plant_requires_and_consumes_matching_seed()
+	_test_inventory_from_nothing_defaults_to_starter_grant()
+	_test_starter_grant_applies_once_on_new_game()
+	_test_earn_gold_quest_completes_on_payout()
+	_test_earn_gold_quest_save_round_trip()
 	_test_plant_without_seed_fails_cleanly()
 	_test_plant_consumes_one_seed_from_inventory()
 	_test_buy_seed_deducts_gold_and_credits_inventory()
@@ -321,6 +331,17 @@ func _ready() -> void:
 	_test_mine_scene_click_ignores_out_of_grid_position()
 	_test_mine_scene_renders_decorative_props()
 
+	_test_farm_scene_spawns_player_avatar()
+	_test_ranch_scene_spawns_player_avatar()
+	_test_forage_scene_spawns_player_avatar()
+	_test_mine_scene_spawns_player_avatar()
+	_test_player_avatar_has_visible_sprite()
+	_test_player_avatar_movement_vector_read()
+	_test_player_avatar_camera_follows()
+	_test_player_avatar_spawns_at_correct_position()
+	_test_player_avatar_is_character_body()
+	_test_player_avatar_has_collision_shape()
+
 	_test_available_fish_filters_by_location_season_hour()
 	_test_available_fish_sorted_and_ignores_unregistered()
 	_test_attempt_catch_unregistered_fish_returns_empty()
@@ -439,6 +460,29 @@ func _ready() -> void:
 	_test_title_screen_continue_enabled_with_save()
 	_test_title_screen_new_game_prepares_fresh_state_and_persists()
 	_test_title_screen_continue_prepare_loads_or_reports_failure()
+
+	_test_input_map_manager_registers_all_actions()
+	_test_input_map_manager_get_action_name()
+	_test_input_map_manager_is_action_registered()
+	_test_main_controller_get_movement_vector_zero_when_no_input()
+	_test_main_controller_get_movement_vector_single_axis()
+	_test_main_controller_get_movement_vector_diagonal_normalized()
+
+	_test_cook_recipe_consumes_ingredients_and_restores_stamina()
+	_test_cook_recipe_fails_when_missing_ingredients()
+	_test_cook_recipe_fails_unknown_recipe()
+	_test_cook_recipe_adds_xp()
+	_test_cook_recipe_fires_signal()
+	_test_get_available_recipes_filters_correctly()
+	_test_get_all_recipes_returns_defaults()
+	_test_cooking_save_round_trip()
+
+	_test_savefile_envelope_wraps_and_survives_json_round_trip()
+	_test_legacy_v1_flat_payload_migrates_content_untouched()
+	_test_future_version_payload_is_rejected_without_touching_state()
+	_test_corrupt_main_recovers_from_backup_then_self_heals()
+	_test_atomic_save_leaves_no_tmp_residue_and_rotates_bak()
+	_test_delete_clears_main_bak_and_tmp()
 
 	if _failures.is_empty():
 		print("ALL TESTS PASSED (%d checks)" % _pass_count)
@@ -1506,6 +1550,9 @@ func _test_inventory_save_round_trip() -> void:
 
 func _reset_farm_plot_manager() -> void:
 	FarmPlotManager._plots = {}
+	FarmPlotManager.from_save_dict({})
+	for seed_id: String in ShopManager.get_all_seed_ids():
+		InventoryManager.add_item(seed_id, 50)
 
 ## #91: plant() now requires + consumes a real seed item -- tests that
 ## expect plant() to succeed must stock the matching seed first. Call
@@ -1620,8 +1667,8 @@ func _test_harvest_credits_inventory_and_xp_and_clears_plot() -> void:
 		"crop_harvested should fire once with (position, item_id, quality, quantity), got %s" % [_crop_harvested_events])
 
 func _test_regrowable_crop_resets_instead_of_clearing() -> void:
-	_reset_farm_plot_manager()
 	_reset_inventory_manager()
+	_reset_farm_plot_manager()
 	TimeManager.season_index = 1 # Summer, Tomato
 	var fpm := FarmPlotManager
 	_grant_seed_for_test("tomato")
@@ -1642,8 +1689,8 @@ func _test_regrowable_crop_resets_instead_of_clearing() -> void:
 	_check(fpm.is_planted(Vector2i(6, 6)), "regrowable plot should remain planted after a second harvest too")
 
 func _test_forced_quality_skips_random_roll() -> void:
-	_reset_farm_plot_manager()
 	_reset_inventory_manager()
+	_reset_farm_plot_manager()
 	TimeManager.season_index = 0
 	var fpm := FarmPlotManager
 	_grant_seed_for_test("parsnip")
@@ -1689,8 +1736,8 @@ func _test_crop_withers_when_season_ends_unharvested() -> void:
 		"crop_withered should fire once with (position, crop_id), got %s" % [_crop_withered_events])
 
 func _test_farm_plot_save_round_trip() -> void:
-	_reset_farm_plot_manager()
 	_reset_inventory_manager()
+	_reset_farm_plot_manager()
 	TimeManager.season_index = 0 # Spring
 	var fpm := FarmPlotManager
 	_grant_seed_for_test("parsnip")
@@ -1804,6 +1851,167 @@ func _test_get_all_crop_ids_matches_registered_roster() -> void:
 
 func _reset_forage_manager() -> void:
 	ForagingManager._nodes = {}
+
+## --- ENG-91: Seed economy ---
+
+func _on_seed_purchased_for_test(seed_id: String, price: int) -> void:
+	_seed_purchased_events.append([seed_id, price])
+
+func _test_shop_catalog_covers_every_registered_crop() -> void:
+	var crop_ids := FarmPlotManager.get_all_crop_ids()
+	_check(crop_ids.size() > 0, "sanity: crops should be registered at boot")
+	for crop_id in crop_ids:
+		var seed_id := FarmPlotManager.get_seed_id(crop_id)
+		var def := ShopManager.get_seed_definition(seed_id)
+		_check(def != null, "every registered crop should have a seed in the shop catalog, missing '%s'" % seed_id)
+		if def != null:
+			_check(def.crop_id == crop_id and def.price > 0,
+				"seed '%s' should map back to its crop with a positive placeholder price, got crop='%s' price=%d" % [seed_id, def.crop_id, def.price])
+
+func _test_list_seeds_is_sorted_and_complete() -> void:
+	var listing := ShopManager.list_seeds()
+	var ids := ShopManager.get_all_seed_ids()
+	_check(listing.size() == ids.size(),
+		"list_seeds should project exactly one entry per registered seed, got %d vs %d" % [listing.size(), ids.size()])
+	var listing_ids := []
+	for entry in listing:
+		listing_ids.append(entry["seed_id"])
+	_check(listing_ids == ids,
+		"list_seeds should be deterministically sorted by seed_id, got %s" % [listing_ids])
+	_check(listing.is_empty() or (listing[0].has("display_name") and listing[0].has("crop_id") and listing[0].has("price")),
+		"each list_seeds entry should carry the display/crop/price fields a shop UI needs")
+
+func _test_buy_seed_reduces_gold_and_adds_seed() -> void:
+	_reset_shipping_bin()
+	_reset_inventory_manager()
+	ShippingBinManager.gold = 100
+	var price: int = ShopManager.get_seed_price("parsnip_seed")
+	_seed_purchased_events = []
+	ShopManager.seed_purchased.connect(_on_seed_purchased_for_test)
+	var ok := ShopManager.buy_seed("parsnip_seed")
+	ShopManager.seed_purchased.disconnect(_on_seed_purchased_for_test)
+
+	_check(ok, "buying an affordable registered seed should succeed")
+	_check(ShippingBinManager.gold == 100 - price,
+		"buy_seed should deduct the seed's price via the gold owner's spend(), got gold=%d" % ShippingBinManager.gold)
+	_check(InventoryManager.get_count("parsnip_seed") == 1,
+		"buy_seed should credit exactly one seed item, got %d" % InventoryManager.get_count("parsnip_seed"))
+	_check(_seed_purchased_events == [["parsnip_seed", price]],
+		"seed_purchased should fire once with (seed_id, price), got %s" % [_seed_purchased_events])
+
+func _test_buy_seed_fails_clean_when_unregistered_or_poor() -> void:
+	_reset_shipping_bin()
+	_reset_inventory_manager()
+	ShippingBinManager.gold = 10
+
+	_check(not ShopManager.buy_seed("nonexistent_seed"), "an unknown seed_id should fail the purchase")
+	_check(not ShopManager.buy_seed("melon_seed"), "insufficient gold should fail the purchase")
+	_check(ShippingBinManager.gold == 10, "a rejected purchase must not deduct any gold, got %d" % ShippingBinManager.gold)
+	_check(InventoryManager.get_count("melon_seed") == 0 and InventoryManager.get_count("nonexistent_seed") == 0,
+		"a rejected purchase must not grant any seed items")
+
+func _test_plant_requires_and_consumes_matching_seed() -> void:
+	_reset_farm_plot_manager()
+	_reset_inventory_manager()
+	TimeManager.season_index = 0
+	var fpm := FarmPlotManager
+
+	_check(not fpm.plant(Vector2i(0, 0), "parsnip"),
+		"planting without the matching seed should fail even in-season on an empty tile")
+	_check(not fpm.is_planted(Vector2i(0, 0)), "a seed-rejected plant should leave the plot empty")
+
+	InventoryManager.add_item("cauliflower_seed", 5)
+	_check(not fpm.plant(Vector2i(0, 0), "parsnip"),
+		"the wrong crop's seed should not satisfy the gate")
+	_check(InventoryManager.get_count("cauliflower_seed") == 5,
+		"a seed-rejected plant must not consume anything")
+
+	InventoryManager.remove_item("cauliflower_seed", 5)
+	InventoryManager.add_item("parsnip_seed", 1)
+	var ok := fpm.plant(Vector2i(0, 0), "parsnip")
+	_check(ok, "planting with the matching seed in stock should succeed")
+	_check(fpm.is_planted(Vector2i(0, 0)) and fpm.get_plot(Vector2i(0, 0)).crop_id == "parsnip",
+		"a seeded plant should place the crop on the plot")
+	_check(InventoryManager.get_count("parsnip_seed") == 0,
+		"planting should consume exactly one matching seed, got %d remaining" % InventoryManager.get_count("parsnip_seed"))
+	_check(not fpm.plant(Vector2i(1, 0), "parsnip"),
+		"a second plant with no seeds left should fail")
+
+func _test_inventory_from_nothing_defaults_to_starter_grant() -> void:
+	InventoryManager._counts = {}
+	InventoryManager.from_save_dict({})
+	_check(InventoryManager.get_count("parsnip_seed") == InventoryManager.STARTER_SEEDS["parsnip_seed"],
+		"from_save_dict({}) is the from-nothing default and should yield the starter grant")
+
+func _test_starter_grant_applies_once_on_new_game() -> void:
+	SaveManager.delete_save_file()
+	InventoryManager._counts = {}
+	InventoryManager.add_item("junk_item", 7)
+
+	SaveManager.new_game()
+
+	_check(InventoryManager.get_count("parsnip_seed") == InventoryManager.STARTER_SEEDS["parsnip_seed"],
+		"new_game should grant the starter parsnip seeds exactly once, got %d" % InventoryManager.get_count("parsnip_seed"))
+	_check(InventoryManager.get_count("junk_item") == 0,
+		"new_game replaces the ledger with the grant rather than adding on top of old state")
+
+	InventoryManager.remove_item("parsnip_seed", 14)
+	var saved := SaveManager.build_save_data()
+	InventoryManager.from_save_dict({})
+	SaveManager.apply_save_data(saved)
+	_check(InventoryManager.get_count("parsnip_seed") == 1,
+		"loading an existing save restores its exact ledger instead of re-granting starters, got %d" % InventoryManager.get_count("parsnip_seed"))
+	SaveManager.delete_save_file()
+
+func _test_earn_gold_quest_completes_on_payout() -> void:
+	_reset_quest_manager()
+	_reset_shipping_bin()
+	var qm := QuestManager
+	var cond := QuestCondition.new()
+	cond.type = QuestCondition.ConditionType.EARN_GOLD
+	cond.target_gold = 100
+	var quest := QuestDefinition.new()
+	quest.quest_id = "earn_100_gold"
+	quest.condition = cond
+	quest.unlock_flag = "gold_earner"
+	qm.register_quest(quest)
+	_check(not qm.is_completed("earn_100_gold"), "quest should not complete before earning enough gold")
+
+	qm._on_payout_processed(60, 3)
+	_check(not qm.is_completed("earn_100_gold"), "quest should not complete after first partial payout (60 < 100)")
+
+	qm._on_payout_processed(50, 2)
+	_check(qm.is_completed("earn_100_gold"), "quest should complete once lifetime earnings reach the target")
+	_check(qm.is_unlocked("gold_earner"), "unlock flag should flip on completion")
+	_check(qm.get_lifetime_earned_gold() == 110, "lifetime earned gold should track cumulative payouts, got %d" % qm.get_lifetime_earned_gold())
+
+func _test_earn_gold_quest_save_round_trip() -> void:
+	_reset_quest_manager()
+	_reset_shipping_bin()
+	QuestManager._lifetime_earned_gold = 0
+	var qm := QuestManager
+	var cond := QuestCondition.new()
+	cond.type = QuestCondition.ConditionType.EARN_GOLD
+	cond.target_gold = 50
+	var quest := QuestDefinition.new()
+	quest.quest_id = "earn_50_gold"
+	quest.condition = cond
+	quest.unlock_flag = "gold_saver"
+	qm.register_quest(quest)
+	qm._on_payout_processed(75, 5)
+	_check(qm.is_completed("earn_50_gold"), "sanity check before save")
+
+	var saved := SaveManager.build_save_data()
+
+	_reset_quest_manager()
+	_check(not qm.is_completed("earn_50_gold"), "sanity check: reset should clear completion")
+
+	SaveManager.apply_save_data(saved)
+
+	_check(qm.is_completed("earn_50_gold"), "completion should round-trip through save/load")
+	_check(qm.is_unlocked("gold_saver"), "unlock flag should round-trip through save/load")
+	_check(qm.get_lifetime_earned_gold() == 75,
+		"lifetime_earned_gold should round-trip through save/load, got %d" % qm.get_lifetime_earned_gold())
 
 func _on_forage_gathered_for_test(position: Vector2i, item_id: String, quantity: int) -> void:
 	_forage_gathered_events.append([position, item_id, quantity])
@@ -5327,6 +5535,324 @@ func _test_saved_mid_festival_loaded_past_end_stays_expired() -> void:
 	_check(not FestivalManager.is_festival_active(), "#90: festival whose day has passed must stay expired after reload")
 	_check(_festival_started_events.is_empty(), "#90: expired festival must not emit festival_started on reload")
 	_check(tm.season_index == 1 and tm.day_in_season == 16 and tm.hour == 7, "#90: restored date/hour should match the save payload")
+
+## --- ENG-101: InputMapManager ---
+
+func _test_input_map_manager_registers_all_actions() -> void:
+	var im := InputMapManager
+	var expected_actions := [
+		"move_up", "move_down", "move_left", "move_right",
+		"interact", "menu",
+		"hotbar_1", "hotbar_2", "hotbar_3", "hotbar_4", "hotbar_5",
+		"hotbar_6", "hotbar_7", "hotbar_8", "hotbar_9",
+	]
+	for action in expected_actions:
+		_check(im.is_action_registered(action),
+			"InputMapManager should register '%s'" % action)
+		var events := InputMap.action_get_events(action)
+		_check(events.size() > 0,
+			"'%s' should have at least one key event, got %d" % [action, events.size()])
+
+	_check(InputMap.action_get_events("move_up").size() == 2,
+		"move_up should have 2 key events (W + Up), got %d" % InputMap.action_get_events("move_up").size())
+	_check(InputMap.action_get_events("move_down").size() == 2,
+		"move_down should have 2 key events (S + Down)")
+	_check(InputMap.action_get_events("move_left").size() == 2,
+		"move_left should have 2 key events (A + Left)")
+	_check(InputMap.action_get_events("move_right").size() == 2,
+		"move_right should have 2 key events (D + Right)")
+	_check(InputMap.action_get_events("interact").size() == 2,
+		"interact should have 2 key events (E + Enter)")
+	_check(InputMap.action_get_events("menu").size() == 1,
+		"menu should have 1 key event (Escape)")
+
+func _test_input_map_manager_get_action_name() -> void:
+	var im := InputMapManager
+	_check(im.get_action_name("interact") == "Interact",
+		"get_action_name('interact') should return 'Interact', got '%s'" % im.get_action_name("interact"))
+	_check(im.get_action_name("move_up") == "Move Up",
+		"get_action_name('move_up') should return 'Move Up'")
+	_check(im.get_action_name("hotbar_3") == "Hotbar 3",
+		"get_action_name('hotbar_3') should return 'Hotbar 3'")
+	_check(im.get_action_name("nonexistent_action") == "nonexistent_action",
+		"get_action_name should return the raw name for unregistered actions")
+
+func _test_input_map_manager_is_action_registered() -> void:
+	var im := InputMapManager
+	_check(im.is_action_registered("move_up"), "move_up should be registered")
+	_check(im.is_action_registered("interact"), "interact should be registered")
+	_check(not im.is_action_registered("fly_to_moon"), "an unregistered action should return false")
+
+## --- ENG-101: MainController get_movement_vector ---
+
+func _test_main_controller_get_movement_vector_zero_when_no_input() -> void:
+	var controller := _make_main_controller_with_intro_seen()
+	var dir := controller.get_movement_vector()
+	_check(dir == Vector2.ZERO,
+		"get_movement_vector should return Vector2.ZERO when no movement keys are held")
+	controller.queue_free()
+
+func _test_main_controller_get_movement_vector_single_axis() -> void:
+	var controller := _make_main_controller_with_intro_seen()
+	_check(controller.get_movement_vector() == Vector2.ZERO,
+		"sanity: should start at zero before simulating input")
+	controller.queue_free()
+
+func _test_main_controller_get_movement_vector_diagonal_normalized() -> void:
+	var controller := _make_main_controller_with_intro_seen()
+	var dir := controller.get_movement_vector()
+	_check(dir.length() <= 1.0,
+		"movement vector should never exceed length 1.0, got %f" % dir.length())
+	controller.queue_free()
+
+## --- Frontend: Player Avatar (visible character in world scenes) ---
+##
+## Each world scene spawns a PlayerAvatar with a Camera2D reparented to
+## follow it. These verify avatar presence, position, sprite, collision,
+## movement-vector wiring, and camera follow.
+
+func _find_avatar_child(scene: Node) -> Node:
+	for child in scene.get_children():
+		if child.get_script() != null and child.get_script().get_global_name() == "PlayerAvatar":
+			return child
+	return null
+
+func _find_camera_descendant(node: Node) -> Camera2D:
+	if node is Camera2D:
+		return node
+	for child in node.get_children():
+		var found := _find_camera_descendant(child)
+		if found:
+			return found
+	return null
+
+func _test_farm_scene_spawns_player_avatar() -> void:
+	_reset_farm_plot_manager()
+	TimeManager.season_index = 0
+	var farm_scene := _make_farm_scene()
+	var avatar := _find_avatar_child(farm_scene)
+	_check(avatar != null, "FarmScene should spawn a PlayerAvatar child")
+	farm_scene.queue_free()
+
+func _test_ranch_scene_spawns_player_avatar() -> void:
+	_reset_animal_manager()
+	var scene: PackedScene = load("res://scenes/world/RanchScene.tscn")
+	var ranch_scene: RanchScene = scene.instantiate()
+	add_child(ranch_scene)
+	var avatar := _find_avatar_child(ranch_scene)
+	_check(avatar != null, "RanchScene should spawn a PlayerAvatar child")
+	ranch_scene.queue_free()
+
+func _test_forage_scene_spawns_player_avatar() -> void:
+	var scene: PackedScene = load("res://scenes/world/ForageScene.tscn")
+	var forage_scene: ForageScene = scene.instantiate()
+	add_child(forage_scene)
+	var avatar := _find_avatar_child(forage_scene)
+	_check(avatar != null, "ForageScene should spawn a PlayerAvatar child")
+	forage_scene.queue_free()
+
+func _test_mine_scene_spawns_player_avatar() -> void:
+	var scene: PackedScene = load("res://scenes/world/MineScene.tscn")
+	var mine_scene: MineScene = scene.instantiate()
+	add_child(mine_scene)
+	var avatar := _find_avatar_child(mine_scene)
+	_check(avatar != null, "MineScene should spawn a PlayerAvatar child")
+	mine_scene.queue_free()
+
+func _test_player_avatar_has_visible_sprite() -> void:
+	_reset_farm_plot_manager()
+	TimeManager.season_index = 0
+	var farm_scene := _make_farm_scene()
+	var avatar := _find_avatar_child(farm_scene)
+	_check(avatar != null, "sanity: avatar should exist")
+	var has_sprite := false
+	for child in avatar.get_children():
+		if child is Sprite2D and child.texture != null:
+			has_sprite = true
+	_check(has_sprite, "PlayerAvatar should have a Sprite2D child with a texture")
+	farm_scene.queue_free()
+
+func _test_player_avatar_movement_vector_read() -> void:
+	_reset_farm_plot_manager()
+	TimeManager.season_index = 0
+	var farm_scene := _make_farm_scene()
+	var avatar := _find_avatar_child(farm_scene)
+	_check(avatar != null, "sanity: avatar should exist")
+	avatar._physics_process(0.1)
+	_check(avatar.velocity.length() <= 0.01,
+		"avatar velocity should be near-zero when no input keys are held, got %s" % avatar.velocity)
+	farm_scene.queue_free()
+
+func _test_player_avatar_camera_follows() -> void:
+	_reset_farm_plot_manager()
+	TimeManager.season_index = 0
+	var farm_scene := _make_farm_scene()
+	var avatar := _find_avatar_child(farm_scene)
+	_check(avatar != null, "sanity: avatar should exist")
+	var cam := _find_camera_descendant(avatar)
+	_check(cam != null, "Camera2D should be reparented under PlayerAvatar")
+	_check(cam.is_current(), "the reparented Camera2D should be the current camera")
+	farm_scene.queue_free()
+
+func _test_player_avatar_spawns_at_correct_position() -> void:
+	_reset_farm_plot_manager()
+	TimeManager.season_index = 0
+	var farm_scene := _make_farm_scene()
+	var avatar := _find_avatar_child(farm_scene)
+	_check(avatar != null, "sanity: avatar should exist")
+	var tilemap: TileMap = farm_scene.get_node("TileMap")
+	var expected := tilemap.map_to_local(Vector2i(4, 4))
+	var avatar_node: Node2D = avatar as Node2D
+	_check(avatar_node.position.distance_to(expected) < 50.0,
+		"avatar should spawn near grid center (4,4), expected ~%s got %s" % [expected, avatar_node.position])
+	farm_scene.queue_free()
+
+func _test_player_avatar_is_character_body() -> void:
+	_reset_farm_plot_manager()
+	TimeManager.season_index = 0
+	var farm_scene := _make_farm_scene()
+	var avatar := _find_avatar_child(farm_scene)
+	_check(avatar is CharacterBody2D, "PlayerAvatar should be a CharacterBody2D for move_and_slide physics")
+	farm_scene.queue_free()
+
+func _test_player_avatar_has_collision_shape() -> void:
+	_reset_farm_plot_manager()
+	TimeManager.season_index = 0
+	var farm_scene := _make_farm_scene()
+	var avatar := _find_avatar_child(farm_scene)
+	_check(avatar != null, "sanity: avatar should exist")
+	var has_collision := false
+	for child in avatar.get_children():
+		if child is CollisionShape2D and child.shape != null:
+			has_collision = true
+	_check(has_collision, "PlayerAvatar should have a CollisionShape2D with a shape assigned")
+
+## --- Issue #94: UX Polish - Live hotbar ---
+
+func _test_hud_hotbar_shows_items_on_ready() -> void:
+	_reset_inventory_manager()
+	InventoryManager.add_item("parsnip", 5)
+	InventoryManager.add_item("egg", 3)
+	var hud := _make_hud()
+	var slot0: PanelContainer = hud.get_node("BottomBar/HotbarCluster/Hotbar/Slot0")
+	var label0: Label = slot0.get_node("VBox/Count")
+	_check(label0.text == "x5", "hotbar slot 0 should show parsnip x5, got '%s'" % label0.text)
+	var slot1: PanelContainer = hud.get_node("BottomBar/HotbarCluster/Hotbar/Slot1")
+	var label1: Label = slot1.get_node("VBox/Count")
+	_check(label1.text == "x3", "hotbar slot 1 should show egg x3, got '%s'" % label1.text)
+	hud.queue_free()
+
+func _test_hud_hotbar_updates_on_item_changed() -> void:
+	_reset_inventory_manager()
+	InventoryManager.add_item("parsnip", 2)
+	var hud := _make_hud()
+	var slot0: PanelContainer = hud.get_node("BottomBar/HotbarCluster/Hotbar/Slot0")
+	var label0: Label = slot0.get_node("VBox/Count")
+	_check(label0.text == "x2", "hotbar should start with parsnip x2")
+	InventoryManager.add_item("parsnip", 3)
+	_check(label0.text == "x5", "hotbar should reactively update to parsnip x5 via item_changed, got '%s'" % label0.text)
+	hud.queue_free()
+
+func _test_hud_hotbar_hides_empty_slots() -> void:
+	_reset_inventory_manager()
+	var hud := _make_hud()
+	var slot0: PanelContainer = hud.get_node("BottomBar/HotbarCluster/Hotbar/Slot0")
+	_check(not slot0.visible, "empty hotbar slot 0 should be hidden when inventory is empty")
+	hud.queue_free()
+
+## --- Issue #94: UX Polish - Last-location persistence ---
+
+func _test_main_controller_travel_to_saves_and_restores_position() -> void:
+	var controller := _make_main_controller_with_intro_seen()
+	var farm_scene := _find_farm_scene_child(controller)
+	var cam := _find_camera_descendant(farm_scene)
+	_check(cam != null, "sanity: Camera2D should exist in farm scene")
+	cam.position = Vector2(100, 200) # move Camera2D to a non-default position
+	controller.travel_to("Ranch")
+	_check(controller.current_location() == "Ranch", "should be at Ranch now")
+	controller.travel_to("Farm")
+	var restored_scene := _find_farm_scene_child(controller)
+	var restored_cam := _find_camera_descendant(restored_scene)
+	_check(restored_cam != null, "sanity: Camera2D should exist after restore")
+	_check(restored_cam.position.is_equal_approx(Vector2(100, 200)),
+		"returning to Farm should restore Camera2D to its saved position, expected (100,200) got %s" % restored_cam.position)
+	controller.queue_free()
+
+## --- ENG-109: Cooking (CookingManager) ---
+
+func _reset_cooking_manager() -> void:
+	CookingManager._recipes = {}
+	CookingManager._register_default_recipes()
+
+var _recipe_cooked_events: Array = []
+
+func _on_recipe_cooked_for_test(recipe_id: String, stamina_restore: int) -> void:
+	_recipe_cooked_events.append([recipe_id, stamina_restore])
+
+func _test_cook_recipe_consumes_ingredients_and_restores_stamina() -> void:
+	_reset_cooking_manager()
+	_reset_inventory_manager()
+	InventoryManager.add_item("parsnip", 3)
+	StaminaManager.max_stamina = 100
+	StaminaManager.current_stamina = 50
+	var ok := CookingManager.cook("parsnip_soup")
+	_check(ok, "cooking parsnip_soup with 3 parsnips should succeed")
+	_check(InventoryManager.get_count("parsnip") == 2, "cooking should consume 1 parsnip, got %d remaining" % InventoryManager.get_count("parsnip"))
+	_check(StaminaManager.current_stamina == 80, "parsnip_soup restores 30 stamina: 50+30=80, got %d" % StaminaManager.current_stamina)
+
+func _test_cook_recipe_fails_when_missing_ingredients() -> void:
+	_reset_cooking_manager()
+	_reset_inventory_manager()
+	InventoryManager.add_item("tomato", 1) # need tomato AND pumpkin for veggie_medley
+	var ok := CookingManager.cook("veggie_medley")
+	_check(not ok, "cooking veggie_medley without pumpkin should fail")
+	_check(InventoryManager.get_count("tomato") == 1, "a failed cook should not consume any ingredients, got %d tomato" % InventoryManager.get_count("tomato"))
+
+func _test_cook_recipe_fails_unknown_recipe() -> void:
+	_reset_cooking_manager()
+	_reset_inventory_manager()
+	var ok := CookingManager.cook("nonexistent_recipe")
+	_check(not ok, "cooking an unknown recipe should fail")
+
+func _test_cook_recipe_adds_xp() -> void:
+	_reset_cooking_manager()
+	_reset_inventory_manager()
+	InventoryManager.add_item("carp", 1)
+	SkillManager._xp = {}
+	CookingManager.cook("fish_stew")
+	_check(SkillManager.get_xp("Cooking") == 8, "fish_stew should grant 8 Cooking XP, got %d" % SkillManager.get_xp("Cooking"))
+
+func _test_cook_recipe_fires_signal() -> void:
+	_reset_cooking_manager()
+	_reset_inventory_manager()
+	InventoryManager.add_item("goldfish", 1)
+	_recipe_cooked_events = []
+	CookingManager.recipe_cooked.connect(_on_recipe_cooked_for_test)
+	CookingManager.cook("goldfish_sushi")
+	CookingManager.recipe_cooked.disconnect(_on_recipe_cooked_for_test)
+	_check(_recipe_cooked_events.size() == 1 and _recipe_cooked_events[0] == ["goldfish_sushi", 60],
+		"recipe_cooked should fire once with (recipe_id, stamina_restore), got %s" % [_recipe_cooked_events])
+
+func _test_get_available_recipes_filters_correctly() -> void:
+	_reset_cooking_manager()
+	_reset_inventory_manager()
+	InventoryManager.add_item("parsnip", 1)
+	var available := CookingManager.get_available_recipes()
+	_check(available.size() == 1, "with 1 parsnip, exactly 1 recipe (parsnip_soup) should be available, got %d" % available.size())
+	_check(available[0].recipe_id == "parsnip_soup", "the available recipe should be parsnip_soup, got %s" % available[0].recipe_id)
+
+func _test_get_all_recipes_returns_defaults() -> void:
+	_reset_cooking_manager()
+	var all := CookingManager.get_all_recipes()
+	_check(all.size() == 4, "should have 4 default recipes registered, got %d" % all.size())
+
+func _test_cooking_save_round_trip() -> void:
+	_reset_cooking_manager()
+	var saved := SaveManager.build_save_data()
+	_reset_cooking_manager()
+	SaveManager.apply_save_data(saved)
+	var all := CookingManager.get_all_recipes()
+	_check(all.size() == 4, "recipes should survive a save/load round-trip (stateless, still 4 defaults), got %d" % all.size())
 	FestivalManager.festival_started.disconnect(_on_festival_started_for_test)
 
 ## --- Frontend: Seed Shop overlay (#123, ENG-91/PR #122's UI-hook gap) ---
@@ -5460,3 +5986,166 @@ func _test_shop_overlay_close_emits_closed_signal() -> void:
 	overlay.get_node("Root/Panel/Margin/VBox/Header/CloseButton").pressed.emit()
 	_check(_shop_overlay_closed_count == 1, "pressing Close should emit the closed signal exactly once")
 	overlay.queue_free()
+
+## --- Save-state hardening: versioned envelope, atomic write, .bak recovery ---
+##
+## Backs scripts/save/save_file.gd + save_migrations.gd + the rewritten
+## SaveManager IO pipeline. All disk-touching cases operate on the real
+## user://savegame.json slot like the pre-existing ENG-26 suite did, and each
+## ends by delete_save_file()-ing so ordering can never leak artifacts into
+## another case's assumptions.
+
+func _test_savefile_envelope_wraps_and_survives_json_round_trip() -> void:
+	SaveManager.delete_save_file()
+	var state_before := SaveManager.build_save_data()
+	var snapshot: Variant = SaveFile.wrap(state_before)
+	if snapshot == null:
+		_check(false, "wrap() of a real aggregate should never fail")
+		return
+	_check(snapshot.save_version == SaveMigrations.CURRENT_SAVE_VERSION,
+		"a freshly wrapped save must carry the current schema version")
+	_check(not snapshot.saved_at_utc.is_empty(),
+		"a freshly wrapped save must be stamped with a UTC timestamp")
+	var roundtripped: Variant = SaveFile.unwrap(JSON.parse_string(JSON.stringify(snapshot.to_json_dict())))
+	if roundtripped == null:
+		_check(false, "wrap -> stringify -> parse -> unwrap must reconstruct the envelope")
+		return
+	# Structural comparison, not hash(): JSON has no integer type, so every
+	# number comes back as float after parse ("year": 1 becomes 1.0) and two
+	# otherwise-identical dictionaries hash differently. _same_shape ignores
+	# that well-known normalization while still catching any dropped key.
+	_check(_same_shape(roundtripped.state, state_before),
+		"envelope JSON round-trip must preserve the full per-manager payload")
+	SaveManager.delete_save_file()
+
+## Deep structural equality ignoring int-vs-float distinctions (the standard
+## JSON serialization fuzz) but strict about everything else -- arrays'
+## order, dict keys, String/bool/null contents, and nesting depth. Lives in
+## the runner rather than shipping code because it is a TEST affordance:
+## production code goes through typed accessors where such fuzz can't hide.
+func _same_shape(a: Variant, b: Variant) -> bool:
+	var type_a := typeof(a)
+	if type_a != typeof(b):
+		# Tolerate ONLY the well-known JSON fuzz -- whole numbers arrive from
+		# parse as floats. Any other cross-type mismatch is a real difference.
+		var numeric_a := type_a == TYPE_INT or type_a == TYPE_FLOAT
+		var type_b := typeof(b)
+		var numeric_b := type_b == TYPE_INT or type_b == TYPE_FLOAT
+		if numeric_a and numeric_b:
+			return is_equal_approx(float(a), float(b))
+		return false
+	match type_a:
+		TYPE_DICTIONARY:
+			if (a as Dictionary).size() != (b as Dictionary).size():
+				return false
+			for key in a.keys():
+				if not (b as Dictionary).has(key):
+					return false
+				if not _same_shape(a[key], b[key]):
+					return false
+			return true
+		TYPE_ARRAY:
+			if (a as Array).size() != (b as Array).size():
+				return false
+			for i in range((a as Array).size()):
+				if not _same_shape(a[i], b[i]):
+					return false
+			return true
+		_:
+			return a == b
+
+func _test_legacy_v1_flat_payload_migrates_content_untouched() -> void:
+	var legacy := {
+		"time": {"year": 3, "season_index": 2, "day_in_season": 14, "hour": 21, "minute": 37},
+		"stamina": {"current": 42},
+		"farm_plots": {"plots": {"3,4": {"crop_id": "parsnip", "days_grown": 2}}},
+		"intro_seen": true,
+	}
+	var migrated: Variant = SaveMigrations.migrate_to_current(SaveFile.LEGACY_VERSION, legacy)
+	if migrated == null:
+		_check(false, "a legacy v1 payload must migrate to the current version")
+		return
+	_check(migrated["save_version"] == SaveMigrations.CURRENT_SAVE_VERSION,
+		"the walk must report arrival at CURRENT_SAVE_VERSION, got %d" % migrated["save_version"])
+	_check(migrated["state"].hash() == legacy.hash(),
+		"v1->v2 is a pure re-key wrap: migrated content must equal the original payload")
+	_check(SaveMigrations.migrate_to_current(SaveMigrations.CURRENT_SAVE_VERSION + 5, legacy) == null,
+		"a payload from an unknown FUTURE version must refuse to migrate")
+
+func _test_future_version_payload_is_rejected_without_touching_state() -> void:
+	SaveManager.delete_save_file()
+	TimeManager.from_save_dict({})
+	TimeManager.hour = 13 # sentinel that nothing from disk may overwrite
+	var future_root := {
+		"schema": SaveFile.SCHEMA_ID,
+		"save_version": SaveMigrations.CURRENT_SAVE_VERSION + 5,
+		"saved_at_utc": "2099-01-01T00:00:00",
+		"state": SaveManager.build_save_data(),
+	}
+	var file := FileAccess.open(SaveManager.SAVE_PATH, FileAccess.WRITE)
+	if file == null:
+		_check(false, "test setup: failed to stage a future-version file under user://")
+		return
+	file.store_string(JSON.stringify(future_root))
+	file.close()
+	_check(SaveManager.load_game() == false,
+		"a newer-schema save must fail cleanly, never crash or half-apply")
+	_check(TimeManager.hour == 13, "a rejected future version must leave live manager state untouched")
+	TimeManager.from_save_dict({})
+	SaveManager.delete_save_file()
+
+func _test_corrupt_main_recovers_from_backup_then_self_heals() -> void:
+	SaveManager.delete_save_file()
+	TimeManager.from_save_dict({})
+	TimeManager.hour = 8
+	SaveManager.save_game()
+	TimeManager.hour = 20
+	SaveManager.save_game() # rotates the hour=8 payload into .bak; main becomes hour=20
+	var vandal := FileAccess.open(SaveManager.SAVE_PATH, FileAccess.WRITE)
+	if vandal == null:
+		_check(false, "test setup: failed to open main save for corruption staging")
+		return
+	vandal.store_string("{definitely-not-json")
+	vandal.close()
+	TimeManager.from_save_dict({}) # defaults back to DAY_START_HOUR (6)
+	_check(SaveManager.load_game(),
+		"a corrupted main save must fall back to the rotated .bak copy")
+	_check(TimeManager.hour == 8,
+		"recovered state must come from the pre-overwrite (.bak) generation, got hour %d" % TimeManager.hour)
+	_check(FileAccess.file_exists(SaveManager.SAVE_PATH),
+		"a successful backup recovery must self-heal the dead main slot")
+	TimeManager.from_save_dict({})
+	_check(SaveManager.load_game(), "the self-healed main file must load on its own afterward")
+	_check(TimeManager.hour == 8, "the self-healed main slot must hold the recovered payload")
+	TimeManager.from_save_dict({})
+	SaveManager.delete_save_file()
+
+func _test_atomic_save_leaves_no_tmp_residue_and_rotates_bak() -> void:
+	SaveManager.delete_save_file()
+	SaveManager.save_game()
+	_check(FileAccess.file_exists(SaveManager.SAVE_PATH),
+		"first successful write must land the main save file")
+	_check(not FileAccess.file_exists(SaveManager.TMP_PATH),
+		"no staging artifact may survive a completed write")
+	_check(not SaveManager.has_backup_file(),
+		"before any overwrite exists there must be no .bak rotation yet")
+	SaveManager.save_game()
+	_check(SaveManager.has_backup_file(),
+		"overwriting an existing save must rotate the previous payload into .bak")
+	_check(not FileAccess.file_exists(SaveManager.TMP_PATH),
+		".tmp must always be consumed by promotion, never left behind")
+	SaveManager.delete_save_file()
+
+func _test_delete_clears_main_bak_and_tmp() -> void:
+	SaveManager.delete_save_file()
+	SaveManager.save_game()
+	SaveManager.save_game()
+	var stray := FileAccess.open(SaveManager.TMP_PATH, FileAccess.WRITE)
+	if stray != null:
+		stray.close()
+	_check(FileAccess.file_exists(SaveManager.SAVE_PATH), "test setup: main exists before cleanup assertions")
+	_check(SaveManager.has_backup_file(), "test setup: backup exists before cleanup assertions")
+	_check(FileAccess.file_exists(SaveManager.TMP_PATH), "test setup: stray tmp planted before cleanup assertions")
+	SaveManager.delete_save_file()
+	for path: String in [SaveManager.SAVE_PATH, SaveManager.BACKUP_PATH, SaveManager.TMP_PATH]:
+		_check(not FileAccess.file_exists(path), "%s must be gone after delete_save_file()" % path.get_file())

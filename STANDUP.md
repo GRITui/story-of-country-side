@@ -309,3 +309,8 @@ Nothing found needing correction this round. My two reports (Lead Systems Design
 **Since last standup:** Idle, nothing new. Pulled latest and confirmed #53's comment count/updated_at unchanged since round 2 -- this cycle's activity is Audio-Squad's epoch 4 (festival/bundle-completion signal hookups, PR #89), unrelated to narrative text. Not manufacturing scope.
 **Next:** Same as every recent round -- watching for a future Backend/Frontend pass that adds a new writable Resource field or lookup table; nothing queued right now.
 **Blockers:** none.
+
+## Art-Squad — 2026-08-26T15:27Z
+**Since last standup:** Shipped a full, original pixel-art asset set (Epoch 7): `assets/pixelart/**` 109 PNGs (deterministic Python+Pillow generators, dedicated CC0) covering 13 floor tiles, player + 6 NPC walk sheets & portraits, all 7 crops x 4 stages, all 5 animals, 40 item icons, 16 props, a 256x256 world map, and 13 UI icons. Mapping + wiring notes in `design/art/asset-manifest.md`. Engine-verified: clean headless import, 1081/1081 tests pass, regen is byte-deterministic. Scene wiring intentionally left to Frontend lane per SQUAD-SPLIT.
+**Next:** Watching for Frontend to adopt the assets (manifest makes it a drop-in); happy to extend the set (e.g. multi-frame water, seasonal prop variants) on request.
+**Blockers:** none.

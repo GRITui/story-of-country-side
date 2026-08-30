@@ -49,6 +49,14 @@ func _end_day() -> void:
 	minute = 0
 	day_started.emit(day_in_season, current_season(), current_day_of_week())
 
+## Public API: advance to the next day immediately (sleep / day-skip).
+func advance_day() -> void:
+	day_ended.emit(day_in_season, current_season())
+	_advance_day()
+	hour = DAY_START_HOUR
+	minute = 0
+	day_started.emit(day_in_season, current_season(), current_day_of_week())
+
 func _advance_day() -> void:
 	day_in_season += 1
 	if day_in_season > DAYS_PER_SEASON:
