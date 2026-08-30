@@ -22,6 +22,18 @@ var harvest_ready: bool = false
 ## days_to_grow.
 var is_regrowing: bool = false
 
+# --- PO-16BIT-CORE-1: 16x16 soil-state extension (backward compat) ---
+var soil_state: int = 0 # FarmPlotManager.SoilState.DRY_GRASS
+var crop_type: String:
+	get: return crop_id
+	set(v): crop_id = v
+var growth_stage: int:
+	get: return days_grown
+	set(v): days_grown = v
+var days_watered: int = 0
+var days_without_water: int = 0
+var blocked_type: String = "" # "rock" / "wood" when soil_state is blocked
+
 func is_empty() -> bool:
 	return crop_id.is_empty()
 
@@ -32,6 +44,10 @@ func to_dict() -> Dictionary:
 		"watered_today": watered_today,
 		"harvest_ready": harvest_ready,
 		"is_regrowing": is_regrowing,
+		"soil_state": soil_state,
+		"days_watered": days_watered,
+		"days_without_water": days_without_water,
+		"blocked_type": blocked_type,
 	}
 
 static func from_dict(data: Dictionary) -> FarmPlot:
@@ -41,4 +57,8 @@ static func from_dict(data: Dictionary) -> FarmPlot:
 	plot.watered_today = data.get("watered_today", false)
 	plot.harvest_ready = data.get("harvest_ready", false)
 	plot.is_regrowing = data.get("is_regrowing", false)
+	plot.soil_state = int(data.get("soil_state", 0))
+	plot.days_watered = int(data.get("days_watered", 0))
+	plot.days_without_water = int(data.get("days_without_water", 0))
+	plot.blocked_type = str(data.get("blocked_type", ""))
 	return plot

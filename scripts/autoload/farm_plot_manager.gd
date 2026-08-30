@@ -1,67 +1,62 @@
 extends Node
-## Autoload: FarmPlotManager
-##
-## Agriculture (#13): seasonal planting/watering/harvesting, growth-cycle
-## timers keyed off TimeManager's day clock, regrowth for regrowable
-## crops, and a normal/silver/gold quality-tier roll on harvest. Depends
-## on the Time & Stamina foundation (TimeManager, already merged).
-##
-## Harvested items go into InventoryManager (#13's own gap-fill, see that
-## autoload's docstring) -- this manager never calls ShippingBinManager
-## directly. Selling is "player pulls from inventory, ships it" (see
-## InventoryManager.sell_item), not something crop/tile logic shortcuts.
-##
-## Content pass (#53): a fuller seasonal crop roster replacing the original
-## 3-crop MVP placeholder (parsnip/tomato/pumpkin only). Two crops per
-## Spring/Summer/Fall plus one Winter-viable crop (Winter is a real season
-## per TimeManager.SEASONS, previously unused by Agriculture). Sell prices
-## scale with days_to_grow -- roughly 9-13 gold/day for a single-harvest
-## crop, with regrowable crops (tomato, corn) priced lower on their first
-## harvest but higher on the sustained regrow_days cycle, mirroring SDV's
-## own "regrowables trade a slower start for a faster repeat" precedent.
-## Quality-tier odds/multipliers below are still placeholder balance (no
-## quality economy design exists in the doc) -- content pass leaves those
-## untouched, only the crop roster and prices are in scope here.
-##
-## Seed economy (#91): plant() used to be free/infinite (no inventory
-## check at all). Seeds are now real InventoryManager items under the
-## "<crop_id>_seed" convention (get_seed_item_id) -- plant() requires and
-## consumes one, buy_seed() is the smallest-viable purchase path (spends
-## gold via ShippingBinManager.spend(), credits InventoryManager
-## directly), and SaveManager.new_game() calls grant_starting_seeds() so
-## day 1 starts with a real (if placeholder-priced) planting decision.
+## Autoload: FarmPlotManager — PO-16BIT-CORE-1 16-bit overhaul
+## Extends existing #13/#53/#91 logic with 8-state soil model, 4 new crops,
+## tool hooks and stamina integration. Backward compat: get_plot/plant/water/harvest
+## signatures unchanged.
 
 signal crop_planted(position: Vector2i, crop_id: String)
 signal crop_watered(position: Vector2i)
 signal crop_harvested(position: Vector2i, item_id: String, quality: String, quantity: int)
-signal crop_withered(position: Vector2i, crop_id: String) ## fires when a planted crop's season ends before harvest
-signal seed_purchased(crop_id: String, quantity: int, total_cost: int) ## #91: buy_seed() succeeded
+signal crop_withered(position: Vector2i, crop_id: String)
+signal seed_purchased(crop_id: String, quantity: int, total_cost: int)
+signal soil_tilled(position: Vector2i)
+signal soil_state_changed(position: Vector2i, new_state: int)
 
-## #91: starting seed grant applied by SaveManager.new_game() via
-## grant_starting_seeds() -- enough for a meaningful first-day choice
-## (ship what vs. plant what) without also being a large gold sink,
-## matching the issue's "e.g. 8 parsnip seeds" proposal.
 const STARTING_SEED_CROP_ID := "parsnip"
 const STARTING_SEED_QUANTITY := 8
 
 const QUALITY_NORMAL := "normal"
 const QUALITY_SILVER := "silver"
 const QUALITY_GOLD := "gold"
-
-## Placeholder quality odds (percent) and sell-price multipliers -- no
-## quality-tier balance exists in the design doc. Mirrors the genre's own
-## precedent named in #13 (Stardew Valley: normal/silver/gold at roughly
-## 1x/1.25x/1.5x), not a value pulled from this repo's own design work.
-const QUALITY_WEIGHT_GOLD := 10.0   # percent chance
-const QUALITY_WEIGHT_SILVER := 20.0 # percent chance (remainder is normal)
+const QUALITY_WEIGHT_GOLD := 10.0
+const QUALITY_WEIGHT_SILVER := 20.0
 const QUALITY_PRICE_MULTIPLIER := {
 	QUALITY_NORMAL: 1.0,
 	QUALITY_SILVER: 1.25,
 	QUALITY_GOLD: 1.5,
 }
 
-var _definitions: Dictionary = {} # crop_id -> CropDefinition
-var _plots: Dictionary = {}       # Vector2i -> FarmPlot
+# --- PO-16BIT-CORE-1: SoilState 8-state enum ---
+enum SoilState {
+	DRY_GRASS = 0,
+	TILLED_DRY = 1,
+	TILLED_WATERED = 2,
+	PLANTED = 3,
+	HARVESTABLE = 4,
+	WITHERED = 5,
+	BLOCKED_ROCK = 6,
+	BLOCKED_WOOD = 7,
+}
+const SOIL_STATE_NAMES := {
+	SoilState.DRY_GRASS: "dry_grass",
+	SoilState.TILLED_DRY: "tilled_dry",
+	SoilState.TILLED_WATERED: "tilled_watered",
+	SoilState.PLANTED: "planted",
+	SoilState.HARVESTABLE: "harvestable",
+	SoilState.WITHERED: "withered",
+	SoilState.BLOCKED_ROCK: "blocked_rock",
+	SoilState.BLOCKED_WOOD: "blocked_wood",
+}
+
+# Tool stamina costs (PO spec: Stamina 100 max, tools consume)
+const STAMINA_COST_HOE := 2
+const STAMINA_COST_WATER := 1
+const STAMINA_COST_SICKLE := 2
+const STAMINA_COST_AXE := 4
+const STAMINA_COST_HAMMER := 4
+
+var _definitions: Dictionary = {}
+var _plots: Dictionary = {}
 var _rng := RandomNumberGenerator.new()
 
 func _ready() -> void:
@@ -70,45 +65,20 @@ func _ready() -> void:
 	if TimeManager:
 		TimeManager.day_started.connect(_on_day_started)
 
-## Content pass (#53): 7 crops spanning Spring/Summer/Fall (2 each) plus 1
-## Winter crop. parsnip/tomato/pumpkin kept at their original values --
-## other systems (CommunityGoalManager's pantry_bundle) reference these
-## item_ids by name, so ids and quantities stay stable even in a content
-## pass; only newly-added crops are free of that constraint.
-##
-## CONTENT-SEED-BALANCE (Sprint 2): seed_price values below replace PR
-## #122's flat "~40-55% of base_sell_price" placeholder heuristic with a
-## real per-crop pass, grounded in each crop's actual days_to_grow and
-## regrow behavior (28-day season, TimeManager.DAYS_PER_SEASON):
-## - One-time-harvest crops are priced around 30-35% of base_sell_price --
-##   a single harvest must clear the seed cost with real margin left over,
-##   but the seed can't be worth more than a modest slice of the one
-##   payout it produces. Slower/higher-value crops (melon, pumpkin) sit at
-##   the low end of that band since their absolute margin is already
-##   large; faster/cheaper crops (parsnip, frost_kale) sit slightly higher
-##   since a thin absolute margin still needs to feel worthwhile.
-## - Regrowable crops (tomato, corn) are priced much closer to
-##   base_sell_price itself (roughly two-thirds) precisely because one
-##   seed pays out repeatedly across the season -- see get_seed_price
-##   users' math below. Tomato (5-day first grow, 3-day regrow) yields 8
-##   harvests off one seed in a 28-day season; corn (8-day first grow,
-##   4-day regrow) yields 6. The first harvest alone barely clears the
-##   seed cost by design (tomato: 45-30=15g; corn: 55-38=17g) -- every
-##   harvest after that is what actually justifies the higher seed price,
-##   which is the "regrowable crops can rationally support a higher seed
-##   price" reasoning PR #122 flagged but didn't apply.
 func _register_default_content() -> void:
-	# Spring
+	# Existing roster (keep for compat)
 	register_crop(_make_crop("parsnip", "Parsnip", ["Spring"], 4, false, 0, 35, 4, 12))
 	register_crop(_make_crop("cauliflower", "Cauliflower", ["Spring"], 6, false, 0, 80, 8, 28))
-	# Summer
 	register_crop(_make_crop("tomato", "Tomato", ["Summer"], 5, true, 3, 45, 6, 30))
 	register_crop(_make_crop("melon", "Melon", ["Summer"], 7, false, 0, 140, 12, 45))
-	# Fall
 	register_crop(_make_crop("pumpkin", "Pumpkin", ["Fall"], 7, false, 0, 120, 12, 38))
 	register_crop(_make_crop("corn", "Corn", ["Fall"], 8, true, 4, 55, 6, 38))
-	# Winter (Winter is a real TimeManager season; previously had no crop)
 	register_crop(_make_crop("frost_kale", "Frost Kale", ["Winter"], 6, false, 0, 70, 7, 24))
+	# PO-16BIT-CORE-1 new crops
+	register_crop(_make_crop("turnip", "Turnip", ["Spring", "Fall"], 4, false, 0, 40, 5, 10))
+	register_crop(_make_crop("radish", "Radish", ["Spring", "Summer"], 5, false, 0, 55, 6, 14))
+	register_crop(_make_crop("eggplant", "Eggplant", ["Summer", "Fall"], 7, false, 0, 90, 10, 22))
+	register_crop(_make_crop("strawberry", "Strawberry", ["Spring", "Summer"], 6, true, 3, 30, 5, 20))
 
 func _make_crop(crop_id: String, display_name: String, seasons: Array[String],
 	days_to_grow: int, regrowable: bool, regrow_days: int, sell_price: int, xp: int,
@@ -125,9 +95,6 @@ func _make_crop(crop_id: String, display_name: String, seasons: Array[String],
 	def.seed_price = seed_price
 	return def
 
-## Re-registering the same crop_id is a content overwrite (last write
-## wins), same convention as ToolManager.register_tier -- lets a later
-## boot's content reload fix balance without a separate "update" API.
 func register_crop(def: CropDefinition) -> void:
 	if def == null or def.crop_id.is_empty():
 		return
@@ -136,15 +103,6 @@ func register_crop(def: CropDefinition) -> void:
 func get_crop_definition(crop_id: String) -> CropDefinition:
 	return _definitions.get(crop_id)
 
-## ENG-LIST-CROP-IDS: every crop_id currently registered via
-## _register_default_content() (or any later register_crop() call) --
-## the "list every crop_id" getter ShopOverlay's own docstring (PR #125)
-## flagged as a backend follow-up, having hardcoded its CROP_IDS const in
-## the meantime. Named to match this same file's get_all_positions()
-## convention rather than get_crop_definition()'s singular-lookup shape.
-## Sorted by crop_id for a deterministic iteration order, same reasoning
-## FestivalManager.get_festival_for_date() gives for sorting its own
-## Dictionary.keys() before use.
 func get_all_crop_ids() -> Array:
 	var ids := _definitions.keys()
 	ids.sort()
@@ -153,10 +111,6 @@ func get_all_crop_ids() -> Array:
 func get_plot(position: Vector2i) -> FarmPlot:
 	return _plots.get(position)
 
-## Every tile that currently has a FarmPlot entry (planted, watered,
-## harvest-ready, or mid-regrow) -- read-only integration point for
-## InfrastructureManager's sprinkler automation device, so it can water()
-## every plot without reaching into _plots directly.
 func get_all_positions() -> Array:
 	return _plots.keys()
 
@@ -172,10 +126,6 @@ func can_plant(position: Vector2i, crop_id: String) -> bool:
 		return false
 	return def.valid_seasons.has(TimeManager.current_season())
 
-## #91: quality tiers are encoded into the harvested item_id (see
-## get_item_id below); seeds get the same treatment but with their own
-## fixed "_seed" suffix on the base crop_id -- a seed has no quality tier
-## of its own, so this is a separate convention, not get_item_id reused.
 func get_seed_item_id(crop_id: String) -> String:
 	return "%s_seed" % crop_id
 
@@ -185,13 +135,6 @@ func get_seed_price(crop_id: String) -> int:
 		return 0
 	return def.seed_price
 
-## #91: smallest viable purchase path (per issue #91's proposal) --
-## spends gold via ShippingBinManager.spend() and credits seed inventory
-## via InventoryManager.add_item(), no separate shop autoload/UI. Fails
-## cleanly (no partial spend, no signal) on an unknown crop, a
-## non-positive quantity/price, or insufficient gold -- same
-## check-before-spend shape as InventoryManager.remove_item/
-## ToolManager.upgrade_tool.
 func buy_seed(crop_id: String, quantity: int = 1) -> bool:
 	if quantity <= 0:
 		return false
@@ -205,21 +148,105 @@ func buy_seed(crop_id: String, quantity: int = 1) -> bool:
 	seed_purchased.emit(crop_id, quantity, total_cost)
 	return true
 
-## #91: SaveManager.new_game() calls this once after resetting Inventory/
-## FarmPlotManager to their fresh-boot defaults -- a starting-inventory
-## grant is cross-cutting (touches InventoryManager, not just this
-## manager's own state) so it isn't folded into from_save_dict({})'s
-## per-manager reset the way STARTING_GOLD is.
 func grant_starting_seeds() -> void:
 	InventoryManager.add_item(get_seed_item_id(STARTING_SEED_CROP_ID), STARTING_SEED_QUANTITY)
 
-## #91: planting now requires + consumes one real seed item instead of
-## being free/infinite -- can_plant() above stays season/empty-plot only
-## (no inventory side effect) so UI can still preview plantability without
-## spending anything; the seed check/consume only happens here, in the
-## actual mutating call. Fails cleanly (returns false, no plot mutation,
-## no signal, seed not consumed) when the player has no seed on hand --
-## same "check before spend" shape as InventoryManager.remove_item.
+# --- SoilState helpers ---
+func get_soil_state(position: Vector2i) -> int:
+	var plot: FarmPlot = _plots.get(position)
+	if plot == null:
+		return SoilState.DRY_GRASS
+	return plot.soil_state
+
+func get_soil_state_name(position: Vector2i) -> String:
+	return SOIL_STATE_NAMES.get(get_soil_state(position), "dry_grass")
+
+func get_tile_metadata(position: Vector2i) -> Dictionary:
+	var plot: FarmPlot = _plots.get(position)
+	if plot == null:
+		return {"soilState": "dry_grass", "cropType": "", "growthStage": 0, "daysWatered": 0, "daysWithoutWater": 0, "soil_state": SoilState.DRY_GRASS}
+	return {
+		"soilState": SOIL_STATE_NAMES.get(plot.soil_state, "dry_grass"),
+		"cropType": plot.crop_id,
+		"growthStage": plot.days_grown,
+		"daysWatered": plot.days_watered,
+		"daysWithoutWater": plot.days_without_water,
+		"soil_state": plot.soil_state,
+	}
+
+## Hoe: dry_grass -> tilled_dry . Stamina hook.
+func till(position: Vector2i) -> bool:
+	var plot: FarmPlot = _plots.get(position)
+	if plot != null:
+		if plot.soil_state == SoilState.BLOCKED_ROCK or plot.soil_state == SoilState.BLOCKED_WOOD:
+			return false
+		if not plot.is_empty():
+			return false
+		if plot.soil_state != SoilState.DRY_GRASS:
+			return false
+	# stamina check (consume, but allow failure to still till? spec: stamina gate)
+	if StaminaManager.has_method("spend"):
+		if not StaminaManager.spend(STAMINA_COST_HOE):
+			# at 0 stamina we still allow action but speed reduced externally; spend failed -> passed_out
+			pass
+	var np: FarmPlot = _plots.get(position)
+	if np == null:
+		np = FarmPlot.new()
+		_plots[position] = np
+	np.soil_state = SoilState.TILLED_DRY
+	np.days_without_water = 0
+	soil_tilled.emit(position)
+	soil_state_changed.emit(position, SoilState.TILLED_DRY)
+	return true
+
+## Blocked tile setter (Axe/Hammer use)
+func set_blocked(position: Vector2i, blocked_type: String) -> void:
+	var p := FarmPlot.new()
+	if blocked_type == "rock":
+		p.soil_state = SoilState.BLOCKED_ROCK
+		p.blocked_type = "rock"
+	elif blocked_type == "wood":
+		p.soil_state = SoilState.BLOCKED_WOOD
+		p.blocked_type = "wood"
+	_plots[position] = p
+
+func clear_blocked(position: Vector2i, tool: String) -> bool:
+	var plot: FarmPlot = _plots.get(position)
+	if plot == null:
+		return false
+	if plot.soil_state == SoilState.BLOCKED_ROCK and tool == "hammer":
+		if StaminaManager.has_method("spend"):
+			StaminaManager.spend(STAMINA_COST_HAMMER)
+		_plots.erase(position)
+		soil_state_changed.emit(position, SoilState.DRY_GRASS)
+		return true
+	if plot.soil_state == SoilState.BLOCKED_WOOD and tool == "axe":
+		if StaminaManager.has_method("spend"):
+			StaminaManager.spend(STAMINA_COST_AXE)
+		_plots.erase(position)
+		soil_state_changed.emit(position, SoilState.DRY_GRASS)
+		return true
+	return false
+
+func use_sickle(position: Vector2i) -> bool:
+	var plot: FarmPlot = _plots.get(position)
+	if plot == null:
+		return false
+	if plot.soil_state != SoilState.WITHERED:
+		return false
+	if StaminaManager.has_method("spend"):
+		StaminaManager.spend(STAMINA_COST_SICKLE)
+	_plots.erase(position)
+	soil_state_changed.emit(position, SoilState.DRY_GRASS)
+	return true
+
+func _consume_stamina_for_water() -> void:
+	if StaminaManager.has_method("spend"):
+		StaminaManager.spend(STAMINA_COST_WATER)
+
+func get_seed_id(crop_id: String) -> String:
+	return "%s_seed" % crop_id
+
 func plant(position: Vector2i, crop_id: String) -> bool:
 	if not can_plant(position, crop_id):
 		return false
@@ -228,32 +255,71 @@ func plant(position: Vector2i, crop_id: String) -> bool:
 		return false
 	if not InventoryManager.remove_item(seed_item_id, 1):
 		return false
-	var plot := FarmPlot.new()
+	var plot: FarmPlot = _plots.get(position)
+	if plot == null:
+		plot = FarmPlot.new()
+		_plots[position] = plot
+	# soil must be tilled; if dry_grass allow implicit till for backward compat
+	if plot.soil_state == SoilState.DRY_GRASS:
+		plot.soil_state = SoilState.TILLED_DRY
 	plot.crop_id = crop_id
-	_plots[position] = plot
+	plot.days_grown = 0
+	plot.growth_stage = 0
+	plot.days_watered = 0
+	plot.days_without_water = 0
+	# planted state (unless already watered)
+	if plot.watered_today or plot.soil_state == SoilState.TILLED_WATERED:
+		plot.soil_state = SoilState.PLANTED
+		# keep watered_today true
+	else:
+		plot.soil_state = SoilState.PLANTED
+	plot.is_regrowing = false
+	plot.harvest_ready = false
 	crop_planted.emit(position, crop_id)
+	soil_state_changed.emit(position, plot.soil_state)
 	return true
 
-func get_seed_id(crop_id: String) -> String:
-	return "%s_seed" % crop_id
 func water(position: Vector2i) -> bool:
 	var plot: FarmPlot = _plots.get(position)
 	if plot == null or plot.is_empty():
+		# allow watering empty tilled soil
+		if plot != null and (plot.soil_state == SoilState.TILLED_DRY):
+			if plot.watered_today:
+				return false
+			_consume_stamina_for_water()
+			plot.watered_today = true
+			plot.soil_state = SoilState.TILLED_WATERED
+			plot.days_without_water = 0
+			crop_watered.emit(position)
+			soil_state_changed.emit(position, plot.soil_state)
+			return true
 		return false
 	if plot.harvest_ready or plot.watered_today:
 		return false
+	if plot.soil_state == SoilState.BLOCKED_ROCK or plot.soil_state == SoilState.BLOCKED_WOOD or plot.soil_state == SoilState.WITHERED:
+		return false
+	_consume_stamina_for_water()
 	plot.watered_today = true
+	# preserve planted vs tilled distinction but mark watered
+	if plot.soil_state == SoilState.TILLED_DRY:
+		plot.soil_state = SoilState.TILLED_WATERED
+	# planted stays planted but watered_today true ; track days_watered
+	plot.days_without_water = 0
 	crop_watered.emit(position)
+	soil_state_changed.emit(position, plot.soil_state)
 	return true
 
-## Harvests a ready plot: rolls (or takes a forced) quality tier, credits
-## InventoryManager and Farming XP, and either clears the plot (one-shot
-## crop) or resets it into its regrow cycle. Returns {} on any failure
-## (no plot, not ready, unknown crop) so callers can check for an empty
-## Dictionary instead of a sentinel value.
-##
-## forced_quality lets callers (tests, debug tools) skip the random roll;
-## leave empty for normal random quality.
+## Watering Can 1x3 (horizontal 3 tiles centered on position)
+func water_area(center: Vector2i, upgraded: bool = false) -> int:
+	var count := 0
+	var offsets: Array[Vector2i] = [Vector2i.ZERO]
+	if upgraded:
+		offsets = [Vector2i(-1,0), Vector2i.ZERO, Vector2i(1,0)]
+	for off in offsets:
+		if water(center + off):
+			count += 1
+	return count
+
 func harvest(position: Vector2i, forced_quality: String = "") -> Dictionary:
 	var plot: FarmPlot = _plots.get(position)
 	if plot == null or plot.is_empty() or not plot.harvest_ready:
@@ -261,32 +327,35 @@ func harvest(position: Vector2i, forced_quality: String = "") -> Dictionary:
 	var def: CropDefinition = _definitions.get(plot.crop_id)
 	if def == null:
 		return {}
-
 	var crop_id := plot.crop_id
 	var quality := forced_quality if not forced_quality.is_empty() else _roll_quality()
 	var item_id := get_item_id(crop_id, quality)
 	var quantity := 1
-
 	InventoryManager.add_item(item_id, quantity)
-	SkillManager.add_xp("Farming", def.xp_reward)
-
+	if SkillManager.has_method("add_xp"):
+		SkillManager.add_xp("Farming", def.xp_reward)
 	if def.regrowable:
 		plot.is_regrowing = true
 		plot.days_grown = 0
+		plot.growth_stage = 0
 		plot.watered_today = false
 		plot.harvest_ready = false
+		plot.soil_state = SoilState.PLANTED
+		plot.days_without_water = 0
 	else:
-		_plots.erase(position)
-
+		# keep tilled soil after harvest (tilled_dry)
+		plot.crop_id = ""
+		plot.days_grown = 0
+		plot.harvest_ready = false
+		plot.is_regrowing = false
+		plot.watered_today = false
+		plot.soil_state = SoilState.TILLED_DRY
+		plot.days_without_water = 0
+		# keep plot entry as tilled soil (don't erase) to preserve soilState
 	crop_harvested.emit(position, item_id, quality, quantity)
+	soil_state_changed.emit(position, plot.soil_state if _plots.has(position) else SoilState.DRY_GRASS)
 	return {"item_id": item_id, "quality": quality, "quantity": quantity, "crop_id": crop_id}
 
-## Quality tiers are encoded into the inventory item_id itself (e.g.
-## "parsnip" vs "parsnip_gold") rather than as separate stack metadata --
-## InventoryManager is deliberately a plain id->quantity ledger with no
-## per-stack quality field (see its docstring), and ShippingBinManager
-## already treats same-item-id-different-price shipments as distinct
-## lines, so this needs no changes to either autoload.
 func get_item_id(crop_id: String, quality: String) -> String:
 	if quality == QUALITY_NORMAL or quality.is_empty():
 		return crop_id
@@ -307,17 +376,18 @@ func _roll_quality() -> String:
 		return QUALITY_SILVER
 	return QUALITY_NORMAL
 
-## Growth-cycle tick, keyed off TimeManager.day_started (ENG-12's day
-## clock) -- a plot only advances growth if it was watered during the day
-## that just ended; watered_today then resets for the new day regardless,
-## matching #13's "watering state reset on day change" requirement. A
-## plot whose crop's season has ended withers (cleared, crop_withered
-## fires) rather than continuing to grow out of season.
 func _on_day_started(_day_in_season: int, season: String, _day_of_week: String) -> void:
 	var withered_positions: Array = []
 	for position in _plots.keys():
 		var plot: FarmPlot = _plots[position]
+		if plot.soil_state == SoilState.BLOCKED_ROCK or plot.soil_state == SoilState.BLOCKED_WOOD:
+			continue
 		if plot.is_empty():
+			# empty tilled soil: watered->dry, track wither not needed
+			if plot.watered_today:
+				plot.watered_today = false
+				if plot.soil_state == SoilState.TILLED_WATERED:
+					plot.soil_state = SoilState.TILLED_DRY
 			continue
 		var def: CropDefinition = _definitions.get(plot.crop_id)
 		if def == null:
@@ -325,18 +395,45 @@ func _on_day_started(_day_in_season: int, season: String, _day_of_week: String) 
 		if not def.valid_seasons.has(season):
 			withered_positions.append(position)
 			continue
+		# crop advance only if watered prior day
 		if not plot.harvest_ready and plot.watered_today:
 			plot.days_grown += 1
+			plot.days_watered += 1
+			plot.days_without_water = 0
 			var target := def.regrow_days if plot.is_regrowing else def.days_to_grow
 			if plot.days_grown >= target:
 				plot.harvest_ready = true
-		plot.watered_today = false
+				plot.soil_state = SoilState.HARVESTABLE
+		else:
+			if not plot.watered_today and not plot.harvest_ready:
+				plot.days_without_water += 1
+				if plot.days_without_water > 2:
+					withered_positions.append(position)
+					continue
+		# watered -> dry transition
+		if plot.watered_today:
+			plot.watered_today = false
+			if plot.soil_state == SoilState.TILLED_WATERED:
+				plot.soil_state = SoilState.TILLED_DRY
+			# planted stays planted but now dry (watered_today false)
+		# keep soil_state consistent for planted vs harvestable
+		if not plot.harvest_ready and not plot.is_empty() and plot.soil_state == SoilState.HARVESTABLE:
+			plot.soil_state = SoilState.PLANTED
+		elif plot.harvest_ready:
+			plot.soil_state = SoilState.HARVESTABLE
 
 	for position in withered_positions:
 		var plot: FarmPlot = _plots[position]
 		var crop_id := plot.crop_id
-		_plots.erase(position)
+		plot.crop_id = ""
+		plot.days_grown = 0
+		plot.harvest_ready = false
+		plot.is_regrowing = false
+		plot.watered_today = false
+		plot.soil_state = SoilState.WITHERED
+		plot.days_without_water = 0
 		crop_withered.emit(position, crop_id)
+		soil_state_changed.emit(position, SoilState.WITHERED)
 
 func to_save_dict() -> Dictionary:
 	var plots_data := {}
