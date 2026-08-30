@@ -252,8 +252,23 @@ func _on_stamina_changed(current: int, max_stamina: int) -> void:
 func _on_minute_passed(_hour: int, _minute: int) -> void:
 	_refresh_clock()
 
+func _check_calendar_reminder() -> void:
+	if FestivalManager == null: return
+	var tmrw_day := TimeManager.day_in_season + 1
+	var tmrw_season := TimeManager.current_season()
+	if tmrw_day > TimeManager.DAYS_PER_SEASON:
+		tmrw_day = 1
+		var idx := TimeManager.SEASONS.find(tmrw_season)
+		if idx >= 0:
+			tmrw_season = TimeManager.SEASONS[(idx+1)%TimeManager.SEASONS.size()]
+	for fid in FestivalManager._festivals.keys():
+		var f = FestivalManager._festivals[fid]
+		if f.season == tmrw_season and f.day_of_season == tmrw_day:
+			_date_label.text += " | Tomorrow: %s!" % f.display_name
+			break
 func _on_day_started(_day_in_season: int, _season: String, _day_of_week: String) -> void:
 	_refresh_date()
+	_check_calendar_reminder()
 
 func _on_weather_changed(weather: String) -> void:
 	var display_text := weather
