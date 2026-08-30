@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="GiftPreferenceTable" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/social/gift_preference_table.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+loved_items = Array[String](["strawberry", "tomato", "parsnip", "wild_flower"])
+liked_items = Array[String](["turnip", "radish", "eggplant", "milk"])
+disliked_items = Array[String](["stone", "iron_ore"])
+hated_items = Array[String](["trash", "squid"])
