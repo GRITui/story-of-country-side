@@ -423,12 +423,23 @@ func get_item_id(crop_id: String, quality: String) -> String:
 		return crop_id
 	return "%s_%s" % [crop_id, quality]
 
+func get_base_sell_price(crop_id: String) -> int:
+	# Canonical source of truth is PriceRegistry (#96/#172); fall back to the
+	# CropDefinition for ids not yet registered so behavior stays backward-compatible.
+	var registry_price: int = PriceRegistry.get_base_price(crop_id)
+	if registry_price > 0:
+		return registry_price
+	var def: CropDefinition = _definitions.get(crop_id)
+	if def != null:
+		return def.base_sell_price
+	return 0
+
 func get_sell_price(crop_id: String, quality: String) -> int:
 	var def: CropDefinition = _definitions.get(crop_id)
 	if def == null:
 		return 0
 	var mult: float = QUALITY_PRICE_MULTIPLIER.get(quality, 1.0)
-	return int(round(def.base_sell_price * mult))
+	return int(round(get_base_sell_price(crop_id) * mult))
 
 func _roll_quality() -> String:
 	var r := _rng.randf() * 100.0
