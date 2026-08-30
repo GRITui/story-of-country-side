@@ -21,6 +21,16 @@ const TALK_POINTS := 20
 ## NPC-name lookup path. Kept as a plain const dictionary (not a subsystem)
 ## since it is just data — new NPCs get a new entry here alongside their
 ## MarriageManager.MARRIAGEABLE_NPCS addition, no other wiring required.
+const NPC_NAME_MIGRATION: Dictionary = {
+	"Elder Taro": NPCConstants.NPC_TOBY, "OldMan": NPCConstants.NPC_TOBY,
+	"Hanako": NPCConstants.NPC_HANNA, "Shopkeeper": NPCConstants.NPC_HANNA,
+	"Blacksmith": NPCConstants.NPC_CLIFF, "ForgeNPC": NPCConstants.NPC_CLIFF, "Takeshi": NPCConstants.NPC_CLIFF,
+	"Barkeeper": NPCConstants.NPC_NINA, "TeaNPC": NPCConstants.NPC_NINA,
+	"Carpenter": NPCConstants.NPC_CID, "Fisherman": NPCConstants.NPC_KAI, "Boy1": NPCConstants.NPC_LEO, "RivalNPC": NPCConstants.NPC_LEO,
+}
+
+func canonical(npc_name: String) -> String: return NPCConstants.canonical(npc_name)
+
 const GIFT_PREFERENCE_PATHS := {
 	"Elena": "res://scripts/social/gift_preferences/elena.tres",
 	"Marcus": "res://scripts/social/gift_preferences/marcus.tres",
@@ -28,9 +38,13 @@ const GIFT_PREFERENCE_PATHS := {
 	"Tobias": "res://scripts/social/gift_preferences/tobias.tres",
 	"Sana": "res://scripts/social/gift_preferences/sana.tres",
 	"Colton": "res://scripts/social/gift_preferences/colton.tres",
-	"Elder Taro": "res://scripts/social/gift_preferences/elder_taro.tres",
-	"Hanako": "res://scripts/social/gift_preferences/hanako.tres",
-	"Takeshi": "res://scripts/social/gift_preferences/takeshi.tres",
+	NPCConstants.NPC_TOBY: "res://scripts/social/gift_preferences/toby.tres",
+	NPCConstants.NPC_HANNA: "res://scripts/social/gift_preferences/hanna.tres",
+	NPCConstants.NPC_CLIFF: "res://scripts/social/gift_preferences/cliff.tres",
+	NPCConstants.NPC_NINA: "res://scripts/social/gift_preferences/nina.tres",
+	NPCConstants.NPC_CID: "res://scripts/social/gift_preferences/cid.tres",
+	NPCConstants.NPC_KAI: "res://scripts/social/gift_preferences/kai.tres",
+	NPCConstants.NPC_LEO: "res://scripts/social/gift_preferences/leo.tres",
 }
 
 var _points: Dictionary = {} ## npc_name -> int
@@ -97,42 +111,48 @@ func _register_default_content() -> void:
 	register_heart_event_dialogue("Tobias", 8, "I've traveled a long way looking for things worth keeping. Didn't expect to find one of them standing still, right here in town.")
 	register_heart_event_dialogue("Tobias", 10, "I've held rubies and gold and things men would kill for, and none of it ever felt like this. You're the rarest thing I've found, and I'm done looking.")
 
-	# PO-16BIT-WORLD-4 Japanese villagers
-	register_heart_event_dialogue("Elder Taro", 2, "You bowed properly at the shrine. Few young folk remember the old ways.")
-	register_heart_event_dialogue("Elder Taro", 4, "The river is patient. You sit with it the same way I do — that is worth more than words.")
-	register_heart_event_dialogue("Elder Taro", 6, "I have watched this village through four seasons of seasons. Watching you tend the fields reminds me why we stay.")
-	register_heart_event_dialogue("Elder Taro", 8, "When you bring me a turnip from your own field, I taste the work in it. That is the old blessing.")
-	register_heart_event_dialogue("Elder Taro", 10, "Child, the shrine will be yours to sweep someday. I cannot think of better hands.")
-	register_heart_event_dialogue("Hanako", 2, "You came to the store even when you did not need seeds. I noticed — and I saved you the best packet.")
-	register_heart_event_dialogue("Hanako", 4, "Running the store is lonely before the bell jingles. Your step is the one I listen for now.")
-	register_heart_event_dialogue("Hanako", 6, "I kept the shop open late last night because I thought you might come. That has never happened before.")
-	register_heart_event_dialogue("Hanako", 8, "The flowers you grow — I put one by the register so every customer sees what you made.")
-	register_heart_event_dialogue("Hanako", 10, "If you ever want to run this store together, the key is already yours. I just haven't found the words until now.")
-	register_heart_event_dialogue("Takeshi", 2, "You didn't flinch at the hammer. Most do.")
-	register_heart_event_dialogue("Takeshi", 4, "I made you a handle that fits your grip, not the standard size. Don't tell the other customers.")
-	register_heart_event_dialogue("Takeshi", 6, "The forge is hot and loud, but when you visit, the work feels lighter. Strange, that.")
-	register_heart_event_dialogue("Takeshi", 8, "I have hammered iron for twenty years. Nothing I have shaped makes me as proud as the day you first trusted me with your tools.")
-	register_heart_event_dialogue("Takeshi", 10, "Stay. The fire is warm, the steel is waiting, and I am tired of working alone.")
+	# Canonical 7 — JP tones per archetype
+	register_heart_event_dialogue(NPCConstants.NPC_TOBY, 2, "You bowed properly at the shrine. Few young folk remember the old ways. — Toby, warm grandfatherly mentor (トビー)")
+	register_heart_event_dialogue(NPCConstants.NPC_TOBY, 4, "The river is patient. You sit with it the same way I do — that is worth more than words.")
+	register_heart_event_dialogue(NPCConstants.NPC_TOBY, 6, "I have watched this village through four seasons of seasons. Watching you tend the fields reminds me why we stay.")
+	register_heart_event_dialogue(NPCConstants.NPC_TOBY, 8, "When you bring me a turnip from your own field, I taste the work in it. That is the old blessing.")
+	register_heart_event_dialogue(NPCConstants.NPC_TOBY, 10, "Child, the shrine will be yours to sweep someday. I cannot think of better hands.")
+	register_heart_event_dialogue(NPCConstants.NPC_HANNA, 2, "Welcome! Hanna at the general store mentioned seeds are in stock — I saved you the best packet, energetic as always! (ハンナ)")
+	register_heart_event_dialogue(NPCConstants.NPC_HANNA, 4, "Running the store is lonely before the bell jingles. Your step is the one I listen for now.")
+	register_heart_event_dialogue(NPCConstants.NPC_HANNA, 6, "I kept the shop open late last night because I thought you might come. That has never happened before.")
+	register_heart_event_dialogue(NPCConstants.NPC_HANNA, 8, "The flowers you grow — I put one by the register so every customer sees what you made.")
+	register_heart_event_dialogue(NPCConstants.NPC_HANNA, 10, "If you ever want to run this store together, the key is already yours. I just haven't found the words until now.")
+	register_heart_event_dialogue(NPCConstants.NPC_CLIFF, 2, "You didn't flinch at the hammer. Most do. — Cliff, laconic craftsmanship (クリフ)")
+	register_heart_event_dialogue(NPCConstants.NPC_CLIFF, 4, "I made you a handle that fits your grip, not the standard size. Don't tell the other customers.")
+	register_heart_event_dialogue(NPCConstants.NPC_CLIFF, 6, "The forge is hot and loud, but when you visit, the work feels lighter. Strange, that.")
+	register_heart_event_dialogue(NPCConstants.NPC_CLIFF, 8, "I have hammered iron for twenty years. Nothing I have shaped makes me as proud as the day you first trusted me with your tools.")
+	register_heart_event_dialogue(NPCConstants.NPC_CLIFF, 10, "Stay. The fire is warm, the steel is waiting, and I am tired of working alone.")
+	register_heart_event_dialogue(NPCConstants.NPC_NINA, 2, "Welcome to the tea house, traveler. The kettle is always warm here. — Nina, gentle hospitable (ニーナ)")
+	register_heart_event_dialogue(NPCConstants.NPC_NINA, 4, "You linger after your tea — most rush off. I like that you stay.")
+	register_heart_event_dialogue(NPCConstants.NPC_CID, 2, "Need a fence mended? Cid at the carpenter's has your back. — Cid (シド)")
+	register_heart_event_dialogue(NPCConstants.NPC_KAI, 2, "Kai says the tide's biting today — you should cast a line with me at the river. (カイ)")
+	register_heart_event_dialogue(NPCConstants.NPC_LEO, 2, "Leo! Still trying to out-plant me? Bring it — your fields are looking better though. (レオ)")
 
 func get_points(npc_name: String) -> int:
-	return _points.get(npc_name, 0)
+	return _points.get(canonical(npc_name), _points.get(npc_name, 0))
 
 func get_hearts(npc_name: String) -> int:
 	return get_points(npc_name) / POINTS_PER_HEART
 
 func has_talked_today(npc_name: String) -> bool:
-	return _talked_today.get(npc_name, false)
+	return _talked_today.get(canonical(npc_name), _talked_today.get(npc_name, false))
 
 func has_gifted_today(npc_name: String) -> bool:
-	return _gifted_today.get(npc_name, false)
+	return _gifted_today.get(canonical(npc_name), _gifted_today.get(npc_name, false))
 
 ## Returns false (no-op) if this NPC has already been talked to today —
 ## matches the once-per-day pattern established for stamina/time resets.
 func talk_to(npc_name: String) -> bool:
-	if has_talked_today(npc_name):
+	var cn := canonical(npc_name)
+	if has_talked_today(cn):
 		return false
-	_talked_today[npc_name] = true
-	_add_points(npc_name, TALK_POINTS)
+	_talked_today[cn] = true
+	_add_points(cn, TALK_POINTS)
 	return true
 
 ## Returns false (no-op) if this NPC has already received a gift today.
@@ -141,11 +161,12 @@ func talk_to(npc_name: String) -> bool:
 ## (that's the caller's/data layer's job, same separation StaminaManager
 ## keeps from the Shipping Bin economy).
 func give_gift(npc_name: String, item_id: String, preferences: GiftPreferenceTable) -> bool:
-	if has_gifted_today(npc_name):
+	var cn := canonical(npc_name)
+	if has_gifted_today(cn):
 		return false
-	_gifted_today[npc_name] = true
+	_gifted_today[cn] = true
 	var delta := preferences.point_delta_for(item_id) if preferences else 0
-	_add_points(npc_name, delta)
+	_add_points(cn, delta)
 	return true
 
 ## Looks up npc_name's GiftPreferenceTable via GIFT_PREFERENCE_PATHS and
@@ -163,17 +184,22 @@ func get_gift_emote(item_id: String, preferences: GiftPreferenceTable) -> String
 	if cat == "hated": return "emote_sweatdrop"
 	return "emote_surprise"
 func give_gift_by_npc_name(npc_name: String, item_id: String) -> bool:
-	if not GIFT_PREFERENCE_PATHS.has(npc_name):
-		return false
-	var preferences: GiftPreferenceTable = load(GIFT_PREFERENCE_PATHS[npc_name])
-	return give_gift(npc_name, item_id, preferences)
+	var cn := canonical(npc_name)
+	if not GIFT_PREFERENCE_PATHS.has(cn):
+		if GIFT_PREFERENCE_PATHS.has(npc_name):
+			cn = npc_name
+		else:
+			return false
+	var preferences: GiftPreferenceTable = load(GIFT_PREFERENCE_PATHS[cn])
+	return give_gift(cn, item_id, preferences)
 
 func _add_points(npc_name: String, delta: int) -> void:
-	var new_points: int = clampi(get_points(npc_name) + delta, 0, MAX_POINTS)
-	_points[npc_name] = new_points
+	var cn := canonical(npc_name)
+	var new_points: int = clampi(get_points(cn) + delta, 0, MAX_POINTS)
+	_points[cn] = new_points
 	var hearts := new_points / POINTS_PER_HEART
-	points_changed.emit(npc_name, new_points, hearts)
-	_check_heart_events(npc_name, hearts)
+	points_changed.emit(cn, new_points, hearts)
+	_check_heart_events(cn, hearts)
 
 ## Registers the dialogue line shown for npc_name's heart_level heart event.
 ## Re-registering the same (npc_name, heart_level) pair overwrites it, same
@@ -211,7 +237,17 @@ func to_save_dict() -> Dictionary:
 	}
 
 func from_save_dict(data: Dictionary) -> void:
-	_points = (data.get("points", {}) as Dictionary).duplicate()
-	_highest_triggered_heart = (data.get("highest_triggered_heart", {}) as Dictionary).duplicate()
+	var raw_points: Dictionary = (data.get("points", {}) as Dictionary).duplicate()
+	var migrated_points: Dictionary = {}
+	for k in raw_points.keys():
+		var ck := canonical(k)
+		migrated_points[ck] = max(migrated_points.get(ck, 0), int(raw_points[k]))
+	_points = migrated_points
+	var raw_hearts: Dictionary = (data.get("highest_triggered_heart", {}) as Dictionary).duplicate()
+	var migrated_hearts: Dictionary = {}
+	for k in raw_hearts.keys():
+		var ck := canonical(k)
+		migrated_hearts[ck] = max(migrated_hearts.get(ck, 0), int(raw_hearts[k]))
+	_highest_triggered_heart = migrated_hearts
 	_talked_today.clear()
 	_gifted_today.clear()
