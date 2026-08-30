@@ -66,6 +66,7 @@ var _infrastructure_overlay: InfrastructureOverlay
 var _community_goal_overlay: CommunityGoalOverlay
 var _fishing_overlay: FishingOverlay
 var _map_overlay: MapOverlay
+var _remap_overlay: RemapOverlay
 var _is_open := false
 
 func _ready() -> void:
@@ -79,10 +80,11 @@ func _ready() -> void:
 	_community_goal_button.pressed.connect(_on_community_goal_pressed)
 	_fishing_button.pressed.connect(_on_fishing_pressed)
 	_save_quit_button.pressed.connect(_on_save_quit_pressed)
-	# Settings has no destination yet -- disabled, not hidden, so the menu
-	# shape still matches the spec's §1 tree even though one of its six
-	# items isn't implemented.
-	_settings_button.disabled = true
+	# Settings opens the Controls remap overlay (#176) — the first real
+	# settings destination. Wider settings options remain follow-up.
+	_settings_button.disabled = false
+	_settings_button.text = "Settings"
+	_settings_button.pressed.connect(_on_settings_pressed)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not event.is_action_pressed("ui_cancel"):
@@ -106,6 +108,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			_close_community_goal()
 		elif _fishing_overlay != null and is_instance_valid(_fishing_overlay):
 			_close_fishing()
+		elif _remap_overlay != null and is_instance_valid(_remap_overlay):
+			_close_remap()
 		else:
 			close()
 	else:
@@ -130,6 +134,7 @@ func close() -> void:
 	_close_infrastructure()
 	_close_community_goal()
 	_close_fishing()
+	_close_remap()
 	_is_open = false
 	visible = false
 	TimeManager.unfreeze(PAUSE_REASON)
@@ -139,6 +144,19 @@ func is_open() -> bool:
 
 func _on_resume_pressed() -> void:
 	close()
+
+func _on_settings_pressed() -> void:
+	_menu_panel.visible = false
+	_remap_overlay = load("res://scenes/ui/RemapOverlay.tscn").instantiate()
+	add_child(_remap_overlay)
+	_remap_overlay.closed.connect(_close_remap)
+	_remap_overlay.open()
+
+func _close_remap() -> void:
+	if _remap_overlay != null and is_instance_valid(_remap_overlay):
+		_remap_overlay.queue_free()
+	_remap_overlay = null
+	_menu_panel.visible = true
 
 func _on_inventory_pressed() -> void:
 	_menu_panel.visible = false
