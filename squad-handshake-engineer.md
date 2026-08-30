@@ -7,6 +7,14 @@
   <sprint_completion_percentage>100</sprint_completion_percentage>
 </squad_metadata>
 
+## DONE — Sprint 4 S4-B1 (issue #97)
+sell_item() silently destroyed stock when unit_price <= 0 (bin drops the
+shipment after inventory already removed it). Fixed in
+scripts/autoload/inventory_manager.gd: reject up front, return false, no
+signal/state change, matching remove_item's failure pattern. No registry or
+clamping (#96 untouched). +3 tests; suite ALL PASSED (983 checks), Godot 4.3
+headless. PR gritui/story-of-country-side#103 squash-merged as 0e6d109.
+
 ## Epoch 32 update (Producer session)
 Step 0: no new GitHub issues (#52/#53/#1 unchanged), no open PRs.
 squad-handshake-content.md/-frontend.md/-qa.md all read fresh -- nothing
@@ -261,3 +269,41 @@ system) before declaring the backlog empty.
   stamina (from #12) as HUD-bound state; could extend to tool tier display.
 * Isometric grid math is in design/art/isometric-grid-spec.md (PR #39) —
   ToolManager's AoE offsets use this coordinate system directly.
+
+
+## DONE — S4-B2 (#90 festival lost on quit+relaunch)
+* Fixed via pure backend re-derivation: `FestivalManager.rederive_active_festival()` (PR #104, squash-merged), called from `SaveManager.apply_save_data()`/`new_game()`; no new save fields.
+* Audit note (per #90 AC): any future autoload deriving state solely from `day_started` needs the same boot-time rederivation — none currently do besides FestivalManager.
+
+## Sprint 1 — ENG-91 DONE (seed economy)
+Fixed the "planting is free & infinite" gap from issue #91: `CropDefinition`
+gains `seed_price`; `FarmPlotManager.plant()` now requires and consumes a
+real `"<crop_id>_seed"` InventoryManager item instead of being a pure
+season/empty-plot check; `FarmPlotManager.buy_seed(crop_id, quantity)` is
+the smallest-viable purchase path (spends gold via
+`ShippingBinManager.spend()`, credits `InventoryManager` directly, no new
+autoload); `SaveManager.new_game()` calls the new
+`FarmPlotManager.grant_starting_seeds()` (8 parsnip seeds) alongside the
+existing `STARTING_GOLD` grant, so day 1 has a real plant-vs-ship choice.
+
+Every existing test that called `FarmPlotManager.plant()` directly needed
+updating to stock a seed first (`_grant_seed_for_test()` helper added) --
+the inventory-gated contract is a real behavior change, not just additive.
++17 new tests covering the seed-gated plant contract, `buy_seed()`
+happy/failure paths, and the starting-grant. 1009/1009 tests pass (up
+from 992 on base), verified headless via Godot 4.3-stable (downloaded
+fresh into this session's scratchpad, matching `project.godot`'s engine
+version) — re-ran against the unmodified base branch first to confirm the
+992-check baseline and that the pre-existing `ObjectDB leaked at exit`
+warning / stray error lines are unrelated pre-existing noise, not
+introduced by this change. Backend-only (`scripts/autoload/**`,
+`scripts/farming/**`) per SQUAD-SPLIT.md, no scenes/UI touched.
+
+PR: gritui/story-of-country-side#122 (branch
+`feature/eng-91-seed-economy`).
+
+Follow-up gaps flagged in the PR description rather than built here:
+no shop/purchase UI hook exists yet for `buy_seed()` (a Frontend/UI task
+once claimed); `seed_price` values are a documented ratio-of-sell-price
+heuristic, not a real playtested balance pass -- Content lane's job per
+the issue's own AC.

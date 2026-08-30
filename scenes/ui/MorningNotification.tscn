@@ -1,0 +1,23 @@
+[gd_scene load_steps=2 format=3 uid="uid://cmorning0notif1"]
+
+[ext_resource type="Script" path="res://scripts/ui/morning_notification.gd" id="1"]
+
+[node name="MorningNotification" type="CanvasLayer"]
+script = ExtResource("1")
+
+[node name="Margin" type="MarginContainer" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+theme_override_constants/margin_left = 64
+theme_override_constants/margin_top = 64
+theme_override_constants/margin_right = 64
+theme_override_constants/margin_bottom = 64
+mouse_filter = 2
+
+[node name="Label" type="Label" parent="Margin"]
+layout_mode = 2
+text = "Good morning!"
+horizontal_alignment = 1
+vertical_alignment = 1
+theme_override_font_sizes/font_size = 32
