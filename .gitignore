@@ -2,3 +2,10 @@
 *.translation
 export.cfg
 export_presets.cfg
+
+# video demo artifacts (keep showcase, ignore transient Playwright outputs)
+!artifacts/videos/showcase.webm
+!artifacts/videos/showcase.mp4
+playwright-report/
+test-results/
+node_modules/
