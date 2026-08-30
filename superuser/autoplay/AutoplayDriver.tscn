@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://su2autoplaydrv"]
+
+[ext_resource type="Script" path="res://superuser/autoplay/autoplay_driver.gd" id="1_su2"]
+
+[node name="AutoplayDriver" type="Node"]
+script = ExtResource("1_su2")

@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://su3retailsim"]
+
+[ext_resource type="Script" path="res://superuser/autoplay/retail_sim_driver.gd" id="1_su3"]
+
+[node name="RetailSimDriver" type="Node"]
+script = ExtResource("1_su3")

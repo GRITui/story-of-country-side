@@ -100,7 +100,41 @@ Applies to Inventory, Map, and Skills screens (§1 pause-menu children).
 - Co-op HUD variant (second player's stamina/hotbar) is out of scope until
   Decision D (#5) resolves single-player vs. co-op.
 
-## 5. Traceability
+## 5. Controls / input map (#101)
+
+Added by Frontend Squad, Sprint 2, closing this doc's own previously-empty
+gap on movement/controls (verified at the time #101 was filed: zero
+mentions anywhere in this file).
+
+Registered named actions (`project.godot`'s `[input]` section):
+
+| Action                          | Default binding(s)     | Wired to |
+|----------------------------------|-------------------------|----------|
+| `move_up` / `move_down` / `move_left` / `move_right` | WASD + Arrow keys | `PlayerAvatar.move_by_input()`, polled once per frame in each world scene's `_process()` |
+| `interact`                       | E                        | Re-runs that world scene's own click-to-interact cycle (`_handle_tile_click`) against the tile one step in front of the avatar's current facing direction |
+| `advance_dialog`                 | Space, Enter             | `IntroSequence._unhandled_input` (replaces the built-in `ui_accept` it used before named actions existed) |
+| `hotbar_1`..`hotbar_5`           | 1-5                      | Registered as a foundation for #94's live hotbar; not consumed by anything yet -- no hotbar-slot binding system exists in this repo as of #101 |
+
+**Interaction model stays hybrid, by design:** mouse-tile-click remains the
+primary targeting input for every world scene (plant/water/harvest,
+feed/brush/collect, break rock/descend ladder, gather) -- keyboard
+movement and `interact` are additive, not a replacement, per #101's own
+scope guard ("mouse-first interaction remains fully functional"). A player
+can walk with WASD/arrows and press `interact` to act on whatever tile
+they're facing, or just click tiles directly as before; both paths call
+the same per-scene `_handle_tile_click`, so there is exactly one
+interaction/validation path behind either input method.
+
+**Pause toggle (`ui_cancel`, Escape) is unchanged** -- it was already a
+named engine action, not a raw click/button-index check, so #101's "read
+actions instead of raw button indices" ask doesn't apply to it.
+
+**Non-goals (per #101's own scope guards, still true):** no combat
+inputs (peaceful/no-combat was already decided); no gamepad remapping UI
+in v1 -- actions are just registered as engine-remappable, no
+rebind-key screen exists yet.
+
+## 6. Traceability
 
 | HUD/menu element      | Backing system issue |
 |------------------------|----------------------|
@@ -112,3 +146,4 @@ Applies to Inventory, Map, and Skills screens (§1 pause-menu children).
 | Festival time-freeze reuse | #21 (Festivals) |
 | Homestead Challenge toggle | #2 (Decision A) |
 | Co-op mode select         | #5 (Decision D) |
+| Controls / input map      | #101 (this doc's §5) |
