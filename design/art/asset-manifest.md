@@ -61,6 +61,15 @@ farmhouse + 4 seasonal variants, sakura + 4 seasonal variants, jizo_shrine,
 hanna_store, smoke_0..2; grass seasonal variants, soil till/water states,
 paddy canal_strip, tatami, animated water_0..3, palette_jrl_b reference.
 
+### 2026-08-30 — Self-sufficiency items (issue #187, `design/187-self-sufficiency`)
+
+`items/icon_{salt,miso,tofu,koji,soybean,seaweed,nigari}.png` (16×16) +
+combined `items/self_sufficiency_sheet.png` (112×16, same order), generated
+by `gen_jp_self_sufficiency.py` (deterministic, sel-out `#4A3320`). Backs the
+salt/miso/tofu production loops in `design/systems/self-sufficiency-spec.md`.
+Follow-up art (not yet present): `soy_milk` icon, `soybean` growth stages,
+`seaweed` forage-node sprite, `salt_shed`/`tamaru`/`tofu_press` props.
+
 ## Directory / file inventory (109 PNGs) — SUPERSEDED, see notice above
 
 ### `tiles/` (13)
