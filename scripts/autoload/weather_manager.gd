@@ -1,21 +1,14 @@
 extends Node
-## Autoload: WeatherManager
+## Autoload: WeatherManager — S-Tier P2 (Epsilon)
 ##
-## Rolls one weather value per in-game day, closing a gap flagged in two
-## places: NPCScheduleEntry.weather (#18) has been dead scaffolding since
-## it landed -- "No WeatherManager exists yet... only weather value until
-## a real weather system lands" -- and issue #52's own text flags weather
-## as missing from the HUD. This is intentionally the minimal real system:
-## one string value, rolled once a day, read via a public getter/signal.
-## No rain-affects-crops/no-need-to-water mechanic, no umbrella item, no
-## weather forecast UI -- none of that is asked for anywhere in the design
-## doc or either issue; fabricating it here would be unrequested scope.
+## Depth pass per #112: deterministic seed for tests, storm flag,
+## is_raining_today(), get_weather_for_date(), rain waters crops.
 ##
-## Same "content reloads every boot, don't fabricate save-worthy structure
-## nothing needs" instinct as FestivalManager's own docstring, but weather
-## genuinely IS mid-day state a save must round-trip (unlike a festival,
-## which is fully re-derivable from date alone) -- so, unlike
-## FestivalManager, this DOES have a to_save_dict()/from_save_dict() pair.
+## Rolls one weather value per in-game day.
+## Rain watering: when the rolled weather is Rainy/Snowy/Storm, 
+## every active FarmPlot is watered via FarmPlotManager.water() at day start.
+##
+## Storm is a rare texture flag (1/20 chance) that HUD/FX can read.
 
 signal weather_changed(weather: String)
 signal weather_depth_applied(weather: String, crops_watered: int, stamina_lost: int)
@@ -23,26 +16,18 @@ signal weather_depth_applied(weather: String, crops_watered: int, stamina_lost: 
 const SUNNY := "Sunny"
 const RAINY := "Rainy"
 const SNOWY := "Snowy"
-const STORMY := "Stormy"
+const STORM := "Storm"
 
-## Winter swaps Rainy for Snowy; every other season rolls Sunny/Rainy.
-## Weighted so most days are Sunny, same "mostly good weather, occasional
-## rain" genre norm as Stardew Valley's own weather table -- placeholder
-## odds, not final balance, same honesty as every other content table in
-## this repo.
 const SUNNY_WEIGHT := 0.7
-
-## Chance that a Rainy day (non-Winter precipitation) becomes Stormy
-## instead. Rare texture event, not final balance.
-const STORM_WEIGHT := 0.05
-
-## Thematic health cost of a Stormy day, spent via StaminaManager at day
-## start like any other action cost.
+const STORM_CHANCE := 0.05
 const STORM_STAMINA_COST := 20
 
 var _current_weather: String = SUNNY
+var _is_storm: bool = false
+var _rng := RandomNumberGenerator.new()
 
 func _ready() -> void:
+	_rng.randomize()
 	if TimeManager:
 		TimeManager.day_started.connect(_on_day_started)
 	_roll_weather(TimeManager.current_season() if TimeManager else "Spring")
@@ -50,46 +35,63 @@ func _ready() -> void:
 func get_current_weather() -> String:
 	return _current_weather
 
-func _on_day_started(_day_in_season: int, season: String, _day_of_week: String) -> void:
+func is_raining_today() -> bool:
+	return _current_weather in [RAINY, SNOWY, STORM]
+
+func is_storm_today() -> bool:
+	return _is_storm
+
+func is_snowy_today() -> bool:
+	return _current_weather == SNOWY
+
+func get_weather_for_date(season: String, day_of_season: int, seed_override: int = -1) -> String:
+	var details := get_weather_details_for_date(season, day_of_season, seed_override)
+	return details["weather"]
+
+func get_weather_details_for_date(season: String, day_of_season: int, seed_override: int = -1) -> Dictionary:
+	var rng := RandomNumberGenerator.new()
+	var base_seed: int = seed_override if seed_override >= 0 else int(_rng.seed)
+	var h: int = base_seed
+	for c in season.to_ascii_buffer():
+		h = (h * 31 + c) & 0x7fffffff
+	h = (h * 131 + day_of_season) & 0x7fffffff
+	rng.seed = h if h != 0 else 1
+	var storm_roll := rng.randf()
+	var will_be_storm := storm_roll < STORM_CHANCE
+	var rainy_alt := SNOWY if season == "Winter" else RAINY
+	var weather := SUNNY if rng.randf() < SUNNY_WEIGHT else rainy_alt
+	var is_storm := will_be_storm and weather != SUNNY
+	return {"weather": weather, "is_storm": is_storm}
+
+func _on_day_started(_day: int, season: String, _dow: String) -> void:
 	_roll_weather(season)
 	_apply_weather_effects()
 
 func _roll_weather(season: String) -> void:
+	var storm_roll := _rng.randf()
+	var will_be_storm := storm_roll < STORM_CHANCE
 	var rainy_alt := SNOWY if season == "Winter" else RAINY
-	var storm_roll := 1.0
-	if season != "Winter" and randf() >= SUNNY_WEIGHT:
-		storm_roll = randf()
-	var new_weather := SUNNY
-	if randf() < SUNNY_WEIGHT:
-		new_weather = SUNNY
-	elif season == "Winter":
-		new_weather = SNOWY
-	elif storm_roll < STORM_WEIGHT:
-		new_weather = STORMY
-	else:
-		new_weather = RAINY
+	var new_weather := SUNNY if _rng.randf() < SUNNY_WEIGHT else rainy_alt
+	var new_is_storm := will_be_storm and new_weather != SUNNY
+	
 	if new_weather == _current_weather:
+		_is_storm = new_is_storm
 		return
 	_current_weather = new_weather
+	_is_storm = new_is_storm
 	weather_changed.emit(_current_weather)
 
-## Rain auto-waters every planted plot at day start, mirroring
-## InfrastructureManager's sprinkler_system automation. A Stormy day is
-## still heavy precipitation, so it waters too. Snowy does not -- crops
-## are dormant in Winter. FarmPlotManager.water() is a safe no-op on
-## invalid/already-watered plots, so no filtering is needed here beyond
-## "is today a precipitating day".
 func _apply_weather_effects() -> void:
 	var crops_watered := 0
 	var stamina_lost := 0
 	
-	if _current_weather == RAINY or _current_weather == STORMY:
+	if is_raining_today():
 		if FarmPlotManager:
 			for position in FarmPlotManager.get_all_positions():
 				FarmPlotManager.water(position)
 				crops_watered += 1
 	
-	if _current_weather == STORMY:
+	if _is_storm:
 		if StaminaManager:
 			StaminaManager.spend(STORM_STAMINA_COST)
 			stamina_lost = STORM_STAMINA_COST
@@ -98,9 +100,8 @@ func _apply_weather_effects() -> void:
 		weather_depth_applied.emit(_current_weather, crops_watered, stamina_lost)
 
 func to_save_dict() -> Dictionary:
-	return {
-		"current_weather": _current_weather,
-	}
+	return {"weather": _current_weather, "is_storm": _is_storm}
 
 func from_save_dict(data: Dictionary) -> void:
-	_current_weather = data.get("current_weather", SUNNY)
+	_current_weather = data.get("weather", SUNNY)
+	_is_storm = data.get("is_storm", false)
