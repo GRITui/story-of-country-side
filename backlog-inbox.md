@@ -2388,6 +2388,27 @@ either, so the remote branches remain as harmless merged-and-stale refs).
   </description>
 </task_item>
 
+## Epoch 7 update (Art-Squad): original pixel-art asset set shipped
+
+<task_item>
+  <id>ART-PIXELS-001</id>
+  <status>DONE</status>
+  <description>
+    Asset-Designer lane: produced a full, original pixel-art asset set for
+the five gameplay systems + characters/UI under `assets/pixelart/` (109
+PNGs, dedicated CC0), generated deterministically by `assets/pixelart/
+generator/gen_*.py` (Python + Pillow; re-running reproduces identical
+bytes -- verified 0 git changes on regen). Covers: 13 iso floor tiles
+(64x32, matching design/art/isometric-grid-spec.md), player + 6 NPC walk
+sheets (3-dir x 2-frame) + portraits, all 7 FarmPlot crops x 4 stages,
+all 5 animals, 40x item icons (every registered item_id), 16 props,
+a 256x256 world map, and 13 UI icons. File-by-file mapping + wiring
+notes in `design/art/asset-manifest.md`; license in `assets/pixelart/
+LICENSE.txt`. Engine-verified: clean Godot 4.3 headless import, full
+suite still passes (1081/1081). Scene wiring NOT done from this lane --
+`scenes/**`/`scripts/story|ui/**` are Frontend-owned per SQUAD-SPLIT.md;
+manifest gives Frontend the anchor/frame-layout conventions to apply the
+assets as a drop-in. Coordinate handoff via squad-handshake-art.md epoch 7.
 <task_item>
   <id>PO-SPRINT-1-PLANNING</id>
   <source>PRODUCT_OWNER</source>
@@ -2422,6 +2443,18 @@ either, so the remote branches remain as harmless merged-and-stale refs).
 </task_item>
 
 <task_item>
+  <id>ART-MANUAL-VIDEO-002</id>
+  <status>DONE</status>
+  <description>
+    Art-Squad marketing deliverable: story-of-countryside-manual.mp4 (~78s,
+1280x720, 30fps, H.264+AAC, 5.9MB) in marketing/. An illustrated player-manual
+reel built from the assets/pixelart set, assembled by marketing/presenter/
+make_video.sh (Ken Burns zoom per card), interleaving the existing
+farmscene-plant-water-harvest.mp4 gameplay clip, over a procedurally
+synthesized cheerful BGM (marketing/presenter/gen_music.py -> bgm.wav, NumPy,
+no licensed samples). Verified: duration/size/streams probe OK, sampled frames
+populated, audio mean -18dB / max -2.4dB. Reproducible via
+marketing/presenter/README.md. Reuses existing farm asset set; no scene wiring.
   <id>ENG-91</id>
   <status>IN_PROGRESS</status>
   <priority>HIGH</priority>

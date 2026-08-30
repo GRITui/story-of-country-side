@@ -24,7 +24,7 @@ class_name HUD
 ##   of empty slot visuals so the layout region exists, and does not fake a
 ##   binding to specific items.
 
-const HOTBAR_SLOT_COUNT := 8
+const HOTBAR_SLOT_COUNT := 9
 
 @onready var _date_label: Label = $TopBar/DateCluster/Row/DateLabel
 @onready var _weather_label: Label = $TopBar/DateCluster/Row/WeatherLabel
@@ -34,29 +34,62 @@ const HOTBAR_SLOT_COUNT := 8
 @onready var _hotbar: HBoxContainer = $BottomBar/HotbarCluster/Hotbar
 
 func _ready() -> void:
-	_build_hotbar_placeholder()
+	_build_hotbar()
 
 	TimeManager.minute_passed.connect(_on_minute_passed)
 	TimeManager.day_started.connect(_on_day_started)
 	StaminaManager.stamina_changed.connect(_on_stamina_changed)
 	ShippingBinManager.gold_changed.connect(_on_gold_changed)
 	WeatherManager.weather_changed.connect(_on_weather_changed)
+	InventoryManager.item_changed.connect(_on_item_changed)
 
-	# Prime every cluster with current state immediately -- don't wait for
-	# the first signal fire after the HUD enters the tree, or the player
-	# would see stale/placeholder text for up to a minute.
 	_refresh_clock()
 	_refresh_date()
 	_on_stamina_changed(StaminaManager.current_stamina, StaminaManager.max_stamina)
 	_on_gold_changed(ShippingBinManager.gold)
 	_on_weather_changed(WeatherManager.get_current_weather())
+	_refresh_hotbar()
 
-func _build_hotbar_placeholder() -> void:
+func _build_hotbar() -> void:
 	for i in range(HOTBAR_SLOT_COUNT):
-		var slot := Panel.new()
+		var slot := PanelContainer.new()
 		slot.custom_minimum_size = Vector2(48, 48)
 		slot.name = "Slot%d" % i
+		var vbox := VBoxContainer.new()
+		vbox.name = "VBox"
+		vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+		var icon := TextureRect.new()
+		icon.name = "Icon"
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon.custom_minimum_size = Vector2(32, 32)
+		vbox.add_child(icon)
+		var label := Label.new()
+		label.name = "Count"
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		vbox.add_child(label)
+		slot.add_child(vbox)
 		_hotbar.add_child(slot)
+
+func _refresh_hotbar() -> void:
+	var items := InventoryManager.get_all_items()
+	var keys := items.keys()
+	for i in range(HOTBAR_SLOT_COUNT):
+		var slot: PanelContainer = _hotbar.get_child(i)
+		var icon: TextureRect = slot.get_node("VBox/Icon")
+		var label: Label = slot.get_node("VBox/Count")
+		if i < keys.size():
+			var item_id: String = keys[i]
+			var count: int = items[item_id]
+			label.text = "x%d" % count
+			icon.texture = null
+			slot.visible = true
+		else:
+			label.text = ""
+			icon.texture = null
+			slot.visible = false
+
+func _on_item_changed(_item_id: String, _delta: int, _total: int) -> void:
+	_refresh_hotbar()
 
 func _on_gold_changed(new_gold: int) -> void:
 	_gold_label.text = "%d G" % new_gold

@@ -428,3 +428,86 @@ new scope opened there either.
 Every angle checked this epoch (new Frontend claims, Studio Head reply,
 NPCController usage) came back the same: nothing new and well-scoped to
 build. Not inventing work to fill the cycle.
+
+## Epoch 7 (2026-08-26)
+
+Picked up a concrete, well-scoped deliverable to break the idle streak:
+produced a full, original **pixel-art asset set** for the five gameplay
+systems plus characters/UI -- the thing the codebase has been running on
+flat procedural color / cyan `Sprite2D` placeholders for.
+
+**Constraint honored:** no image-generation tool exists in this session's
+environment (standing note at the top of this file). Everything below is
+still procedural, but now hand-authored pixel-art geometry (per-pixel
+shapes/colors in deterministic Python + Pillow) rather than the epub
+flatten-color / gradient-fill that shipped in epochs 1-6 -- a genuine step
+toward real game art without violating the honesty constraint or needing a
+licensed pack.
+
+### Shipped: `assets/pixelart/**` (109 PNGs) + `design/art/asset-manifest.md`
+
+Generators live in `assets/pixelart/generator/gen_*.py` (deterministic;
+re-running reproduces byte-identical PNGs -- verified by regenerating and
+git-diffing 0 changes). All original, dedicated CC0
+(`assets/pixelart/LICENSE.txt`). Full per-file mapping to game content is
+in `design/art/asset-manifest.md`.
+
+| Corner | What's covered | Notes |
+|---|---|---|
+| Tiles | 13 floor tiles (64x32 iso diamonds, 2:1) | grass, tilled/wet farmland, path, sand, 2-frame water, mine floor/rock, snow, wood |
+| Characters | player + 6 NPCs, 3-dir x 2-frame walk sheets (48x120) + 32x32 portraits | palette matches gift-pref cast: Colton miner/beard, Sana rancher/ponytail, Tobias hat, etc. |
+| Crops | all 7 FarmPlot crops x 4 growth stages | sprout -> harvest-ready strips |
+| Animals | all 5 Animal species, 3-frame bob | chicken, duck, cow, goat, sheep |
+| Items | 40x 16x16 icons covering EVERY registered item_id | crops, ores, fish, forageables, animal products, tools, raw |
+| Props | farmhouse, barn, coop, well, fence, shipping-bin, ladder, mine cart, trees, rocks | bottom-center, iso-grid multiples |
+| Map | `world_map.png` (256x256) region overview | island=farm+town+forest, north=mine, roads, lake |
+| UI | heart, coin, stamina bolt, clock, feed bowl, gift, bundle, flag, weather, fishing, journal | 13x |
+
+**Verified** against the real engine: `godot --headless --path . --editor
+--quit-after` import pass is clean (no errors/warnings), all 109 PNGs
+imported (`.import` regenerated), and the full suite still passes
+**(1081/1081 checks)** -- asset additions are pure static files so nothing
+regressed.
+
+**Why not integrate sprites into scenes yet:** per SQUAD-SPLIT.md, `scenes/**`
+and `scripts/story|ui/**` are Frontend lane. The manifest's "Wiring notes"
+and `assets/pixelart/LICENSE.txt` give the Frontend session everything
+they need (anchor convention = bottom-center, frame layout, per-item
+mapping) without me crossing the lane boundary. This is a hand-off, not
+an intrusion.
+
+### Cross-Squad / Escalation
+
+- To Frontend-Squad: new assets ready under `assets/pixelart/`, fully
+  documented in `design/art/asset-manifest.md` (file-by-file mapping +
+anchor/wiring notes). No scene wiring done from this lane.
+- To Studio Head: original art is now on the table, so the long-standing
+"real illustrated art vs procedural" question has a middle path -- hand-
+authored-but-procedural pixel art, dedicated CC0 -- at zero licensing
+cost. Not opening new scope unprompted; flagging so the option is known.
+
+## Epoch 8 (2026-08-26/27) — Game-Manual Video
+
+Built on the epoch-7 pixel-art set to produce a short branded **player-manual
+video**: `marketing/story-of-countryside-manual.mp4` (~78 s, 1280x720, 30fps,
+H.264 + AAC, ~5.9 MB) -- a hand-off-ready marketing/boot asset, well under the
+30-minute cap.
+
+- **Frames**: `marketing/presenter/make_frames.py` renders 10 illustrated
+  manual cards (title, TOC, a-day, farming, crops, animals, the-wilds,
+  friends, shop/save, outro) compositioning the `assets/pixelart/**` sprites.
+- **BGM**: `marketing/presenter/gen_music.py` synthesizes a cheerful chime
+  loop (NumPy, mono 44.1kHz, ~48 s loop) -- no licensed samples, safe to ship.
+- **Assembly**: `marketing/presenter/make_video.sh` applies a gentle Ken Burns
+  zoom, inserts the existing `farmscene-plant-water-harvest.mp4` real-
+gameplay clip after the farm card, concatenates, then muxes the **looped**
+  BGM with a fade in/out.
+- **Reproduce**: `marketing/presenter/README.md` (three commands).
+
+Verified: ffprobe streams/duration/size, sampled frames fully non-black,
+audio mean -18dB / max -2.4dB. Same constraint/lane-disipline as always:
+pure asset + marketing deliverable; no scene wiring, no image-gen tool.
+
+### Cross-Squad / Escalation
+- To Frontend/Community: a polished gameplay reel now exists for demos or a
+gallery embed (marketing/story-of-countryside-manual.mp4).

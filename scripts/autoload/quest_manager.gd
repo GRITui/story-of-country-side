@@ -16,10 +16,12 @@ var _quests: Dictionary = {}            ## quest_id -> QuestDefinition
 var _completed: Dictionary = {}         ## quest_id -> bool
 var _delivered_totals: Dictionary = {}  ## item_id -> int (lifetime shipped)
 var _unlocked_flags: Dictionary = {}    ## unlock_flag -> bool
+var _lifetime_earned_gold: int = 0      ## ENG-91: cumulative gold earned via payouts
 
 func _ready() -> void:
 	if ShippingBinManager:
 		ShippingBinManager.item_shipped.connect(_on_item_shipped)
+		ShippingBinManager.payout_processed.connect(_on_payout_processed)
 	if RelationshipManager:
 		RelationshipManager.points_changed.connect(_on_relationship_points_changed)
 
@@ -42,6 +44,9 @@ func is_unlocked(flag: String) -> bool:
 func delivered_count(item_id: String) -> int:
 	return _delivered_totals.get(item_id, 0)
 
+func get_lifetime_earned_gold() -> int:
+	return _lifetime_earned_gold
+
 ## Forward-compatible entry point for a future skill system (#25) to call
 ## on level-up. No caller exists yet — see QuestCondition's skill_name doc.
 func evaluate_skill_level(skill_name: String, level: int) -> void:
@@ -52,6 +57,17 @@ func evaluate_skill_level(skill_name: String, level: int) -> void:
 			continue
 		if cond.type == QuestCondition.ConditionType.SKILL_LEVEL \
 			and cond.skill_name == skill_name and level >= cond.target_level:
+			_complete_quest(quest)
+
+func _on_payout_processed(gold_amount: int, _item_count: int) -> void:
+	_lifetime_earned_gold += gold_amount
+	for quest_id in _quests.keys():
+		var quest: QuestDefinition = _quests[quest_id]
+		var cond := quest.condition
+		if cond == null or is_completed(quest_id):
+			continue
+		if cond.type == QuestCondition.ConditionType.EARN_GOLD \
+			and _lifetime_earned_gold >= cond.target_gold:
 			_complete_quest(quest)
 
 func _on_item_shipped(item_id: String, quantity: int, _unit_price: int) -> void:
@@ -87,9 +103,11 @@ func to_save_dict() -> Dictionary:
 		"completed": _completed.duplicate(),
 		"delivered_totals": _delivered_totals.duplicate(),
 		"unlocked_flags": _unlocked_flags.duplicate(),
+		"lifetime_earned_gold": _lifetime_earned_gold,
 	}
 
 func from_save_dict(data: Dictionary) -> void:
 	_completed = (data.get("completed", {}) as Dictionary).duplicate()
 	_delivered_totals = (data.get("delivered_totals", {}) as Dictionary).duplicate()
 	_unlocked_flags = (data.get("unlocked_flags", {}) as Dictionary).duplicate()
+	_lifetime_earned_gold = data.get("lifetime_earned_gold", 0) as int

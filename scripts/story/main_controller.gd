@@ -78,6 +78,9 @@ var _pause_menu: CanvasLayer
 var _active_world_scene: Node2D
 var _current_location: String = "" ## empty until the first travel_to() call, so the initial boot travel isn't a same-location no-op
 var _festival_overlay: FestivalMiniGameOverlay
+var _sleep_system
+var _sleep_zone
+var _last_positions: Dictionary = {} ## session-level location -> Vector2 position persistence
 
 func _ready() -> void:
 	if not SaveManager.load_game():
@@ -104,6 +107,7 @@ func _show_hud() -> void:
 	_hud = _hud_scene.instantiate()
 	add_child(_hud)
 	_show_pause_menu()
+	_init_sleep_system()
 	travel_to(STARTING_LOCATION)
 	FestivalManager.festival_started.connect(_on_festival_started)
 
@@ -113,6 +117,10 @@ func _show_pause_menu() -> void:
 	_pause_menu = _pause_menu_scene.instantiate()
 	add_child(_pause_menu)
 	_pause_menu.travel_requested.connect(travel_to)
+
+func _init_sleep_system() -> void:
+	_sleep_system = load("res://scripts/world/sleep_system.gd").new()
+	add_child(_sleep_system)
 
 func current_location() -> String:
 	return _current_location
@@ -124,14 +132,45 @@ func current_location() -> String:
 ## current_location()/the scene tree immediately after this call sees the
 ## swap already applied, same "callers need this gone immediately"
 ## reasoning inventory_overlay.gd's _remove_row uses.
+##
+## Session-level last-position persistence: saves the Camera2D position
+## before leaving a scene, restores it when returning to a previously
+## visited location.
 func travel_to(location: String) -> void:
 	if not LOCATION_SCENE_PATHS.has(location) or location == _current_location:
 		return
 	if _active_world_scene != null and is_instance_valid(_active_world_scene):
+		_save_scene_position(_current_location)
+		_remove_sleep_zone()
 		_active_world_scene.free()
 	_active_world_scene = load(LOCATION_SCENE_PATHS[location]).instantiate()
 	add_child(_active_world_scene)
 	_current_location = location
+	_restore_scene_position(location)
+	_add_sleep_zone()
+
+func _save_scene_position(location: String) -> void:
+	if _active_world_scene == null:
+		return
+	var camera: Camera2D = _find_camera(_active_world_scene)
+	if camera != null:
+		_last_positions[location] = camera.position
+
+func _restore_scene_position(location: String) -> void:
+	if not _last_positions.has(location):
+		return
+	var camera: Camera2D = _find_camera(_active_world_scene)
+	if camera != null:
+		camera.position = _last_positions[location]
+
+func _find_camera(node: Node) -> Camera2D:
+	if node is Camera2D:
+		return node
+	for child in node.get_children():
+		var found := _find_camera(child)
+		if found:
+			return found
+	return null
 
 func _on_festival_started(_festival_id: String) -> void:
 	if _festival_overlay != null and is_instance_valid(_festival_overlay):
@@ -144,3 +183,37 @@ func _on_festival_overlay_closed() -> void:
 	if _festival_overlay != null and is_instance_valid(_festival_overlay):
 		_festival_overlay.queue_free()
 	_festival_overlay = null
+
+## Returns a normalized Vector2 from WASD / arrow key input, suitable for
+## driving player movement in the active world scene. Returns Vector2.ZERO
+## when no movement keys are held. Normalized so diagonal movement isn't
+## faster than cardinal.
+func get_movement_vector() -> Vector2:
+	var dir := Vector2.ZERO
+	if Input.is_action_pressed("move_up"):
+		dir.y -= 1.0
+	if Input.is_action_pressed("move_down"):
+		dir.y += 1.0
+	if Input.is_action_pressed("move_left"):
+		dir.x -= 1.0
+	if Input.is_action_pressed("move_right"):
+		dir.x += 1.0
+	if dir != Vector2.ZERO:
+		dir = dir.normalized()
+	return dir
+
+func _add_sleep_zone() -> void:
+	_sleep_zone = load("res://scenes/world/SleepZone.tscn").instantiate()
+	_sleep_zone.position = Vector2(0, 0)
+	_active_world_scene.add_child(_sleep_zone)
+	_sleep_zone.sleep_initiated.connect(_on_sleep_initiated)
+
+func _remove_sleep_zone() -> void:
+	if _sleep_zone != null and is_instance_valid(_sleep_zone):
+		if _sleep_zone.sleep_initiated.is_connected(_on_sleep_initiated):
+			_sleep_zone.sleep_initiated.disconnect(_on_sleep_initiated)
+		_sleep_zone.queue_free()
+	_sleep_zone = null
+
+func _on_sleep_initiated() -> void:
+	_sleep_system.start_sleep()

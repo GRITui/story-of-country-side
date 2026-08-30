@@ -11,15 +11,15 @@ config/features=PackedStringArray("4.3", "GL Compatibility")
 run/main_scene="res://scenes/ui/TitleScreen.tscn"
 
 [autoload]
-
+InputMapManager="*res://scripts/autoload/input_map_manager.gd"
 TimeManager="*res://scripts/autoload/time_manager.gd"
 StaminaManager="*res://scripts/autoload/stamina_manager.gd"
 ShippingBinManager="*res://scripts/autoload/shipping_bin_manager.gd"
+InventoryManager="*res://scripts/autoload/inventory_manager.gd"
 RelationshipManager="*res://scripts/autoload/relationship_manager.gd"
 QuestManager="*res://scripts/autoload/quest_manager.gd"
 SkillManager="*res://scripts/autoload/skill_manager.gd"
 ToolManager="*res://scripts/autoload/tool_manager.gd"
-InventoryManager="*res://scripts/autoload/inventory_manager.gd"
 FarmPlotManager="*res://scripts/autoload/farm_plot_manager.gd"
 ForagingManager="*res://scripts/autoload/foraging_manager.gd"
 AnimalManager="*res://scripts/autoload/animal_manager.gd"
