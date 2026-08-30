@@ -1,5 +1,9 @@
 extends SceneTree
 ## PO-16BIT-QA-5 — Unit + Integration for stamina / collision / Y-sort + full farming loop
+## PLUS save system (issue #170): _run_save_migrations() covers the versioned
+## envelope round-trip (v1/v2 -> v3, meta derivation, future-version refusal)
+## and the multi-slot disk layer (3 slots, per-slot .bak self-heal, legacy
+## adoption, delete) against real user:// IO.
 ## Deterministic headless GDScript simulation mirroring farm_plot_manager.gd / stamina_manager.gd / player_avatar.gd.
 ## Run: godot --headless --path . --script res://tests/integration/test_16bit_qa_gdscript.gd
 ## Or via TestRunner scene if available (this file is standalone so it works even when autoloads like
@@ -34,6 +38,7 @@ func _init() -> void:
 	ok = ok and _run_collision()
 	ok = ok and _run_ysort()
 	ok = ok and _run_soil_state_contract()
+	ok = ok and _run_save_migrations()
 	_header("SUMMARY")
 	print("PASS %d  FAIL %d" % [_pass, _fail])
 	if _fail > 0:
@@ -409,6 +414,191 @@ func _run_soil_state_contract() -> bool:
 	_assert(src.contains("daysWatered") or src.contains("days_watered"), "metadata has daysWatered", "")
 	_assert(src.contains("daysWithoutWater") or src.contains("days_without_water"), "metadata has daysWithoutWater", "")
 	print("  soil contract section done")
+	return true
+
+func _run_save_migrations() -> bool:
+	_header("SAVE MIGRATIONS + MULTI-SLOT — vN->v3 round-trips, future-version rejection, 3-slot disk")
+	# The save subsystem (scripts/save/*) is deliberately standalone: it does
+	# NOT reference autoload singletons, so it loads cleanly even while the
+	# full autoload tree on this branch is broken. SaveManager itself cannot
+	# be instantiated here (its build/apply half references autoload globals
+	# like FestivalManager) -- its contract is pinned by source assertions at
+	# the bottom of this section, and its disk half IS SaveSlots, which this
+	# section exercises against real user:// IO.
+	var SF: GDScript = load("res://scripts/save/save_file.gd")
+	var MIG: GDScript = load("res://scripts/save/save_migrations.gd")
+	var SLOTS: GDScript = load("res://scripts/save/save_slots.gd")
+	_assert(SF != null and SF.can_instantiate(), "save_file.gd loads standalone", "")
+	_assert(MIG != null and MIG.can_instantiate(), "save_migrations.gd loads standalone", "")
+	_assert(SLOTS != null and SLOTS.can_instantiate(), "save_slots.gd loads standalone", "")
+	_assert(SLOTS.SLOT_COUNT == 3, "three slots (n in 0..2)", str(SLOTS.SLOT_COUNT))
+	_assert(MIG.CURRENT_SAVE_VERSION >= 3, "schema_version is written & versioned (>= v3)", str(MIG.CURRENT_SAVE_VERSION))
+
+	# --- SaveFile envelope wrap/unwrap round-trip ---------------------------------
+	var sample_state := {"time": {"day_in_season": 7, "season_index": 1, "year": 2}, "intro_seen": true, "quests": {"marker": "keep"}}
+	var wrapped: Variant = SF.wrap(sample_state)
+	var json_dict: Dictionary = wrapped.to_json_dict()
+	_assert(json_dict.get("schema", "") == SF.SCHEMA_ID, "envelope carries schema id", str(json_dict.get("schema", "")))
+	_assert(int(json_dict["save_version"]) == int(MIG.CURRENT_SAVE_VERSION), "envelope carries current schema_version", str(json_dict["save_version"]))
+	var parsed: Variant = JSON.parse_string(JSON.stringify(json_dict))
+	var unwrapped: Variant = SF.unwrap(parsed)
+	_assert(unwrapped != null, "wrap -> json -> unwrap round-trips", "")
+	_assert(unwrapped.state.get("quests", {}).get("marker", "") == "keep", "round-trip preserves state fields", str(unwrapped.state))
+	var legacy: Variant = SF.unwrap({"time": {"day_in_season": 3}, "intro_seen": false})
+	_assert(legacy != null and legacy.save_version == 1, "bare root unwraps as legacy v1", str(legacy.save_version if legacy else null))
+	_assert(legacy.state.get("time", {}).get("day_in_season", 0) == 3, "legacy state preserved", str(legacy.state))
+	_assert(SF.unwrap("not a dict") == null, "unwrap rejects non-dictionary", "")
+	var foreign_root: Variant = SF.unwrap({"schema": "not_ours", "save_version": 3, "state": {}})
+	_assert(foreign_root != null and foreign_root.save_version == 1, "non-wrapper root falls through to legacy v1 envelope (documented)", str(foreign_root.save_version if foreign_root else null))
+
+	# --- v1 -> v3 migration (fields preserved + meta derived) ---------------------
+	var v1_state := {
+		"time": {"day_in_season": 12, "season_index": 2, "year": 3},
+		"shipping_bin": {"gold": 777, "shipments": {}},
+		"inventory": {"turnip": 4},
+		"intro_seen": true,
+	}
+	var m1: Variant = MIG.migrate_to_current(1, v1_state)
+	_assert(m1 != null and int(m1["save_version"]) == 3, "v1 migrates to current (v3)", str(m1["save_version"] if m1 else null))
+	_assert(m1["state"]["inventory"]["turnip"] == 4, "v1 fields survive the walk", str(m1["state"]["inventory"] if m1 else "null"))
+	_assert(m1["state"].has("meta"), "v1 gains a meta block", "")
+	var m1_meta: Dictionary = m1["state"]["meta"]
+	_assert(int(m1_meta["day"]) == 12, "meta.day derived from v1 time", str(m1_meta["day"]))
+	_assert(str(m1_meta["season"]) == "Fall", "meta.season derived (index 2 -> Fall)", str(m1_meta["season"]))
+	_assert(int(m1_meta["year"]) == 3, "meta.year derived from v1 time", str(m1_meta["year"]))
+	_assert(int(m1_meta["gold"]) == 777, "meta.gold derived from v1 shipping_bin", str(m1_meta["gold"]))
+	_assert(m1_meta.has("timestamp") and m1_meta.has("thumbnail"), "meta carries timestamp + thumbnail hint", "")
+	_assert(str(m1_meta["thumbnail"]) == "", "pre-v3 saves have empty thumbnail placeholder", str(m1_meta["thumbnail"]))
+
+	# --- v2 -> v3 migration (identity for world state + meta injection) -----------
+	var v2_state := {
+		"time": {"day_in_season": 21, "season_index": 3, "year": 1},
+		"shipping_bin": {"gold": 42},
+		"inventory": {"radish": 9},
+	}
+	var m2: Variant = MIG.migrate_to_current(2, v2_state)
+	_assert(m2 != null and int(m2["save_version"]) == 3, "v2 migrates to current (v3)", str(m2["save_version"] if m2 else null))
+	_assert(m2["state"]["inventory"]["radish"] == 9, "v2 world state survives (identity)", str(m2["state"]["inventory"] if m2 else "null"))
+	var m2_meta: Dictionary = m2["state"]["meta"]
+	_assert(str(m2_meta["season"]) == "Winter", "meta.season derived (index 3 -> Winter)", str(m2_meta["season"]))
+	_assert(int(m2_meta["gold"]) == 42, "meta.gold derived from v2 shipping_bin", str(m2_meta["gold"]))
+
+	# --- existing meta is preserved, never re-derived -----------------------------
+	var v3_with_meta := {"time": {"day_in_season": 5}, "meta": {"day": 5, "season": "Spring", "year": 1, "gold": 999, "timestamp": 1, "thumbnail": "abc"}}
+	var m3: Variant = MIG.migrate_to_current(3, v3_with_meta)
+	_assert(m3 != null and m3["state"]["meta"]["gold"] == 999, "v3 meta block untouched (migrate no-op)", str(m3["state"]["meta"]["gold"] if m3 else "null"))
+	var ensured: Dictionary = MIG.ensure_meta({"time": {"day_in_season": 2, "season_index": 0, "year": 1}})
+	_assert(int(ensured["meta"]["day"]) == 2 and int(ensured["meta"]["gold"]) == 500, "ensure_meta derives defaults when absent", str(ensured))
+
+	# --- refusal paths -------------------------------------------------------------
+	_assert(MIG.migrate_to_current(99, {"time": {}}) == null, "future version 99 refused (null)", "")
+	_assert(MIG.migrate_to_current(0, {"time": {}}) == null, "version 0 refused (null)", "")
+	_assert(MIG.migrate_to_current(-1, {"time": {}}) == null, "negative version refused (null)", "")
+
+	# --- multi-slot disk layer (real user:// IO) ----------------------------------
+	for n in range(SLOTS.SLOT_COUNT):
+		SLOTS.delete_slot(n)
+	if FileAccess.file_exists("user://savegame.json"):
+		DirAccess.remove_absolute("user://savegame.json")
+
+	# Legacy single-slot adoption MUST run FIRST: SaveSlots pins its adoption
+	# decision once per process (the "no resurrect" guarantee), so any later
+	# list_slots()/read would set the flag and skip adoption. This block is the
+	# FIRST SaveSlots call after cleanup.
+	var legacy_state := {"time": {"day_in_season": 21, "season_index": 0, "year": 1}, "intro_seen": true}
+	var legacy_file := FileAccess.open("user://savegame.json", FileAccess.WRITE)
+	legacy_file.store_string(JSON.stringify(SF.wrap(legacy_state).to_json_dict()))
+	legacy_file.close()
+	_assert(SLOTS.has_any_save(), "has_any_save true with a legacy file on disk", "")
+	var adopted: Dictionary = SLOTS.read_slot(0)
+	var adopted_found: bool = bool(adopted.get("found", false))
+	var adopted_state: Dictionary = adopted.get("state", {}) if typeof(adopted.get("state", {})) == TYPE_DICTIONARY else {}
+	var adopted_day := int(adopted_state.get("time", {}).get("day_in_season", 0)) if adopted_state.has("time") else 0
+	_assert(adopted_found and adopted_day == 21, "legacy file adopted into slot 0 with state intact", str(adopted_day))
+	_assert(bool(adopted_state.get("intro_seen", false)), "legacy intro_seen survives adoption", "")
+	_assert(not FileAccess.file_exists("user://savegame.json"), "legacy file consumed (renamed, not copied)", "")
+	SLOTS.delete_slot(0)
+	_assert(not SLOTS.slot_exists(0) and not FileAccess.file_exists("user://savegame.json"), "deleting slot 0 does not resurrect the legacy file", "")
+	_assert(not SLOTS.has_any_save(), "has_any_save false after deleting the last slot", "")
+
+	# Empty slots list correctly before anything is written
+	var empty_list: Array = SLOTS.list_slots()
+	_assert(empty_list.size() == 3, "list_slots returns 3 rows (0..2)", str(empty_list.size()))
+	_assert(not empty_list[1]["found"], "empty slot 1 listed as not found", "")
+	_assert(int(empty_list[1]["index"]) == 1, "list_slots row carries its index", str(empty_list[1]["index"]))
+
+	# Write distinct state into each slot
+	for n in range(SLOTS.SLOT_COUNT):
+		var st := {"time": {"day_in_season": n + 1, "season_index": n, "year": 1}, "slot_marker": n}
+		st["meta"] = {"day": n + 1, "season": "Spring", "year": 1, "gold": 100 + n, "timestamp": 1000 + n, "thumbnail": ""}
+		_assert(SLOTS.write_slot_json(n, JSON.stringify(SF.wrap(st).to_json_dict())), "write_slot_json(%d) succeeds" % n, "")
+	var r0: Dictionary = SLOTS.read_slot(0)
+	_assert(r0["found"], "read_slot(0) finds its save", "")
+	_assert(int(r0["state"]["slot_marker"]) == 0, "read_slot(0) restores its own state", str(r0["state"]["slot_marker"]))
+	_assert(int(r0["meta"]["gold"]) == 100, "read_slot(0) meta.gold restored", str(r0["meta"]["gold"]))
+	var r1: Dictionary = SLOTS.read_slot(1)
+	_assert(int(r1["state"]["slot_marker"]) == 1, "slots hold independent state (0 != 1)", str(r1["state"]["slot_marker"]))
+
+	# list_slots reflects all three now-occupied slots
+	var filled: Array = SLOTS.list_slots()
+	_assert(filled.size() == 3 and filled[0]["found"] and filled[1]["found"] and filled[2]["found"], "list_slots finds all 3 occupied slots", "")
+	_assert(int(filled[2]["meta"]["gold"]) == 102, "list_slots exposes per-slot metadata", str(filled[2]["meta"]["gold"]))
+
+	# Self-heal: corrupt main -> .bak fallback -> main re-stamped from backup.
+	# Sequence on slot 1: loop write (marker 1) then st2 write (marker 100).
+	# The st2 write rotates marker 1 into .bak; corrupting main means the read
+	# must recover marker 1 from .bak.
+	var st2 := {"time": {"day_in_season": 2, "season_index": 1, "year": 1}, "slot_marker": 100}
+	st2["meta"] = {"day": 2, "season": "Summer", "year": 1, "gold": 55, "timestamp": 1, "thumbnail": ""}
+	SLOTS.write_slot_json(1, JSON.stringify(SF.wrap(st2).to_json_dict()))
+	_assert(SLOTS.slot_has_backup(1), ".bak rotation exists after second write", "")
+	var cf := FileAccess.open(SLOTS.slot_path(1), FileAccess.WRITE)
+	cf.store_string("###CORRUPT###")
+	cf.close()
+	var healed: Dictionary = SLOTS.read_slot(1)
+	_assert(healed["found"] and healed["used_backup"], "corrupt main falls back to .bak", str(healed["used_backup"]))
+	_assert(int(healed["state"]["slot_marker"]) == 1, "fallback restores the rotated (prior) state from .bak", str(healed["state"]["slot_marker"]))
+	var healed_again: Dictionary = SLOTS.read_slot(1)
+	_assert(healed_again["found"] and not healed_again["used_backup"], "self-heal re-stamps main from .bak", "")
+
+	# Future-version file on disk refuses cleanly (never treated as a new game)
+	var future_env: Variant = SF.wrap({"time": {}})
+	future_env.save_version = 99
+	var ff := FileAccess.open(SLOTS.slot_path(2), FileAccess.WRITE)
+	ff.store_string(JSON.stringify(future_env.to_json_dict()))
+	ff.close()
+	var future_slot: Dictionary = SLOTS.read_slot(2)
+	_assert(not future_slot["found"], "future-version file on disk is not usable", str(future_slot["reason"]))
+	_assert(str(future_slot["reason"]).contains("unsupported_version_99"), "reason names the unsupported version", str(future_slot["reason"]))
+
+	# Legacy single-slot adoption verified at the TOP of this section (above);
+	# from here on the adoption flag is pinned, matching the runtime contract.
+
+	# --- SaveManager contract pinned by source (autoload refs block live instantiation on this branch) ---
+	var sm_src: String = (load("res://scripts/autoload/save_manager.gd") as GDScript).source_code if load("res://scripts/autoload/save_manager.gd") else ""
+	if sm_src.is_empty():
+		var smf := FileAccess.open("res://scripts/autoload/save_manager.gd", FileAccess.READ)
+		if smf: sm_src = smf.get_as_text()
+	for needle in [
+		"func save_game(slot: int = -1)",
+		"func load_game(slot: int = -1)",
+		"func new_game_in_slot",
+		"func list_slots",
+		"func delete_slot",
+		"func get_slot_metadata",
+		"func has_any_save",
+		"var current_slot",
+		"func capture_thumbnail",
+		"SaveSlots",
+	]:
+		_assert(sm_src.contains(needle), "SaveManager exposes " + needle, "")
+
+	# --- cleanup ------------------------------------------------------------------
+	for n in range(SLOTS.SLOT_COUNT):
+		SLOTS.delete_slot(n)
+	if FileAccess.file_exists("user://savegame.json"):
+		DirAccess.remove_absolute("user://savegame.json")
+	print("  save migrations section done")
 	return true
 
 func add_root(n: Node) -> void:

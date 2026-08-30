@@ -30,6 +30,12 @@ class_name PauseMenu
 ## docstring on this gap), so it calls the real SaveManager.save_game()
 ## and then quits the application outright instead of returning to a title
 ## screen that doesn't exist -- flagged here and in the PR, not faked.
+## Since the multi-slot pass (issue #170), that no-argument save_game()
+## writes to SaveManager.current_slot (the slot the player loaded/started
+## from), and the button label reflects that slot number so the player can
+## see which save they're committing to. A full per-slot management UI here
+## (switch/overwrite/delete from the pause menu) is not built this pass --
+## the title screen owns slot selection; noted as partial.
 ##
 ## Also has "Relationships", "Infrastructure", "Community Goal", and
 ## "Fishing" buttons beyond the spec's six listed items -- see
@@ -83,6 +89,7 @@ func _ready() -> void:
 	# shape still matches the spec's §1 tree even though one of its six
 	# items isn't implemented.
 	_settings_button.disabled = true
+	_save_quit_button.text = "Save & Quit to Title (Slot %d)" % (SaveManager.current_slot + 1)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not event.is_action_pressed("ui_cancel"):

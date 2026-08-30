@@ -45,8 +45,13 @@ const SaveMigrations = preload("res://scripts/save/save_migrations.gd")
 ## Builds a fully-formed envelope around a per-manager aggregate produced by
 ## SaveManager.build_save_data(). Stamped with the wall-clock UTC timestamp
 ## so support/debug tooling can tell saves apart even before slots exist.
-static func wrap(state: Dictionary) -> SaveFile:
-	var snapshot := SaveFile.new()
+## NOTE: the return type is deliberately NOT annotated `-> SaveFile` -- a
+## self-referencing class_name annotation makes this file refuse to load in
+## isolated `--script` test contexts (where class_names aren't registered
+## yet), which would break every standalone save test. Behavior is unchanged;
+## callers already receive the value as Variant/untyped.
+static func wrap(state: Dictionary):
+	var snapshot := new()
 	snapshot.save_version = SaveMigrations.CURRENT_SAVE_VERSION
 	snapshot.saved_at_utc = Time.get_datetime_string_from_system(true)
 	snapshot.state = state
@@ -90,16 +95,16 @@ static func unwrap(parsed: Variant) -> Variant:
 		var state_variant: Variant = root["state"]
 		if typeof(state_variant) != TYPE_DICTIONARY:
 			return null
-		var envelope := SaveFile.new()
+		var envelope := new()
 		envelope.save_version = version
 		envelope.saved_at_utc = str(root.get("saved_at_utc", ""))
 		envelope.state = state_variant
 		return envelope
 	# Bare root => legacy v1 payload, whatever keys it happens to carry.
-	return SaveFile._legacy_envelope(root)
+	return _legacy_envelope(root)
 
-static func _legacy_envelope(root: Dictionary) -> SaveFile:
-	var envelope := SaveFile.new()
+static func _legacy_envelope(root: Dictionary):
+	var envelope := new()
 	envelope.save_version = LEGACY_VERSION
 	envelope.saved_at_utc = "" ## v1 never carried timestamps
 	envelope.state = root.duplicate(true)

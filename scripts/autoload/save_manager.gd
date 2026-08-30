@@ -32,6 +32,20 @@ extends Node
 ##     files from FUTURE versions refuse cleanly (live state untouched,
 ##     caller gets false -> treated as "no usable save", never as new game).
 ##
+## MULTI-SLOT pass (issue #170): three slots (user://save_<n>.json, n in 0..2),
+## each running the FULL hardened pipeline above independently (per-slot .bak/
+## .tmp, per-slot self-heal). All on-disk IO now lives in scripts/save/
+## save_slots.gd -- this class keeps the world-state contract (build/apply/
+## new_game), stamps slot metadata (day/season/year/gold/timestamp/thumbnail,
+## the "meta" member of state), and tracks `current_slot` so the pre-slot
+## no-argument calls (save_game()/load_game()/delete_save_file()) keep working
+## against the active slot, defaulting to 0 for backward compatibility. The
+## legacy single file user://savegame.json is adopted into slot 0 on first
+## touch (see SaveSlots' header note). TitleScreen gained a per-slot picker for
+## New Game / Continue (see title_screen.gd); PauseMenu's Save & Quit keeps
+## calling the no-argument save_game() and so transparently saves to the
+## active slot.
+##
 ## Crash-window ledger for the write path (honest edges, not perfect-FS):
 ##   crash after copy-to-bak, before promote -> old main still present, .bak
 ##     duplicates it; next save rotates normally.
@@ -46,19 +60,31 @@ signal load_failed(reason: String)
 
 const SaveFile = preload("res://scripts/save/save_file.gd")
 const SaveMigrations = preload("res://scripts/save/save_migrations.gd")
+const SaveSlots = preload("res://scripts/save/save_slots.gd")
 
-const SAVE_PATH := "user://savegame.json"
-
-## Sibling artifacts of the hardened write/load pipeline (see header notes):
-## .bak holds the previous good save (rotation copy, NOT a second slot),
-## .tmp is the staging target every write lands in before being verified
-## and promoted over the main file.
-const BACKUP_PATH := SAVE_PATH + ".bak"
-const TMP_PATH := SAVE_PATH + ".tmp"
+## MULTI-SLOT pass (issue #170): all on-disk IO now lives in scripts/save/
+## save_slots.gd -- three slots (user://save_<n>.json, n in 0..2), each with
+## its own .bak/.tmp sibling artifacts and the full save-hardening pipeline
+## (atomic write + verify + rotate, main->.bak fallback read with self-heal).
+## The legacy single file user://savegame.json is adopted into slot 0 on
+## first touch (see SaveSlots' header note). These consts are kept ONLY as a
+## backward-compatible mirror of the pre-slot contract (slot 0), since callers
+## such as _p0_repro.gd and the autoplay drivers still reference
+## delete_save_file()/save_game()/load_game() with no slot argument.
+const SAVE_PATH := "user://save_0.json"
+const BACKUP_PATH := "user://save_0.json.bak"
+const TMP_PATH := "user://save_0.json.tmp"
 
 ## Version of the schema the most recent successful load actually applied --
 ## lets UI/debug report "loaded v2" vs "migrated a v1 legacy file".
 var last_loaded_save_version: int = 0
+
+## The slot the no-argument save_game()/load_game()/delete_save_file() calls
+## operate on. Defaults to 0 (the old single-slot behavior) and is advanced by
+## every slot-explicit call, so PauseMenu's plain save_game() and
+## MainController's plain load_game() keep working against whatever slot the
+## player is actually playing.
+var current_slot: int = 0
 
 ## Whether the player has seen the opening-hook intro sequence (ENG-26) on
 ## this save. Not part of build_save_data()'s per-system dictionaries
@@ -181,115 +207,134 @@ func mark_intro_seen() -> void:
 	intro_seen = true
 	save_game()
 
-func save_game() -> void:
-	var snapshot: Variant = SaveFile.wrap(build_save_data())
+## Persists the current world state to a slot. With no argument (the
+## pre-slot contract) it writes to `current_slot`, defaulting to slot 0, so
+## every existing caller (PauseMenu's Save & Quit, the autoplay drivers,
+## MainController's mark_intro_seen path) keeps working unchanged. With an
+## explicit slot >= 0 it ALSO advances `current_slot`, making that slot the
+## active one for subsequent no-argument calls. Emits save_succeeded() on
+## success or save_failed(reason) exactly once on failure -- a failed write
+## leaves the previous good save in that slot untouched.
+func save_game(slot: int = -1) -> void:
+	if slot >= 0:
+		current_slot = slot
+	var snapshot: Variant = SaveFile.wrap(_build_slot_state())
 	if snapshot == null:
 		push_warning("SaveManager: failed to wrap aggregate into SaveFile envelope")
 		save_failed.emit("wrap_failed")
 		return
-	if not _atomic_write(JSON.stringify(snapshot.to_json_dict())):
-		push_warning("SaveManager: atomic write to %s failed -- previous save preserved" % SAVE_PATH)
+	if not SaveSlots.write_slot_json(current_slot, JSON.stringify(snapshot.to_json_dict())):
+		push_warning("SaveManager: atomic write to slot %d failed -- previous save preserved" % current_slot)
 		save_failed.emit("write_failed")
 		return
 	save_succeeded.emit()
 
-## Loads save data from disk into every system. Falls back to the rotated
-## .bak copy when the main file is missing, unreadable, corrupt-json, an
-## unusable envelope, or from an unsupported schema version; a successful
-## fallback ALSO self-heals the dead main slot (copy bak -> main). Emits
-## load_succeeded(version) on any applied path; emits load_failed(reason)
-## exactly once when nothing recoverable was found. Returns false only when
-## NO candidate applied -- callers treat that as "start a new game".
-func load_game() -> bool:
-	last_loaded_save_version = 0
-	var reasons := PackedStringArray()
-	for candidate_path: String in [SAVE_PATH, BACKUP_PATH]:
-		var error := _load_candidate(candidate_path)
-		if error.is_empty():
-			load_succeeded.emit(last_loaded_save_version)
-			if candidate_path == BACKUP_PATH:
-				# Self-heal: whichever way the main slot died (absent or
-				# rejected content), re-stamp it from the good backup so the
-				# following save cycle doesn't keep rotating around a corpse.
-				DirAccess.copy_absolute(BACKUP_PATH, SAVE_PATH)
-			return true
-		reasons.append(candidate_path.get_file() + ":" + error)
-	load_failed.emit("; ".join(reasons))
-	return false
+## build_save_data() + the slot's "meta" member (day/season/year/gold/
+## timestamp/thumbnail). Meta is SaveManager-owned (not a gameplay system's),
+## so it is stamped at persist time rather than living inside any manager.
+func _build_slot_state() -> Dictionary:
+	var data := build_save_data()
+	data["meta"] = _build_meta()
+	return data
 
-## Attempts one file path end-to-end. Returns "" on success (state already
-## applied to live managers), else a short reason token for diagnostics.
-func _load_candidate(path: String) -> String:
-	var text := _read_text(path)
-	if text.is_empty():
-		return "unreadable_or_empty"
-	var parsed: Variant = JSON.parse_string(text)
-	if typeof(parsed) != TYPE_DICTIONARY:
-		return "corrupt_json"
-	var wrapped: Variant = SaveFile.unwrap(parsed)
-	if wrapped == null:
-		return "malformed_envelope"
-	var migrated: Variant = SaveMigrations.migrate_to_current(wrapped.save_version, wrapped.state)
-	if migrated == null:
-		return "unsupported_version_%d" % wrapped.save_version
-	apply_save_data(migrated["state"])
-	last_loaded_save_version = migrated["save_version"]
-	return ""
+func _build_meta() -> Dictionary:
+	var gold := 500
+	if ShippingBinManager:
+		gold = ShippingBinManager.gold
+	return {
+		"day": TimeManager.day_in_season,
+		"season": TimeManager.current_season(),
+		"year": TimeManager.year,
+		"gold": gold,
+		"timestamp": int(Time.get_unix_time_from_system()),
+		"thumbnail": capture_thumbnail(),
+	}
 
-static func _read_text(path: String) -> String:
-	var file := FileAccess.open(path, FileAccess.READ)
-	if file == null:
+## Captures the current viewport as a small base64 PNG thumbnail for the
+## slot-list UI, or "" when no rendered viewport is available (headless boots,
+## title screen). UI-coupled -- the slot list degrades to text-only cleanly.
+func capture_thumbnail() -> String:
+	var viewport := get_viewport()
+	if viewport == null:
 		return ""
-	var text := file.get_as_text()
-	file.close()
-	return text
+	var texture := viewport.get_texture()
+	if texture == null:
+		return ""
+	var image: Image = texture.get_image()
+	if image == null or image.is_empty():
+		return ""
+	image.resize(64, 64, Image.INTERPOLATE_BILINEAR)
+	var bytes := image.save_png_to_buffer()
+	if bytes.is_empty():
+		return ""
+	return "data:image/png;base64," + Marshalls.raw_to_base64(bytes)
 
-## The only code path allowed to write the main save slot. Sequence (all
-## steps leave prior-good state intact until final promotion):
-##   1. stage JSON into .tmp,
-##   2. read .tmp back and validate via SaveFile.unwrap (guards against
-##      truncated/disk-full stores AND catches serializer bugs),
-##   3. rotate current main -> .bak when one exists,
-##   4. promote .tmp -> main (rename).
-static func _atomic_write(json_text: String) -> bool:
-	var staging := FileAccess.open(TMP_PATH, FileAccess.WRITE)
-	if staging == null:
+## Loads save data from a slot into every system. With no argument (the
+## pre-slot contract) it reads `current_slot`, defaulting to slot 0. An
+## explicit slot >= 0 advances `current_slot`. Per-slot recovery semantics:
+## unreadable/corrupt/unsupported main falls back to .bak once and self-heals
+## the dead main. Emits load_succeeded(version) on any applied path; emits
+## load_failed(reason) exactly once when nothing recoverable was found.
+## Returns false only when NO candidate applied -- callers treat that as
+## "start a new game".
+func load_game(slot: int = -1) -> bool:
+	if slot >= 0:
+		current_slot = slot
+	last_loaded_save_version = 0
+	var result := SaveSlots.read_slot(current_slot)
+	if not result["found"]:
+		load_failed.emit(str(result["reason"]))
 		return false
-	staging.store_string(json_text)
-	staging.flush()
-	staging.close()
-	var verify_text := _read_text(TMP_PATH)
-	if verify_text != json_text or SaveFile.unwrap(JSON.parse_string(verify_text)) == null:
-		DirAccess.remove_absolute(TMP_PATH)
-		return false
-	if FileAccess.file_exists(SAVE_PATH):
-		var copied := DirAccess.copy_absolute(SAVE_PATH, BACKUP_PATH)
-		if copied != OK:
-			DirAccess.remove_absolute(TMP_PATH)
-			return false
-	if FileAccess.file_exists(SAVE_PATH):
-		DirAccess.remove_absolute(SAVE_PATH)
-	if DirAccess.rename_absolute(TMP_PATH, SAVE_PATH) != OK:
-		DirAccess.remove_absolute(TMP_PATH)
-		return false
+	apply_save_data(result["state"])
+	last_loaded_save_version = result["save_version"]
+	load_succeeded.emit(last_loaded_save_version)
 	return true
 
+## Like new_game(), but in an explicit slot: advances `current_slot`, resets
+## every system, and persists the fresh save there. The title screen's
+## per-slot New Game picker routes here.
+func new_game_in_slot(slot: int) -> void:
+	current_slot = slot
+	new_game()
+
+func slot_count() -> int:
+	return SaveSlots.SLOT_COUNT
+
+## Per-slot summaries for the title-screen slot list (see SaveSlots.list_slots
+## for the entry shape -- one row per slot, empty slots included, meta already
+## normalized so the UI needs no guards).
+func list_slots() -> Array[Dictionary]:
+	return SaveSlots.list_slots()
+
+## Convenience for the slot list / hover text: the metadata block of one slot
+## without touching any live system.
+func get_slot_metadata(slot: int) -> Dictionary:
+	return SaveSlots.read_slot(slot)["meta"]
+
+func delete_slot(slot: int) -> void:
+	SaveSlots.delete_slot(slot)
+
+func has_save_in_slot(slot: int) -> bool:
+	return SaveSlots.slot_exists(slot)
+
+func has_backup_in_slot(slot: int) -> bool:
+	return SaveSlots.slot_has_backup(slot)
+
 func has_save_file() -> bool:
-	return FileAccess.file_exists(SAVE_PATH)
+	return SaveSlots.slot_exists(current_slot)
 
-## True when a rotated previous-generation save exists (UI/debug telemetry;
-## NOT wired into TitleScreen's Continue gate this pass -- enabling
-## continue-from-backup there belongs to the frontend lane's overlay work).
+## True when ANY of the three slots holds a save -- the gate for the title
+## screen's Continue entry (which then opens the slot list).
+func has_any_save() -> bool:
+	return SaveSlots.has_any_save()
+
+## Backward-compatible alias: the current slot's rotated-backup existence
+## (UI/debug telemetry). Multi-slot callers should prefer has_backup_in_slot().
 func has_backup_file() -> bool:
-	return FileAccess.file_exists(BACKUP_PATH)
+	return SaveSlots.slot_has_backup(current_slot)
 
-## Test-only helper (also handy for a future "delete save" UI action) so
-## save/load tests don't depend on whatever a previous test run/session
-## left on disk under user://. Clears ALL artifacts of the hardened
-## pipeline -- main, rotation backup, and any orphaned staging temp --
-## because a test asserting cleanliness must not fight leftovers from a
-## mid-pipeline kill that no longer participates in normal flow anyway.
+## Backward-compatible alias: deletes the current slot's main, rotation
+## backup, and any orphaned staging temp. Multi-slot callers should prefer
+## delete_slot(slot).
 func delete_save_file() -> void:
-	for path: String in [SAVE_PATH, BACKUP_PATH, TMP_PATH]:
-		if FileAccess.file_exists(path):
-			DirAccess.remove_absolute(path)
+	SaveSlots.delete_slot(current_slot)

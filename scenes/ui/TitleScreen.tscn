@@ -60,3 +60,37 @@ text = "Settings (not yet implemented)"
 [node name="QuitButton" type="Button" parent="Root/MenuPanel/Margin/VBox"]
 layout_mode = 2
 text = "Quit"
+
+[node name="SlotPanel" type="CenterContainer" parent="Root"]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Margin" type="MarginContainer" parent="Root/SlotPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 32
+theme_override_constants/margin_top = 32
+theme_override_constants/margin_right = 32
+theme_override_constants/margin_bottom = 32
+
+[node name="VBox" type="VBoxContainer" parent="Root/SlotPanel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="SlotTitle" type="Label" parent="Root/SlotPanel/Margin/VBox"]
+layout_mode = 2
+text = "Choose a slot"
+theme_override_font_sizes/font_size = 28
+horizontal_alignment = 1
+
+[node name="SlotsVBox" type="VBoxContainer" parent="Root/SlotPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="BackButton" type="Button" parent="Root/SlotPanel/Margin/VBox"]
+layout_mode = 2
+text = "Back"
