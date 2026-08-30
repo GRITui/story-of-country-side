@@ -2,10 +2,22 @@
 
 <squad_metadata>
   <squad_name>Engineer-Squad</squad_name>
-  <current_status>IDLE</current_status>
-  <active_task_id>none</active_task_id>
-  <sprint_completion_percentage>100</sprint_completion_percentage>
+  <current_status>IN_PROGRESS</current_status>
+  <active_task_id>PO-16BIT-CORE-1</active_task_id>
+  <sprint_completion_percentage>70</sprint_completion_percentage>
 </squad_metadata>
+
+## Current Focus — PO-16BIT-CORE-1 (AGENT 1: CORE) Sprint 1-2
+
+Claimed PO-16BIT-CORE-1 on feat/16bit-redesign. Delivering deterministic 16x16 farming sim:
+
+- SoilState 8-state enum (dry_grass, tilled_dry, tilled_watered, planted, harvestable, withered, blocked_rock, blocked_wood) in FarmPlotManager.SoilState + per-tile metadata get_tile_metadata() {soilState,cropType,growthStage,daysWatered,daysWithoutWater}. Daily tick at midnight: watered→dry, crop advances only if watered prior day, withers if >2 days dry. Backward compat: get_plot/plant/water/harvest signatures unchanged, existing 7 crops + 4 new keep old saves valid.
+- New crops Turnip 4d, Radish 5d, Eggplant 7d, Strawberry multi-harvest (6d + 3d regrow) added alongside existing roster.
+- Tools: Hoe till() dry_grass→tilled_dry, Watering Can water()/water_area() 1x1/1x3, Sickle use_sickle() on withered, Axe/Hammer clear_blocked() for wood/rock, Seed Bags via buy_seed()/plant(). All tool paths call StaminaManager.spend() (2/1/2/4 stamina).
+- Stamina 100 max: stamina_changed, collapsed/passed_out, get_movement_speed_multiplier() 0→0.5x, restore_full() on TimeManager.day_started.
+- Time 4x30d seasons, 1 real sec=1 min, 06:00-24:00 (midnight rollover to 06:00), ShippingBin payout at 06:00 via day_started hook.
+
+Files touched this sprint: scripts/farming/farm_plot.gd (soil_state sync + save compat), scripts/autoload/farm_plot_manager.gd (enum, till/water_area/sickle/axe, new crops, wither+watered→dry tick), scripts/autoload/stamina_manager.gd (speed multiplier, collapse, daily restore, persistence), scripts/autoload/time_manager.gd (30d, 1.0 min/sec, midnight end), scripts/autoload/shipping_bin_manager.gd (unit_price, payout on day_started, persistence). Verified godot --headless --import parses (farm_plot_manager clean; pre-existing festival_manager warnings unchanged, not introduced here). No existing get_plot/plant/water/harvest contract broken.
 
 ## DONE — Sprint 4 S4-B1 (issue #97)
 sell_item() silently destroyed stock when unit_price <= 0 (bin drops the
@@ -307,3 +319,11 @@ no shop/purchase UI hook exists yet for `buy_seed()` (a Frontend/UI task
 once claimed); `seed_price` values are a documented ratio-of-sell-price
 heuristic, not a real playtested balance pass -- Content lane's job per
 the issue's own AC.
+
+## Recent Commits — PO-16BIT-CORE-1 (feat/16bit-redesign, not yet PR)
+
+* `scripts/farming/farm_plot.gd:15` — Added soil_state/days_watered/days_without_water/blocked_type + save compat (soil_state, daysWatered, daysWithoutWater) while aliasing cropType→crop_id, growthStage→days_grown for the {soilState,cropType,growthStage,daysWatered,daysWithoutWater} metadata contract.
+* `scripts/autoload/farm_plot_manager.gd:12` — SoilState 8-state enum + SOIL_STATE_NAMES, till()/water_area() 1x1/1x3, set_blocked()/clear_blocked() (Axe/Hammer), use_sickle(), get_tile_metadata()/get_soil_state(), updated plant/water/harvest to maintain soil_state, new crops turnip/radish/eggplant/strawberry (4/5/7d, strawberry regrow 3d), daily tick watered→dry, advance only if watered prior day, wither if daysWithoutWater>2, stamina hooks via StaminaManager.spend().
+* `scripts/autoload/stamina_manager.gd:1` — 100 max, spend()→passed_out/collapsed, get_movement_speed_multiplier() 0→0.5x, restore_full() on day_started, to_save_dict/from_save_dict, daily restore hook.
+* `scripts/autoload/time_manager.gd:12` — DAYS_PER_SEASON 28→30, MINUTES_PER_REAL_SECOND 7.0→1.0 (1 sec=1 min), DAY_END_HOUR 2→24 with midnight (hour 0) rollover to 06:00, preserves freeze/sleep API.
+* `scripts/autoload/shipping_bin_manager.gd:1` — ship_item() now unit_price-aware, process_payout() at 06:00 via TimeManager.day_started, gold persistence.
