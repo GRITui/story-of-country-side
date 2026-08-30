@@ -67,6 +67,9 @@ var last_loaded_save_version: int = 0
 var intro_seen: bool = false
 
 func build_save_data() -> Dictionary:
+	var active_festival_id: String = ""
+	if FestivalManager.has_method("get_active_festival"):
+		active_festival_id = FestivalManager.get_active_festival()
 	return {
 		"time": TimeManager.to_save_dict(),
 		"stamina": StaminaManager.to_save_dict(),
@@ -86,6 +89,7 @@ func build_save_data() -> Dictionary:
 		"weather": WeatherManager.to_save_dict(),
 		"journal": JournalManager.to_save_dict(),
 		"intro_seen": intro_seen,
+		"active_festival_id": active_festival_id,
 	}
 
 func apply_save_data(data: Dictionary) -> void:
@@ -125,11 +129,12 @@ func apply_save_data(data: Dictionary) -> void:
 		JournalManager.from_save_dict(data["journal"])
 	if data.has("intro_seen"):
 		intro_seen = data["intro_seen"]
-	# Issue #90: the clock above is restored without firing day_started
-	# (that only fires at the 2AM rollover), so any day-edge-derived state
-	# must be re-derived here explicitly or a mid-festival save reloads
-	# with no festival.
-	FestivalManager.rederive_active_festival()
+	if data.has("active_festival_id"):
+		FestivalManager._active_festival_id = data["active_festival_id"]
+	# Issue #90: restore active festival ID from save; fall back to date-derivation
+	# if the ID is empty or invalid (e.g. old save format).
+	if not FestivalManager.is_festival_day():
+		FestivalManager.rederive_active_festival()
 
 ## Resets every system to its fresh-boot defaults and starts a brand new
 ## save -- calling from_save_dict({}) directly (not via apply_save_data,
@@ -160,6 +165,8 @@ func new_game() -> void:
 	WeatherManager.from_save_dict({})
 	JournalManager.from_save_dict({})
 	intro_seen = false
+	# #90: clear any festival state from previous game before granting starting seeds
+	FestivalManager._active_festival_id = ""
 	FestivalManager.rederive_active_festival() # expire any live festival against the reset date
 	FarmPlotManager.grant_starting_seeds() # #91: seed economy starting grant
 	save_game()

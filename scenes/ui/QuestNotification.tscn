@@ -1,0 +1,23 @@
+[gd_scene load_steps=2 format=3 uid="uid://qnotif01234"]
+
+[ext_resource type="Script" path="res://scripts/ui/quest_notification.gd" id="1"]
+
+[node name="QuestNotification" type="CanvasLayer"]
+script = ExtResource("1")
+
+[node name="Margin" type="MarginContainer" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+theme_override_constants/margin_left = 128
+theme_override_constants/margin_top = 128
+theme_override_constants/margin_right = 128
+theme_override_constants/margin_bottom = 128
+mouse_filter = 2
+
+[node name="Label" type="Label" parent="Margin"]
+layout_mode = 2
+text = "Quest Completed!"
+horizontal_alignment = 1
+vertical_alignment = 1
+theme_override_font_sizes/font_size = 28
