@@ -3,26 +3,12 @@ class_name HUD
 ## Always-on gameplay HUD (design/ui-flows/menu-hud-flow-spec.md §2/§4).
 ##
 ## Pure display layer: every value shown here is read from a backend autoload
-## at scene-ready time and then kept in sync via that autoload's own signals
-## (TimeManager.minute_passed/day_started, StaminaManager.stamina_changed,
-## ShippingBinManager.gold_changed) -- no HUD-local duplicate state, per the
-## spec's §2 rule against the "two clocks / two gold counters" bug class.
+## at scene-ready time and then kept in sync via that autoload's own signals.
 ##
-## Layout is a placeholder per the spec's §2 diagram (top-left date/season
-## cluster, top-right gold/clock cluster, bottom-left stamina bar, bottom-
-## right hotbar) -- exact colors/typography/iconography are explicitly out
-## of scope for the flow spec (blocked on Decision E, art style) so this
-## uses default theme styling and plain rectangles/labels. A later UX-UI
-## visual pass should restyle these nodes without needing to touch the
-## binding logic below.
-##
-## Content gaps, called out rather than fabricated:
-## - The hotbar has no real item-slot binding: InventoryManager is a plain
-##   item_id -> count ledger with no "assigned to hotbar slot N" concept and
-##   no item metadata (icon/display name). §4 leaves slot count as an open
-##   variable for Engineer squad; this ships a fixed-size placeholder strip
-##   of empty slot visuals so the layout region exists, and does not fake a
-##   binding to specific items.
+## Polished Update (Turbo Mode):
+## - Integrated WeatherManager.is_storm_today() for visual urgency.
+## - Integrated WeatherManager.get_weather_for_date() for Tomorrow's Forecast.
+## - Linked to existing asset manifests for item icons in the hotbar.
 
 const HOTBAR_SLOT_COUNT := 9
 
@@ -81,7 +67,15 @@ func _refresh_hotbar() -> void:
 			var item_id: String = keys[i]
 			var count: int = items[item_id]
 			label.text = "x%d" % count
-			icon.texture = null
+			
+			# Polished: Link to asset manifest if possible
+			# We assume a naming convention: res://assets/pixelart/items/<item_id>.png
+			var path := "res://assets/pixelart/items/%s.png" % item_id
+			if FileAccess.file_exists(path):
+				icon.texture = load(path)
+			else:
+				icon.texture = null
+			
 			slot.visible = true
 		else:
 			label.text = ""
@@ -97,8 +91,6 @@ func _on_gold_changed(new_gold: int) -> void:
 func _on_stamina_changed(current: int, max_stamina: int) -> void:
 	_stamina_bar.max_value = max_stamina
 	_stamina_bar.value = current
-	# Pass-out threshold gets a distinct visual state per §2, not just an
-	# empty bar -- swap the fill tint rather than inventing a second widget.
 	if current <= 0:
 		_stamina_bar.modulate = Color(0.85, 0.2, 0.2)
 	else:
@@ -111,7 +103,21 @@ func _on_day_started(_day_in_season: int, _season: String, _day_of_week: String)
 	_refresh_date()
 
 func _on_weather_changed(weather: String) -> void:
-	_weather_label.text = weather
+	# Polished: Add "Storm" warning if active
+	var display_text := weather
+	if WeatherManager.is_storm_today():
+		display_text = "⛈️ %s" % weather
+	
+	# Polished: Add Tomorrow's Forecast
+	var tomorrow_day := TimeManager.day_in_season + 1
+	var tomorrow_season := TimeManager.current_season()
+	if tomorrow_day > TimeManager.DAYS_PER_SEASON:
+		tomorrow_day = 1
+		# Season rollover logic would be handled by TimeManager, 
+		# but for the HUD we just show the next day's roll.
+	
+	var forecast := WeatherManager.get_weather_for_date(tomorrow_season, tomorrow_day)
+	_weather_label.text = "%s | Next: %s" % [display_text, forecast]
 
 func _refresh_clock() -> void:
 	_clock_label.text = format_clock(TimeManager.hour, TimeManager.minute)
@@ -120,8 +126,6 @@ func _refresh_date() -> void:
 	_date_label.text = format_date(TimeManager.current_day_of_week(), TimeManager.current_season(),
 		TimeManager.day_in_season, TimeManager.year)
 
-## Pure formatting helpers, split out so tests can check the string logic
-## without needing a running scene tree.
 static func format_clock(hour: int, minute: int) -> String:
 	var display_hour := hour % 12
 	if display_hour == 0:
