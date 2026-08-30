@@ -36,6 +36,8 @@ const SCHEMA_ID := "story_of_country_side_save"
 ## The pre-envelope format's implicit version (unversioned v1 files).
 const LEGACY_VERSION := 1
 
+const SaveMigrations = preload("res://scripts/save/save_migrations.gd")
+
 @export var save_version: int = 0
 @export var saved_at_utc: String = ""
 @export var state: Dictionary = {}

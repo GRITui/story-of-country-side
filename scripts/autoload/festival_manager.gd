@@ -188,12 +188,10 @@ func _on_day_started(day_in_season: int, season: String, _day_of_week: String) -
 ## forever. Returns whether a festival is active afterwards.
 func rederive_active_festival() -> bool:
 	var def := get_festival_for_date(TimeManager.current_season(), TimeManager.day_in_season)
-	if def == null:
-		if is_festival_active():
-			end_festival()
-		return false
-	if _active_festival_id == def.festival_id:
+	if def != null and _active_festival_id == def.festival_id:
 		return true # already active, idempotent
 	if is_festival_active():
 		end_festival()
+	if def == null:
+		return false # not a festival day and nothing stale to expire
 	return start_festival(def.festival_id)

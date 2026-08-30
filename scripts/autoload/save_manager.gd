@@ -44,6 +44,9 @@ signal save_failed(reason: String)
 signal load_succeeded(save_version: int)
 signal load_failed(reason: String)
 
+const SaveFile = preload("res://scripts/save/save_file.gd")
+const SaveMigrations = preload("res://scripts/save/save_migrations.gd")
+
 const SAVE_PATH := "user://savegame.json"
 
 ## Sibling artifacts of the hardened write/load pipeline (see header notes):

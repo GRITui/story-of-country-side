@@ -20,6 +20,12 @@ extends RefCounted
 
 const CURRENT_SAVE_VERSION := 2
 
+## Identical to SaveFile.LEGACY_VERSION -- declared locally so this file does
+## NOT preload save_file.gd and create a circular preload (save_file.gd
+## preloads THIS file for CURRENT_SAVE_VERSION). Kept in sync deliberately;
+## both must stay `1` (the pre-envelope format's implicit version).
+const LEGACY_VERSION := 1
+
 static func _steps() -> Array[Dictionary]:
 	return [
 		{
@@ -42,7 +48,7 @@ static func _steps() -> Array[Dictionary]:
 static func migrate_to_current(file_version: int, state: Dictionary) -> Variant:
 	if file_version > CURRENT_SAVE_VERSION:
 		return null ## future version -- never guess-migrate downward
-	if file_version < SaveFile.LEGACY_VERSION:
+	if file_version < LEGACY_VERSION:
 		return null ## version 0 / negative are not real historical formats
 	var payload: Dictionary = state.duplicate(true)
 	var version := file_version
