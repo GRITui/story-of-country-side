@@ -1,7 +1,6 @@
 .godot/
 *.translation
 export.cfg
-export_presets.cfg
 
 # video demo artifacts (keep showcase, ignore transient Playwright outputs)
 !artifacts/videos/showcase.webm
@@ -12,3 +11,4 @@ node_modules/
 
 # macOS
 .DS_Store
+export/

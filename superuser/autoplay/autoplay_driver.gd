@@ -96,11 +96,11 @@ func _phase_full() -> void:
 
 	# Farm loop, played like a player: water EVERY day.
 	var pos := Vector2i(0, 0)
-	if not FarmPlotManager.can_plant(pos, "parsnip"):
-		_fail("cannot plant parsnip on empty spring plot")
+	if not FarmPlotManager.can_plant(pos, "rice"):
+		_fail("cannot plant rice on empty spring plot")
 		return
-	FarmPlotManager.plant(pos, "parsnip")
-	var def := FarmPlotManager.get_crop_definition("parsnip")
+	FarmPlotManager.plant(pos, "rice")
+	var def := FarmPlotManager.get_crop_definition("rice")
 	for i in range(def.days_to_grow):
 		FarmPlotManager.water(pos)
 		print("[SU2] watered day %d" % (i + 1))
@@ -214,7 +214,7 @@ func _forage_pass() -> void:
 
 func _measure_day_pacing() -> void:
 	var real_seconds := ((TimeManager.DAY_END_HOUR + 24 - TimeManager.DAY_START_HOUR) % 24) * 60.0 / 7.0
-	print("[SU2-RESULT] real_seconds_per_day_no_sleep=%.0f idle_minutes_to_first_parsnip=%.1f"
+	print("[SU2-RESULT] real_seconds_per_day_no_sleep=%.0f idle_minutes_to_first_rice=%.1f"
 		% [real_seconds, real_seconds * 5.0 / 60.0])
 
 func _overlay_present() -> bool:

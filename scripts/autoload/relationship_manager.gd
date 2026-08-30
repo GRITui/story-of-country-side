@@ -93,7 +93,7 @@ func _register_default_content() -> void:
 	register_heart_event_dialogue("Marcus", 8, "There's a spot down by the river I've never shown anyone. I keep meaning to take you there.")
 	register_heart_event_dialogue("Marcus", 10, "I've hauled in a lot of things I thought I wanted, then let most of them go. You're not one I'm ever throwing back.")
 
-	register_heart_event_dialogue("Priya", 2, "You actually asked how the cauliflower was doing this season. Nobody asks that.")
+	register_heart_event_dialogue("Priya", 2, "You actually asked how the daikon was doing this season. Nobody asks that.")
 	register_heart_event_dialogue("Priya", 4, "I saved you the first ear of corn off the stalk. Figured you'd appreciate it more than most.")
 	register_heart_event_dialogue("Priya", 6, "There's something steady about you. Around here, steady is worth more than exciting.")
 	register_heart_event_dialogue("Priya", 8, "I've started planning next season's planting with you in mind -- what you'd like to see growing, not just what sells.")

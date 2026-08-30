@@ -67,6 +67,19 @@ func _register_default_content() -> void:
 	register_tier("Pickaxe", _make_tier(3, "diamond", 5, 1200, _full_3x3_offsets(), 2))
 	register_tier("Sickle", _make_tier(1, "iron_ore", 3, 120, cross, 3))
 	register_tier("Sickle", _make_tier(2, "gold_ore", 3, 350, _full_3x3_offsets(), 2))
+	# JRL pack (feat/jrl-art-pack, #195) — Japanese tool set, keeps Western ids for save compat.
+	register_tier("Kuwa", _make_tier(1, "iron_ore", 5, 200, cross, 4))
+	register_tier("Kuwa", _make_tier(2, "gold_ore", 5, 500, _full_3x3_offsets(), 3))
+	register_tier("Kuwa", _make_tier(3, "diamond", 3, 900, _full_3x3_offsets(), 2))
+	register_tier("BambooWateringCan", _make_tier(1, "iron_ore", 4, 150, cross, 4))
+	register_tier("BambooWateringCan", _make_tier(2, "gold_ore", 4, 400, _full_3x3_offsets(), 3))
+	register_tier("BambooWateringCan", _make_tier(3, "diamond", 2, 750, _full_3x3_offsets(), 2))
+	register_tier("Kama", _make_tier(1, "iron_ore", 3, 120, cross, 3))
+	register_tier("Kama", _make_tier(2, "gold_ore", 3, 350, _full_3x3_offsets(), 2))
+	register_tier("BugNet", _make_tier(1, "iron_ore", 3, 120, cross, 3))
+	register_tier("BugNet", _make_tier(2, "gold_ore", 3, 350, _full_3x3_offsets(), 2))
+	register_tier("BambooFishingRod", _make_tier(1, "iron_ore", 4, 150, cross, 4))
+	register_tier("BambooFishingRod", _make_tier(2, "gold_ore", 4, 400, _full_3x3_offsets(), 3))
 
 ## Hold-to-charge: 0-400ms L1 1x1, 400-800ms L2 1x3/ cross, >800ms L3 3x3 (requires tier)
 func get_charge_level(tool_name: String, hold_ms: int) -> int:

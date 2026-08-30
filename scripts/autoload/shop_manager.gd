@@ -22,7 +22,7 @@ extends Node
 ## future crop added without a seed fails loudly instead of shipping
 ## unplantable.
 ##
-## Prices carry the final econ-balance blueprint values (see register table below).
+## All prices below are PLACEHOLDERS pending the ORCH-002 balance pass.
 
 signal seed_purchased(seed_id: String, price: int)
 
@@ -31,17 +31,20 @@ var _seeds: Dictionary = {} # seed_id -> SeedDefinition
 func _ready() -> void:
 	_register_default_content()
 
-## Seed prices carry the final econ-balance blueprint values (parsnip 12,
-## cauliflower 45, tomato 30, melon 70, pumpkin 60, corn 35, frost_kale 40).
-## Matches FarmPlotManager CropDefinition.seed_price — keep the two in sync.
+## One entry per registered crop (rice/daikon/nasu/watermelon/sweet_potato/
+## edamame/turnip). Placeholder pricing heuristic until ORCH-002: roughly
+## 40-60% of the crop's base sell price for single-harvest crops (one
+## good harvest repays several seeds), cheaper per-seed for regrowables
+## whose first harvest repeats. Numbers are round and provisional ON
+## PURPOSE -- a content balance pass owns them, not this file's structure.
 func _register_default_content() -> void:
-	register_seed(_make_seed("parsnip_seed", "Parsnip Seeds", "parsnip", 12, "Spring"))
-	register_seed(_make_seed("cauliflower_seed", "Cauliflower Seeds", "cauliflower", 45, "Spring"))
-	register_seed(_make_seed("tomato_seed", "Tomato Seeds", "tomato", 30, "Summer"))
-	register_seed(_make_seed("melon_seed", "Melon Seeds", "melon", 70, "Summer"))
-	register_seed(_make_seed("pumpkin_seed", "Pumpkin Seeds", "pumpkin", 60, "Fall"))
-	register_seed(_make_seed("corn_seed", "Corn Seeds", "corn", 35, "Fall"))
-	register_seed(_make_seed("frost_kale_seed", "Frost Kale Seeds", "frost_kale", 40, "Winter"))
+	register_seed(_make_seed("rice_seed", "Rice Seeds", "rice", 20, "Spring"))
+	register_seed(_make_seed("daikon_seed", "Daikon Seeds", "daikon", 40, "Spring"))
+	register_seed(_make_seed("nasu_seed", "Nasu Seeds", "nasu", 25, "Summer"))
+	register_seed(_make_seed("watermelon_seed", "Watermelon Seeds", "watermelon", 60, "Summer"))
+	register_seed(_make_seed("sweet_potato_seed", "Sweet Potato Seeds", "sweet_potato", 55, "Fall"))
+	register_seed(_make_seed("edamame_seed", "Edamame Seeds", "edamame", 30, "Fall"))
+	register_seed(_make_seed("turnip_seed", "Turnip Seeds", "turnip", 35, "Winter"))
 
 func _make_seed(seed_id: String, display_name: String, crop_id: String, price: int, season: String) -> SeedDefinition:
 	var def := SeedDefinition.new()

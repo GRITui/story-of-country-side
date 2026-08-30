@@ -42,7 +42,7 @@ const CATEGORIES := ["fish", "crop", "ore", "forage"]
 ## time this was written. Used only if manager introspection fails.
 const FALLBACK_CATALOG := {
 	"fish": ["bream", "bass", "carp", "eel", "pike", "salmon", "sardine", "squid", "sturgeon", "trout", "tuna"],
-	"crop": ["cauliflower", "corn", "frost_kale", "melon", "parsnip", "pumpkin", "tomato"],
+	"crop": ["daikon", "edamame", "nasu", "rice", "sweet_potato", "turnip", "watermelon"],
 	"ore": ["stone", "copper_ore", "iron_ore", "gold_ore", "diamond"],
 	"forage": ["four_leaf_clover", "hazelnut", "mushroom", "snow_truffle", "spring_onion", "sweet_pea", "wild_berries", "wild_flower", "winter_root"],
 }
@@ -81,7 +81,7 @@ func _canonical_category(cat: String) -> String:
 
 func _normalize_item_id(raw: String, _category: String) -> String:
 	# Strip quality suffixes added by FarmPlotManager/FishingManager
-	# (e.g. "parsnip_gold" -> "parsnip", "trout_silver" -> "trout")
+	# (e.g. "rice_gold" -> "rice", "trout_silver" -> "trout")
 	if raw.ends_with("_gold"):
 		return raw.substr(0, raw.length() - 5)
 	if raw.ends_with("_silver"):

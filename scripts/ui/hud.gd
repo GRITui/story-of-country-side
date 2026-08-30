@@ -14,6 +14,15 @@ class_name HUD
 const HOTBAR_SLOT_COUNT := 8
 const WATER_GAUGE_MAX := 100
 
+# JRL pack (feat/jrl-art-pack, #196) — washi/bento UI set
+const UI_JP_SHEET_PATH := "res://assets/16bit/ui/ui_jp_sheet.png"
+const WASHI_SLOT_REGION := Rect2(0, 0, 16, 16)
+const HOTBAR_SLOT_REGION := Rect2(16, 0, 16, 16)
+const HOTBAR_SLOT_SEL_REGION := Rect2(32, 0, 16, 16)
+const BENTO_FULL_REGION := Rect2(48, 0, 16, 16)
+const BENTO_HALF_REGION := Rect2(64, 0, 16, 16)
+const BENTO_EMPTY_REGION := Rect2(80, 0, 16, 16)
+
 @onready var _date_label: Label = $TopBar/DateCluster/Row/DateLabel
 @onready var _weather_label: Label = $TopBar/DateCluster/Row/WeatherLabel
 @onready var _gold_label: Label = $TopBar/GoldClockCluster/GoldLabel
@@ -81,13 +90,21 @@ func _select_hotbar(idx: int) -> void:
 	_highlight_slot(_selected_hotbar)
 
 func _highlight_slot(idx: int) -> void:
+	var sheet: Texture2D = load(UI_JP_SHEET_PATH) if ResourceLoader.exists(UI_JP_SHEET_PATH) else null
 	for i in range(HOTBAR_SLOT_COUNT):
 		if i >= _hotbar.get_child_count():
 			continue
 		var slot: PanelContainer = _hotbar.get_child(i)
+		# JRL: swap washi slot texture for selected state if sheet exists
+		if sheet != null and sheet.get_image() != null:
+			var atlas := AtlasTexture.new()
+			atlas.atlas = sheet
+			atlas.region = HOTBAR_SLOT_SEL_REGION if i == idx else HOTBAR_SLOT_REGION
+			var sbt := StyleBoxTexture.new()
+			sbt.texture = atlas
+			slot.add_theme_stylebox_override("panel", sbt)
 		if slot.has_method("get") and slot.get("self_modulate") != null:
 			slot.self_modulate = Color(1.2, 1.05, 0.6) if i == idx else Color(1, 1, 1)
-		# Also add a subtle outline via modulate for selected
 		slot.modulate = Color(1, 1, 0.85) if i == idx else Color(1, 1, 1)
 
 func _style_wooden_placard() -> void:
@@ -158,26 +175,34 @@ func get_selected_hotbar() -> int:
 	return _selected_hotbar
 
 func _build_hotbar() -> void:
-	# Clear existing children (idempotent for tests that re-instantiate)
 	for c in _hotbar.get_children():
 		c.free()
 	for i in range(HOTBAR_SLOT_COUNT):
 		var slot := PanelContainer.new()
 		slot.custom_minimum_size = Vector2(48, 48)
 		slot.name = "Slot%d" % i
-		# Wooden slot frame
-		var sbs := StyleBoxFlat.new()
-		sbs.bg_color = Color(0.52, 0.38, 0.22)
-		sbs.border_color = Color(0.26, 0.16, 0.08)
-		sbs.border_width_left = 2
-		sbs.border_width_right = 2
-		sbs.border_width_top = 2
-		sbs.border_width_bottom = 2
-		sbs.corner_radius_top_left = 4
-		sbs.corner_radius_top_right = 4
-		sbs.corner_radius_bottom_left = 4
-		sbs.corner_radius_bottom_right = 4
-		slot.add_theme_stylebox_override("panel", sbs)
+		# JRL washi/bamboo: try StyleBoxTexture from ui_jp_sheet, fallback to wood flat
+		var sheet: Texture2D = load(UI_JP_SHEET_PATH) if ResourceLoader.exists(UI_JP_SHEET_PATH) else null
+		if sheet != null and sheet.get_image() != null:
+			var atlas := AtlasTexture.new()
+			atlas.atlas = sheet
+			atlas.region = HOTBAR_SLOT_REGION
+			var sbt := StyleBoxTexture.new()
+			sbt.texture = atlas
+			slot.add_theme_stylebox_override("panel", sbt)
+		else:
+			var sbs := StyleBoxFlat.new()
+			sbs.bg_color = Color(0.52, 0.38, 0.22)
+			sbs.border_color = Color(0.26, 0.16, 0.08)
+			sbs.border_width_left = 2
+			sbs.border_width_right = 2
+			sbs.border_width_top = 2
+			sbs.border_width_bottom = 2
+			sbs.corner_radius_top_left = 4
+			sbs.corner_radius_top_right = 4
+			sbs.corner_radius_bottom_left = 4
+			sbs.corner_radius_bottom_right = 4
+			slot.add_theme_stylebox_override("panel", sbs)
 		var vbox := VBoxContainer.new()
 		vbox.name = "VBox"
 		vbox.alignment = BoxContainer.ALIGNMENT_CENTER

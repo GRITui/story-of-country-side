@@ -52,14 +52,12 @@ const ARRIVAL_THRESHOLD_PX := 1.0
 ## tool-swing feedback pulse (#100 ask item 3).
 const SWING_PULSE_COLOR := Color(1.5, 1.5, 1.15)
 
-## Strict 16-bit chibi spritesheet per Design Spec (1:2.3, 32x32, 55% head):
-## 128x128, 4 rows x 4 frames, frame 32x32, rows: 0=down(front), 1=left(3/4), 2=right(3/4), 3=up(back)
-## 4-frame walk: Contact L (-2 leg, head bob -1) | Pass (0) | Contact R (+2) | Pass — hair delayed 1F
-## Idle 2-4F breathing + blink, emotes sweatdrop 3x5 / anger 4x4 / surprise ! on ui/emote_*
-## Bottom-center anchor at feet, shadow 12x6 at y=26
-## Tool Swing 3F: Anticipation (wind-up back) → Impact (strike) → Recovery (return). Holding overhead: item 8px above head, arms raised.
-const SHEET_PATH := "res://assets/16bit/characters/player.png"
-const FRAME_W := 32
+## JRL pack (feat/jrl-art-pack, #196) — 384×256, 24×32 cells, 8 rows ×16 cols
+## Rows: 0 idle, 1 walk, 2 sit_engawa, 3 hoe/kuwa, 4 plant, 5 net/bug_net, 6 fish/bamboo_rod, 7 bow
+## Cols: 16 = 4 dirs ×4 frames (Down, Up, Left, Right ×4). Bottom-center pivot feet y=31 cx=11.5
+## Variants: player_jp_winter.png / player_jp_yukata.png (palette swaps, not wired yet)
+const SHEET_PATH := "res://assets/16bit/characters/player_jp.png"
+const FRAME_W := 24
 const FRAME_H := 32
 const FRAME_COUNT := 4
 const ANIM_FPS := 8.0
@@ -124,7 +122,7 @@ func _build_sprite() -> Sprite2D:
 func _update_sprite_frame(moving: bool, delta: float) -> void:
 	if not _uses_sheet:
 		return
-	# Tool swing overrides walk/idle while active — 3F Anticipation-Impact-Recovery
+	# Tool swing overrides walk/idle — JRL pack has dedicated action rows (3 hoe/kuwa, 4 plant, etc.)
 	if _is_swinging:
 		_swing_timer += delta
 		if _swing_timer >= 1.0 / TOOL_SWING_FPS:
@@ -134,13 +132,12 @@ func _update_sprite_frame(moving: bool, delta: float) -> void:
 				_is_swinging = false
 				_swing_frame = 0
 				_swing_timer = 0.0
-		# Map swing 0→Anticipation (frame 0), 1→Impact (frame 1 with offset), 2→Recovery (frame 2)
-		var row := _facing_row()
-		# Use walk frames as stand-in but offset for Anticipation/Impact lean; deterministic without new art
+		var dir := _facing_dir_index()
+		var action_row := 3 # hoe/kuwa row
 		var swing_frame_map := [0, 1, 0]
 		_frame_index = swing_frame_map[_swing_frame]
-		_sprite.region_rect = Rect2(Vector2(_frame_index * FRAME_W, row * FRAME_H), Vector2(FRAME_W, FRAME_H))
-		# Anticipation leans back, Impact leans forward via sprite offset
+		var col := dir * FRAME_COUNT + _frame_index
+		_sprite.region_rect = Rect2(Vector2(col * FRAME_W, action_row * FRAME_H), Vector2(FRAME_W, FRAME_H))
 		if _swing_frame == 0:
 			_sprite.offset = Vector2(-FRAME_W / 2.0 + 1, -FRAME_H + 1)
 		elif _swing_frame == 1:
@@ -157,23 +154,28 @@ func _update_sprite_frame(moving: bool, delta: float) -> void:
 	else:
 		_frame_index = 0
 		_anim_timer = 0.0
-	var row := _facing_row()
-	_sprite.region_rect = Rect2(Vector2(_frame_index * FRAME_W, row * FRAME_H), Vector2(FRAME_W, FRAME_H))
+	var dir := _facing_dir_index()
+	var action_row := 1 if moving else 0 # 0 idle, 1 walk
+	var col := dir * FRAME_COUNT + _frame_index
+	_sprite.region_rect = Rect2(Vector2(col * FRAME_W, action_row * FRAME_H), Vector2(FRAME_W, FRAME_H))
 	_sprite.offset = Vector2(-FRAME_W / 2.0, -FRAME_H)
 	_sprite.flip_h = false
-	# Holding overhead: keep item sprite above head, arms visually raised via offset already
 	if _holding and _holding_sprite:
 		_holding_sprite.position = HOLDING_OFFSET
 
-func _facing_row() -> int:
+func _facing_dir_index() -> int:
+	# JRL sheet dir order: Down(0), Up(1), Left(2), Right(3) ×4 frames
 	if facing.y < -0.3 and absf(facing.y) > absf(facing.x):
-		return 3 # up/back
+		return 1 # up
 	elif facing.x < -0.3:
-		return 1 # left 3/4
+		return 2 # left
 	elif facing.x > 0.3:
-		return 2 # right 3/4
+		return 3 # right
 	else:
-		return 0 # down/front
+		return 0 # down
+
+func _facing_row() -> int:
+	return _facing_dir_index() # compat alias
 
 ## PO-16BIT-GFX-2: 3-frame tool swing hook — Anticipation→Impact→Recovery.
 ## Call instead of pulse_tool_use for full animation; keeps pulse as fallback.

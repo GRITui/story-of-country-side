@@ -39,6 +39,11 @@ func add_experience(skill_name: String, amount: int) -> void:
 		skill_leveled.emit(skill_name, new_level)
 		_check_for_perks(skill_name, new_level)
 
+## Alias for callers using the older `add_xp` name (FarmPlotManager, FishingManager,
+## ForagingManager, AnimalManager, MiningManager). Keeps both names working.
+func add_xp(skill_name: String, amount: int) -> void:
+	add_experience(skill_name, amount)
+
 func _check_for_perks(skill_name: String, level: int) -> void:
 	if MILESTONES.has(skill_name) and MILESTONES[skill_name].has(level):
 		var perk_desc = MILESTONES[skill_name][level]
