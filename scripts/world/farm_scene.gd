@@ -169,6 +169,9 @@ func _ready() -> void:
 	_add_player_avatar()
 	_add_villagers()
 	_add_day_night_overlay()
+	_wire_avatar_collision()
+	_ensure_mobile_controls()
+	_ensure_canvas_focus()
 
 	FarmPlotManager.crop_planted.connect(_on_crop_planted)
 	FarmPlotManager.crop_watered.connect(_on_crop_watered)
@@ -262,6 +265,46 @@ func _add_player_avatar() -> void:
 	_player_avatar = PlayerAvatar.new()
 	_player_avatar.position = _tilemap.map_to_local(Vector2i(GRID_WIDTH / 2, GRID_HEIGHT / 2))
 	_dynamic_layer.add_child(_player_avatar)
+
+## PO-16BIT-HCI-3: 12x8 feet collision — clamp avatar feet to grid bounds + prop blockers.
+## World bounds derived from TileMap extents; blocked rects from decorative props that are
+## solid (farmhouse, barn, fences, well, shipping_bin). Responsive via TileMap.map_to_local.
+func _wire_avatar_collision() -> void:
+	if _player_avatar == null or _tilemap == null:
+		return
+	# World bounds: grid extents expanded by half-tile so feet stay inside playable area.
+	var origin: Vector2 = _tilemap.map_to_local(Vector2i(0, 0))
+	var far: Vector2 = _tilemap.map_to_local(Vector2i(GRID_WIDTH - 1, GRID_HEIGHT - 1))
+	var min_x := minf(origin.x, far.x) - TILE_WIDTH * 0.5
+	var max_x := maxf(origin.x, far.x) + TILE_WIDTH * 0.5
+	var min_y := minf(origin.y, far.y) - TILE_HEIGHT * 0.5
+	var max_y := maxf(origin.y, far.y) + TILE_HEIGHT * 0.5
+	_player_avatar.set_world_bounds(Rect2(Vector2(min_x, min_y), Vector2(max_x - min_x, max_y - min_y)))
+	# Blocked rects: each decorative prop's feet 12x8 box expanded as solid.
+	var blocks: Array[Rect2] = []
+	for prop in DECORATIVE_PROPS:
+		var gp: Vector2 = _tilemap.map_to_local(prop["grid_pos"])
+		# House/barn/coop etc are solid — 48x32 approximate; fences narrower.
+		var path: String = prop["path"]
+		var is_fence := path.contains("fence")
+		var w := 24.0 if is_fence else 56.0
+		var h := 16.0 if is_fence else 32.0
+		blocks.append(Rect2(gp.x - w * 0.5, gp.y - h, w, h))
+	_player_avatar.set_blocked_rects(blocks)
+
+func _ensure_mobile_controls() -> void:
+	if has_node("/root/MobileControls"):
+		return
+	# Lazy instantiate mobile overlay if on touch device; MobileControls itself decides visibility.
+	var mc: Node = load("res://scenes/ui/MobileControls.tscn").instantiate()
+	add_child(mc)
+
+func _ensure_canvas_focus() -> void:
+	# Focus safety — Godot viewport focus is automatic; ensure HTML5 canvas is focused on mount/click.
+	if has_node("/root/InputMapManager"):
+		var imm: Node = get_node("/root/InputMapManager")
+		if imm.has_method("ensure_canvas_focus"):
+			imm.ensure_canvas_focus()
 
 ## Depth-sort container (#102, design/art/isometric-grid-spec.md section 4):
 ## a single YSort-enabled Node2D parent for every dynamic entity (player +
@@ -409,7 +452,14 @@ func _facing_tile() -> Vector2i:
 ## NPC/building exists yet either (out of scope for #123's v1), so a raw
 ## key check remains the simplest toggle that doesn't require either.
 func _unhandled_input(event: InputEvent) -> void:
+	# Prevent window scroll — consume wheel events (Godot doesn't scroll window but HTML5 host does).
+	if event is InputEventMouseButton and event.pressed:
+		if event.button_index == MOUSE_BUTTON_WHEEL_UP or event.button_index == MOUSE_BUTTON_WHEEL_DOWN \
+				or event.button_index == MOUSE_BUTTON_WHEEL_LEFT or event.button_index == MOUSE_BUTTON_WHEEL_RIGHT:
+			get_viewport().set_input_as_handled()
+			return
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		_ensure_canvas_focus()
 		var local_pos: Vector2 = _tilemap.to_local(get_global_mouse_position())
 		var clicked_npc := _npc_at_local_point(local_pos)
 		if clicked_npc != null:
@@ -417,7 +467,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			return
 		var cell: Vector2i = _tilemap.local_to_map(local_pos)
 		_handle_tile_click(cell)
-	elif event.is_action_pressed("interact"):
+	elif event.is_action_pressed("interact") or event.is_action_pressed("secondary_action") or event.is_action_pressed("primary_action"):
 		_handle_tile_click(_facing_tile())
 	elif event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_B:
 		_toggle_shop()

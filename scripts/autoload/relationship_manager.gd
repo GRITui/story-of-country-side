@@ -28,6 +28,9 @@ const GIFT_PREFERENCE_PATHS := {
 	"Tobias": "res://scripts/social/gift_preferences/tobias.tres",
 	"Sana": "res://scripts/social/gift_preferences/sana.tres",
 	"Colton": "res://scripts/social/gift_preferences/colton.tres",
+	"Elder Taro": "res://scripts/social/gift_preferences/elder_taro.tres",
+	"Hanako": "res://scripts/social/gift_preferences/hanako.tres",
+	"Takeshi": "res://scripts/social/gift_preferences/takeshi.tres",
 }
 
 var _points: Dictionary = {} ## npc_name -> int
@@ -93,6 +96,23 @@ func _register_default_content() -> void:
 	register_heart_event_dialogue("Tobias", 6, "Most people think I chase treasure because I want the gold. Truth is, I just like finding things nobody else bothered to look for. Lately that includes you.")
 	register_heart_event_dialogue("Tobias", 8, "I've traveled a long way looking for things worth keeping. Didn't expect to find one of them standing still, right here in town.")
 	register_heart_event_dialogue("Tobias", 10, "I've held rubies and gold and things men would kill for, and none of it ever felt like this. You're the rarest thing I've found, and I'm done looking.")
+
+	# PO-16BIT-WORLD-4 Japanese villagers
+	register_heart_event_dialogue("Elder Taro", 2, "You bowed properly at the shrine. Few young folk remember the old ways.")
+	register_heart_event_dialogue("Elder Taro", 4, "The river is patient. You sit with it the same way I do — that is worth more than words.")
+	register_heart_event_dialogue("Elder Taro", 6, "I have watched this village through four seasons of seasons. Watching you tend the fields reminds me why we stay.")
+	register_heart_event_dialogue("Elder Taro", 8, "When you bring me a turnip from your own field, I taste the work in it. That is the old blessing.")
+	register_heart_event_dialogue("Elder Taro", 10, "Child, the shrine will be yours to sweep someday. I cannot think of better hands.")
+	register_heart_event_dialogue("Hanako", 2, "You came to the store even when you did not need seeds. I noticed — and I saved you the best packet.")
+	register_heart_event_dialogue("Hanako", 4, "Running the store is lonely before the bell jingles. Your step is the one I listen for now.")
+	register_heart_event_dialogue("Hanako", 6, "I kept the shop open late last night because I thought you might come. That has never happened before.")
+	register_heart_event_dialogue("Hanako", 8, "The flowers you grow — I put one by the register so every customer sees what you made.")
+	register_heart_event_dialogue("Hanako", 10, "If you ever want to run this store together, the key is already yours. I just haven't found the words until now.")
+	register_heart_event_dialogue("Takeshi", 2, "You didn't flinch at the hammer. Most do.")
+	register_heart_event_dialogue("Takeshi", 4, "I made you a handle that fits your grip, not the standard size. Don't tell the other customers.")
+	register_heart_event_dialogue("Takeshi", 6, "The forge is hot and loud, but when you visit, the work feels lighter. Strange, that.")
+	register_heart_event_dialogue("Takeshi", 8, "I have hammered iron for twenty years. Nothing I have shaped makes me as proud as the day you first trusted me with your tools.")
+	register_heart_event_dialogue("Takeshi", 10, "Stay. The fire is warm, the steel is waiting, and I am tired of working alone.")
 
 func get_points(npc_name: String) -> int:
 	return _points.get(npc_name, 0)
