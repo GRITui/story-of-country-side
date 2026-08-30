@@ -1,0 +1,46 @@
+name: Test
+
+on:
+  push:
+    branches: [main, feat/jrl-art-pack, "feat/*", "fix/*"]
+  pull_request:
+    branches: [main, feat/jrl-art-pack]
+
+jobs:
+  godot-import-and-unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Godot 4.3
+        uses: chickensoft-games/setup-godot@v1
+        with:
+          version: 4.3.0
+          use-dotnet: false
+          include-templates: false
+      - name: Godot headless import
+        run: godot --headless --import 2>&1 | tail -20
+      - name: Run integration suite (headless)
+        run: godot --headless --path . --script res://tests/integration/test_16bit_qa_gdscript.gd 2>&1 | tail -50
+      - name: Check no missing JRL assets referenced
+        run: |
+          echo "Verifying no Western placeholder ids remain in scripts..."
+          ! grep -R --include="*.gd" --include="*.tres" -n '"parsnip"\|"cauliflower"\|"tomato"\|"pumpkin"\|"frost_kale"' scripts/ 2>/dev/null | grep -v "asset-manifest" || (echo "Stale Western ids found" && exit 1)
+          echo "No stale ids"
+          echo "Verifying export_presets.cfg exists..."
+          test -f export_presets.cfg || (echo "export_presets.cfg missing" && exit 1)
+          echo "Verifying washi/bento UI sheet exists..."
+          test -f assets/16bit/ui/ui_jp_sheet.png || test -f assets/16bit/ui/washi_panel.png || echo "UI sheet check skipped (generated assets)"
+
+  dead-duplicate-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Guard against duplicate manager files
+        run: |
+          if [ -f scripts/autoload/cooking_manager.gd ] || [ -f scripts/autoload/journal_manager.gd ]; then
+            echo "Dead duplicate managers still present (should have been deleted per #168)"
+            ls -lh scripts/autoload/cooking_manager.gd scripts/autoload/journal_manager.gd 2>&1
+            exit 1
+          fi
+          echo "No dead duplicates"

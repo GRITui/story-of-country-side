@@ -39,11 +39,16 @@ export const SOIL_STATE_NAMES: Record<SoilState, string> = {
 
 export type CropDef = { crop_id: string; valid_seasons: string[]; days_to_grow: number; regrowable: boolean; regrow_days: number; base_sell_price: number; seed_price: number };
 export const CROPS: Record<string, CropDef> = {
-  turnip:     { crop_id: 'turnip', valid_seasons: ['Spring','Fall'], days_to_grow: 4, regrowable: false, regrow_days: 0, base_sell_price: 40, seed_price: 10 },
-  radish:     { crop_id: 'radish', valid_seasons: ['Spring','Summer'], days_to_grow: 5, regrowable: false, regrow_days: 0, base_sell_price: 55, seed_price: 14 },
-  eggplant:   { crop_id: 'eggplant', valid_seasons: ['Summer','Fall'], days_to_grow: 7, regrowable: false, regrow_days: 0, base_sell_price: 90, seed_price: 22 },
-  strawberry: { crop_id: 'strawberry', valid_seasons: ['Spring','Summer'], days_to_grow: 6, regrowable: true, regrow_days: 3, base_sell_price: 30, seed_price: 20 },
-  rice:    { crop_id: 'rice', valid_seasons: ['Spring'], days_to_grow: 4, regrowable: false, regrow_days: 0, base_sell_price: 35, seed_price: 12 },
+  rice:         { crop_id: 'rice', valid_seasons: ['Spring'], days_to_grow: 4, regrowable: false, regrow_days: 0, base_sell_price: 35, seed_price: 12 },
+  daikon:       { crop_id: 'daikon', valid_seasons: ['Spring'], days_to_grow: 6, regrowable: false, regrow_days: 0, base_sell_price: 80, seed_price: 28 },
+  nasu:         { crop_id: 'nasu', valid_seasons: ['Summer'], days_to_grow: 5, regrowable: true, regrow_days: 3, base_sell_price: 45, seed_price: 30 },
+  watermelon:   { crop_id: 'watermelon', valid_seasons: ['Summer'], days_to_grow: 7, regrowable: false, regrow_days: 0, base_sell_price: 140, seed_price: 45 },
+  sweet_potato: { crop_id: 'sweet_potato', valid_seasons: ['Fall'], days_to_grow: 7, regrowable: false, regrow_days: 0, base_sell_price: 120, seed_price: 38 },
+  edamame:      { crop_id: 'edamame', valid_seasons: ['Fall'], days_to_grow: 8, regrowable: true, regrow_days: 4, base_sell_price: 55, seed_price: 38 },
+  turnip:       { crop_id: 'turnip', valid_seasons: ['Winter'], days_to_grow: 6, regrowable: false, regrow_days: 0, base_sell_price: 70, seed_price: 24 },
+  radish:       { crop_id: 'radish', valid_seasons: ['Spring','Summer'], days_to_grow: 5, regrowable: false, regrow_days: 0, base_sell_price: 55, seed_price: 14 },
+  eggplant:     { crop_id: 'eggplant', valid_seasons: ['Summer','Fall'], days_to_grow: 7, regrowable: false, regrow_days: 0, base_sell_price: 90, seed_price: 22 },
+  strawberry:   { crop_id: 'strawberry', valid_seasons: ['Spring','Summer'], days_to_grow: 6, regrowable: true, regrow_days: 3, base_sell_price: 30, seed_price: 20 },
 };
 
 export type TileMeta = { soilState: string; cropType: string; growthStage: number; daysWatered: number; daysWithoutWater: number; soil_state: SoilState };
