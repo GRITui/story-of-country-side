@@ -177,7 +177,7 @@ func give_gift(npc_name: String, item_id: String, preferences: GiftPreferenceTab
 ## rather than crashing or silently treating every item as neutral.
 func get_gift_emote(item_id: String, preferences: GiftPreferenceTable) -> String:
 	if preferences == null: return "emote_surprise"
-	var cat := preferences.get_category_for(item_id) if preferences.has_method("get_category_for") else "neutral"
+	var cat: String = preferences.get_category_for(item_id) if preferences.has_method("get_category_for") else "neutral"
 	if cat == "loved": return "emote_heart"
 	if cat == "liked": return "emote_surprise"
 	if cat == "disliked": return "emote_anger"

@@ -1,28 +1,42 @@
-name: Test
+name: CI
 
 on:
   push:
-    branches: [main, feat/jrl-art-pack, "feat/*", "fix/*"]
+    branches: ["**"]
   pull_request:
-    branches: [main, feat/jrl-art-pack]
+  workflow_dispatch:
 
 jobs:
-  godot-import-and-unit:
+  test-unit:
+    name: Godot headless unit + integration
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Godot 4.3
-        uses: chickensoft-games/setup-godot@v1
+
+      - name: Cache Godot import cache
+        uses: actions/cache@v4
         with:
-          version: 4.3.0
-          use-dotnet: false
-          include-templates: false
-      - name: Godot headless import
-        run: godot --headless --import 2>&1 | tail -20
-      - name: Run integration suite (headless)
-        run: godot --headless --path . --script res://tests/integration/test_16bit_qa_gdscript.gd 2>&1 | tail -50
-      - name: Check no missing JRL assets referenced
+          path: .godot
+          key: ${{ runner.os }}-godot-${{ hashFiles('project.godot', 'scripts/**') }}
+          restore-keys: |
+            ${{ runner.os }}-godot-
+
+      - name: Download Godot 4.3-stable headless binary
+        run: |
+          mkdir -p godot-bin
+          curl -L -o godot.zip https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_linux.x86_64.zip
+          unzip -q -o godot.zip -d godot-bin
+          chmod +x godot-bin/Godot_v4.3-stable_linux.x86_64
+          echo "$(pwd)/godot-bin" >> "$GITHUB_PATH"
+
+      - name: Import project assets
+        run: godot --headless --path . --import
+
+      - name: Run unit + integration suite
+        run: godot --headless --path . --script res://tests/integration/test_16bit_qa_gdscript.gd
+
+      - name: Check no missing JRL assets referenced (feat/jrl-art-pack guard)
         run: |
           echo "Verifying no Western placeholder ids remain in scripts..."
           ! grep -R --include="*.gd" --include="*.tres" -n '"parsnip"\|"cauliflower"\|"tomato"\|"pumpkin"\|"frost_kale"' scripts/ 2>/dev/null | grep -v "asset-manifest" || (echo "Stale Western ids found" && exit 1)
@@ -31,6 +45,28 @@ jobs:
           test -f export_presets.cfg || (echo "export_presets.cfg missing" && exit 1)
           echo "Verifying washi/bento UI sheet exists..."
           test -f assets/16bit/ui/ui_jp_sheet.png || test -f assets/16bit/ui/washi_panel.png || echo "UI sheet check skipped (generated assets)"
+
+  test-e2e:
+    name: Playwright e2e (mock canvas)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install chromium
+
+      - name: Run Playwright e2e spec
+        run: npm run test:e2e:headless
 
   dead-duplicate-guard:
     runs-on: ubuntu-latest
