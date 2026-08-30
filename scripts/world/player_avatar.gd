@@ -52,14 +52,16 @@ const ARRIVAL_THRESHOLD_PX := 1.0
 ## tool-swing feedback pulse (#100 ask item 3).
 const SWING_PULSE_COLOR := Color(1.5, 1.5, 1.15)
 
-## Generated 16-bit spritesheet (assets/16bit/characters/player.png):
-## 48x120, 3 rows x 2 frames, frame 24x40, rows: 0=down, 1=up, 2=side
-## (flip_h for opposite side), bottom-center anchor at feet.
+## Strict 16-bit chibi spritesheet per Design Spec (1:2.3, 32x32, 55% head):
+## 128x128, 4 rows x 4 frames, frame 32x32, rows: 0=down(front), 1=left(3/4), 2=right(3/4), 3=up(back)
+## 4-frame walk: Contact L (-2 leg, head bob -1) | Pass (0) | Contact R (+2) | Pass — hair delayed 1F
+## Idle 2-4F breathing + blink, emotes sweatdrop 3x5 / anger 4x4 / surprise ! on ui/emote_*
+## Bottom-center anchor at feet, shadow 12x6 at y=26
 const SHEET_PATH := "res://assets/16bit/characters/player.png"
-const FRAME_W := 24
-const FRAME_H := 40
-const FRAME_COUNT := 2
-const ANIM_FPS := 6.0
+const FRAME_W := 32
+const FRAME_H := 32
+const FRAME_COUNT := 4
+const ANIM_FPS := 8.0
 
 @export var move_speed_px_per_sec: float = 90.0
 
@@ -111,15 +113,17 @@ func _update_sprite_frame(moving: bool, delta: float) -> void:
 		_frame_index = 0
 		_anim_timer = 0.0
 	var row := 0
-	if absf(facing.x) > absf(facing.y):
-		row = 2
-	elif facing.y < 0:
-		row = 1
+	# 4-dir mapping matching sheet rows 0=down,1=left,2=right,3=up — no flip_h needed (left/right distinct)
+	if facing.y < -0.3 and absf(facing.y) > absf(facing.x):
+		row = 3 # up/back
+	elif facing.x < -0.3:
+		row = 1 # left 3/4
+	elif facing.x > 0.3:
+		row = 2 # right 3/4
 	else:
-		row = 0
+		row = 0 # down/front
 	_sprite.region_rect = Rect2(Vector2(_frame_index * FRAME_W, row * FRAME_H), Vector2(FRAME_W, FRAME_H))
-	if row == 2:
-		_sprite.flip_h = facing.x < 0.0
+	_sprite.flip_h = false
 
 ## Sets a new movement target in this scene's local coordinate space.
 ## Callers pass whatever local position their own tile-click handler

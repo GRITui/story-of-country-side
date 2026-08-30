@@ -13,12 +13,13 @@ signal arrived_at(location_name: String)
 const ARRIVAL_THRESHOLD_PX := 1.0
 const SPRITE_HEIGHT_PX := 48
 
-## Pixelart spritesheet spec matching assets/16bit/characters/<name>.png:
-## 48x120, 3 rows x 2 frames, frame 24x40, rows 0=down 1=up 2=side (flip_h).
-const FRAME_W := 24
-const FRAME_H := 40
-const FRAME_COUNT := 2
-const ANIM_FPS := 4.0
+## Strict 16-bit chibi spec (32x32, 1:2.3, 55% head):
+## 128x128, 4 rows x 4 frames, frame 32x32, rows 0=down(front),1=left(3/4),2=right(3/4),3=up(back)
+## Walk 4F: Contact L | Pass | Contact R | Pass — 1px head bob, hair delayed 1F
+const FRAME_W := 32
+const FRAME_H := 32
+const FRAME_COUNT := 4
+const ANIM_FPS := 8.0
 
 var _current_target: NPCScheduleEntry = null
 var _was_at_target := false
@@ -73,15 +74,16 @@ func _update_sprite_frame(moving: bool, delta: float) -> void:
 		_frame_index = 0
 		_anim_timer = 0.0
 	var row := 0
-	if absf(_facing.x) > absf(_facing.y):
-		row = 2
-	elif _facing.y < 0:
+	if _facing.y < -0.3 and absf(_facing.y) > absf(_facing.x):
+		row = 3
+	elif _facing.x < -0.3:
 		row = 1
+	elif _facing.x > 0.3:
+		row = 2
 	else:
 		row = 0
 	_sprite.region_rect = Rect2(Vector2(_frame_index * FRAME_W, row * FRAME_H), Vector2(FRAME_W, FRAME_H))
-	if row == 2:
-		_sprite.flip_h = _facing.x < 0.0
+	_sprite.flip_h = false
 
 
 func _on_minute_passed(hour: int, minute: int) -> void:
