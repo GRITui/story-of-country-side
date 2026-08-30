@@ -51,8 +51,8 @@ func _lut_for_hour(hour: int) -> Dictionary:
 	if LUT.has(hour):
 		return LUT[hour]
 	# Find lower/upper
-	var lower := keys[0]
-	var upper := keys[0]
+	var lower = keys[0]
+	var upper = keys[0]
 	var found_upper := false
 	for k in keys:
 		if k <= hour:
