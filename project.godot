@@ -31,9 +31,9 @@ MiningManager="*res://scripts/autoload/mining_manager.gd"
 CommunityGoalManager="*res://scripts/autoload/community_goal_manager.gd"
 WeatherManager="*res://scripts/autoload/weather_manager.gd"
 AudioManager="*res://scripts/autoload/audio_manager.gd"
-ShopManager="*res://scripts/autoload/shop_manager.gd"
-CookingManager="*res://scripts/autoload/cooking_manager.gd"
+JournalManager="*res://scripts/journal/journal_manager.gd"
 SaveManager="*res://scripts/autoload/save_manager.gd"
+CookingManager="*res://scripts/cooking/cooking_manager.gd"
 
 [input]
 

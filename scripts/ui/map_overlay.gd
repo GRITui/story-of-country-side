@@ -24,7 +24,7 @@ class_name MapOverlay
 signal travel_requested(location: String)
 signal closed
 
-const LOCATIONS := ["Farm", "Ranch", "Forage", "Mine"]
+const LOCATIONS := ["Farm", "Ranch", "Forage", "Mine", "SeaCoast", "Mountain"]
 
 @onready var _current_label: Label = $Root/Panel/Margin/VBox/CurrentLabel
 @onready var _location_list: VBoxContainer = $Root/Panel/Margin/VBox/LocationList

@@ -84,7 +84,7 @@ func build_save_data() -> Dictionary:
 		"mining": MiningManager.to_save_dict(),
 		"community_goals": CommunityGoalManager.to_save_dict(),
 		"weather": WeatherManager.to_save_dict(),
-		"cooking": CookingManager.to_save_dict(),
+		"journal": JournalManager.to_save_dict(),
 		"intro_seen": intro_seen,
 	}
 
@@ -121,8 +121,8 @@ func apply_save_data(data: Dictionary) -> void:
 		CommunityGoalManager.from_save_dict(data["community_goals"])
 	if data.has("weather"):
 		WeatherManager.from_save_dict(data["weather"])
-	if data.has("cooking"):
-		CookingManager.from_save_dict(data["cooking"])
+	if data.has("journal"):
+		JournalManager.from_save_dict(data["journal"])
 	if data.has("intro_seen"):
 		intro_seen = data["intro_seen"]
 	# Issue #90: the clock above is restored without firing day_started
@@ -158,7 +158,7 @@ func new_game() -> void:
 	MiningManager.from_save_dict({})
 	CommunityGoalManager.from_save_dict({})
 	WeatherManager.from_save_dict({})
-	CookingManager.from_save_dict({})
+	JournalManager.from_save_dict({})
 	intro_seen = false
 	FestivalManager.rederive_active_festival() # expire any live festival against the reset date
 	FarmPlotManager.grant_starting_seeds() # #91: seed economy starting grant

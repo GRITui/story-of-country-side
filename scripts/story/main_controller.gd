@@ -66,6 +66,8 @@ const LOCATION_SCENE_PATHS := {
 	"Ranch": "res://scenes/world/RanchScene.tscn",
 	"Forage": "res://scenes/world/ForageScene.tscn",
 	"Mine": "res://scenes/world/MineScene.tscn",
+	"SeaCoast": "res://scenes/world/SeaCoastScene.tscn",
+	"Mountain": "res://scenes/world/MountainScene.tscn",
 }
 const STARTING_LOCATION := "Farm"
 

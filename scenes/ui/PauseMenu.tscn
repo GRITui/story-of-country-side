@@ -66,6 +66,7 @@ text = "Community Goal"
 layout_mode = 2
 text = "Fishing"
 
+
 [node name="SettingsButton" type="Button" parent="Root/MenuPanel/Margin/VBox"]
 layout_mode = 2
 text = "Settings (not yet implemented)"
