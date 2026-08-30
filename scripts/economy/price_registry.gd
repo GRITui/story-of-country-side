@@ -1,17 +1,18 @@
 class_name PriceRegistry
 extends RefCounted
 ## Canonical price registry — single source of truth for item base prices.
-## Issue #96. Placeholder MVP balance — no final economy design exists.
+## Issue #96. Crop prices now carry the final economy values from the
+## balance blueprint (feat/econ-balance): starter parsnip 55g, regrow
+## money-makers tomato 55g / corn 60g, etc. Mirrors FarmPlotManager's
+## CropDefinition base_sell_price — keep the two in sync.
 ##
-## Other managers (FarmPlotManager, AnimalManager, FishingManager) still
-## own their own base_sell_price tables for now; this sprint only creates
-## the canonical registry and makes ShippingBinManager delegate to it.
-## Future refactors should migrate those tables here.
+## Other managers (AnimalManager, FishingManager) still own their own
+## base_sell_price tables; those categories are NOT yet rebalanced.
 ##
 ## Usage (static):
 ##   PriceRegistry.get_price("parsnip", "gold") -> int
 ##   PriceRegistry.get_base_price("parsnip") -> int
-##   PriceRegistry.register_price("parsnip", 35, "crop")
+##   PriceRegistry.register_price("parsnip", 55, "crop")
 
 const QUALITY_NORMAL := "normal"
 const QUALITY_SILVER := "silver"
@@ -35,19 +36,18 @@ static func _ensure_initialized() -> void:
 
 static func _register_default_prices() -> void:
 	# ------------------------------------------------------------------
-	# Placeholder MVP balance — mirrors existing CropDefinition /
-	# AnimalDefinition / FishDefinition / Forage values so numbers stay
-	# consistent if callers migrate to this registry.
-	# Categories: crop, animal_product, fish, forage, mineral, artisan, cooked
+	# Final economy crop values (feat/econ-balance blueprint) — mirrors
+	# FarmPlotManager CropDefinition.base_sell_price. Animal / fish /
+	# forage / mineral / artisan / cooked values remain MVP placeholders.
 	# ------------------------------------------------------------------
 	# Crops (from FarmPlotManager)
-	register_price("parsnip", 35, "crop")
-	register_price("cauliflower", 80, "crop")
-	register_price("tomato", 45, "crop")
-	register_price("melon", 140, "crop")
-	register_price("pumpkin", 120, "crop")
-	register_price("corn", 55, "crop")
-	register_price("frost_kale", 70, "crop")
+	register_price("parsnip", 55, "crop")
+	register_price("cauliflower", 120, "crop")
+	register_price("tomato", 55, "crop")
+	register_price("melon", 160, "crop")
+	register_price("pumpkin", 130, "crop")
+	register_price("corn", 60, "crop")
+	register_price("frost_kale", 80, "crop")
 	# Quality-suffixed variants share base price (quality handled via multiplier)
 	# No need to register parsnip_silver etc. — get_price strips suffix.
 

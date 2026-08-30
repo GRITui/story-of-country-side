@@ -34,6 +34,7 @@ func _init() -> void:
 	ok = ok and _run_collision()
 	ok = ok and _run_ysort()
 	ok = ok and _run_soil_state_contract()
+	ok = ok and _run_econ_math()
 	_header("SUMMARY")
 	print("PASS %d  FAIL %d" % [_pass, _fail])
 	if _fail > 0:
@@ -409,6 +410,47 @@ func _run_soil_state_contract() -> bool:
 	_assert(src.contains("daysWatered") or src.contains("days_watered"), "metadata has daysWatered", "")
 	_assert(src.contains("daysWithoutWater") or src.contains("days_without_water"), "metadata has daysWithoutWater", "")
 	print("  soil contract section done")
+	return true
+
+func _run_econ_math() -> bool:
+	_header("ECON MATH — EconMath utilities (feat/econ-balance)")
+	var script: GDScript = load("res://scripts/economy/econ_math.gd") as GDScript
+	if script == null:
+		print("  SKIP — econ_math.gd not loadable")
+		return true
+	# Tool stamina decay: cost(t) = max(min_cost, round(base - t*decay))
+	_assert(script.has_method("tool_stamina_cost"), "tool_stamina_cost exists", "")
+	var hoe: Array = []
+	for t in [0, 1, 2]:
+		hoe.append(script.tool_stamina_cost(t, 3, 0.6, 2))
+	_assert(hoe == [3, 2, 2], "hoe cost 3/2/2", str(hoe))
+	_assert(script.tool_stamina_cost(0, 2, 0.5, 1) == 2 and script.tool_stamina_cost(2, 2, 0.5, 1) == 1, "water cost 2/../1", "")
+	_assert(script.tool_stamina_cost(1, 5, 1.0, 3) == 4, "axe iron 4", "")
+	# AOE coverage
+	_assert(script.aoe_tiles(0, 2) == 1 and script.aoe_tiles(1, 2) == 3 and script.aoe_tiles(2, 2) == 5, "aoe 1/3/5", "")
+	_assert(script.aoe_tiles(2, 2, 3) == 3, "aoe cap 3", "")
+	# Growth days incl. season + missed water
+	_assert(script.season_growth_mult("Spring") == 1.0 and script.season_growth_mult("Summer") == 0.95, "season mult", "")
+	_assert(script.growth_days(4, 1.0, 0) == 4, "growth base 4", "")
+	_assert(script.growth_days(4, 1.0, 2) == 6, "growth +2 missed water", "")
+	_assert(script.growth_days(6, 0.85, 0) == 6, "growth cauli rich", "")
+	# Quality roll + expected multiplier
+	_assert(script.quality_from_roll(0.1, 0, 0) == "normal", "q roll normal", "")
+	_assert(script.quality_from_roll(0.98, 0, 0) == "gold", "q roll gold", "")
+	_assert(is_equal_approx(script.expected_quality_mult(0, 0), 1.0875), "qmult basic 1.0875", str(script.expected_quality_mult(0, 0)))
+	_assert(is_equal_approx(script.expected_quality_mult(2, 10), 1.1875), "qmult rich skill10 1.1875", str(script.expected_quality_mult(2, 10)))
+	# Net profit: parsnip 55g, copper, normal quality
+	var p_net: float = script.net_profit(55, 1.0, 1.0, 1, 12, 14.0, 2.0)
+	_assert(is_equal_approx(p_net, 55.0 - 12.0 - 28.0), "net profit parsnip 15", str(p_net))
+	# Leveling + relationship
+	_assert(script.xp_to_next(1) == 100, "xp 1->2 = 100", "")
+	_assert(script.hearts_from_points(49) == 0 and script.hearts_from_points(50) == 1, "hearts threshold 50", "")
+	_assert(script.hearts_from_points(505) == 10, "hearts cap 10", "")
+	# Market: deterministic + bounded
+	var m1: float = script.market_price_mult("parsnip", 10, "crop")
+	_assert(m1 == script.market_price_mult("parsnip", 10, "crop"), "market deterministic", "")
+	_assert(m1 >= 0.85 and m1 <= 1.25, "market in [0.85,1.25]", str(m1))
+	print("  econ math section done")
 	return true
 
 func add_root(n: Node) -> void:
