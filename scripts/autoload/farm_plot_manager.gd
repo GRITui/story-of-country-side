@@ -66,14 +66,15 @@ func _ready() -> void:
 		TimeManager.day_started.connect(_on_day_started)
 
 func _register_default_content() -> void:
-	# Existing roster (keep for compat)
-	register_crop(_make_crop("parsnip", "Parsnip", ["Spring"], 4, false, 0, 35, 4, 12))
-	register_crop(_make_crop("cauliflower", "Cauliflower", ["Spring"], 6, false, 0, 80, 8, 28))
-	register_crop(_make_crop("tomato", "Tomato", ["Summer"], 5, true, 3, 45, 6, 30))
-	register_crop(_make_crop("melon", "Melon", ["Summer"], 7, false, 0, 140, 12, 45))
-	register_crop(_make_crop("pumpkin", "Pumpkin", ["Fall"], 7, false, 0, 120, 12, 38))
-	register_crop(_make_crop("corn", "Corn", ["Fall"], 8, true, 4, 55, 6, 38))
-	register_crop(_make_crop("frost_kale", "Frost Kale", ["Winter"], 6, false, 0, 70, 7, 24))
+	# Existing roster (keep for compat) — sell/seed values from the
+	# econ-balance blueprint; growth days / seasons / xp unchanged.
+	register_crop(_make_crop("parsnip", "Parsnip", ["Spring"], 4, false, 0, 55, 4, 12))
+	register_crop(_make_crop("cauliflower", "Cauliflower", ["Spring"], 6, false, 0, 120, 8, 45))
+	register_crop(_make_crop("tomato", "Tomato", ["Summer"], 5, true, 3, 55, 6, 30))
+	register_crop(_make_crop("melon", "Melon", ["Summer"], 7, false, 0, 160, 12, 70))
+	register_crop(_make_crop("pumpkin", "Pumpkin", ["Fall"], 7, false, 0, 130, 12, 60))
+	register_crop(_make_crop("corn", "Corn", ["Fall"], 8, true, 4, 60, 6, 35))
+	register_crop(_make_crop("frost_kale", "Frost Kale", ["Winter"], 6, false, 0, 80, 7, 40))
 	# PO-16BIT-CORE-1 new crops
 	register_crop(_make_crop("turnip", "Turnip", ["Spring", "Fall"], 4, false, 0, 40, 5, 10))
 	register_crop(_make_crop("radish", "Radish", ["Spring", "Summer"], 5, false, 0, 55, 6, 14))
