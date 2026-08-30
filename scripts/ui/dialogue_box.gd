@@ -7,8 +7,8 @@ class_name DialogueBox
 ## Usage:
 ##   var box := load("res://scenes/ui/DialogueBox.tscn").instantiate()
 ##   add_child(box)
-##   box.show_dialogue("Elena", "res://assets/16bit/characters/elena_idle.png", "Hello, farmer!")
-##   box.show_dialogue("Elena", portrait, "Second line", "sweatdrop") # with emote
+##   box.show_dialogue("Chiyo", "res://assets/16bit/characters/npc_chiyo.png", "Hello, farmer!")
+##   box.show_dialogue("Chiyo", portrait, "Second line", "sweatdrop") # with emote
 ##   box.advance() — if typing, skip; else close/next
 ##
 ## Audio blip via AudioManager.play_sfx("dialogue_blip") if registered; falls back to no crash.

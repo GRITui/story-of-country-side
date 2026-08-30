@@ -17,9 +17,9 @@ func _ready() -> void:
 func _register_default_recipes() -> void:
 	# Default "Cozy" recipes
 	var soup = CookingRecipe.new()
-	soup.recipe_id = "parsnip_soup"
-	soup.display_name = "Hearty Parsnip Soup"
-	soup.ingredients = {"parsnip": 2}
+	soup.recipe_id = "rice_soup"
+	soup.display_name = "Hearty Rice Soup"
+	soup.ingredients = {"rice": 2}
 	soup.stamina_restore = 30
 	soup.description = "A warm, comforting soup. Restores some stamina."
 	register_recipe(soup)
@@ -27,7 +27,7 @@ func _register_default_recipes() -> void:
 	var salad = CookingRecipe.new()
 	salad.recipe_id = "garden_salad"
 	salad.display_name = "Fresh Garden Salad"
-	salad.ingredients = {"tomato": 1, "cauliflower": 1}
+	salad.ingredients = {"nasu": 1, "daikon": 1}
 	salad.stamina_restore = 20
 	salad.description = "Crisp and refreshing. A light stamina boost."
 	register_recipe(salad)

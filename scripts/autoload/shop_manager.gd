@@ -31,20 +31,20 @@ var _seeds: Dictionary = {} # seed_id -> SeedDefinition
 func _ready() -> void:
 	_register_default_content()
 
-## One entry per registered crop (parsnip/cauliflower/tomato/melon/pumpkin/
-## corn/frost_kale). Placeholder pricing heuristic until ORCH-002: roughly
+## One entry per registered crop (rice/daikon/nasu/watermelon/sweet_potato/
+## edamame/turnip). Placeholder pricing heuristic until ORCH-002: roughly
 ## 40-60% of the crop's base sell price for single-harvest crops (one
 ## good harvest repays several seeds), cheaper per-seed for regrowables
 ## whose first harvest repeats. Numbers are round and provisional ON
 ## PURPOSE -- a content balance pass owns them, not this file's structure.
 func _register_default_content() -> void:
-	register_seed(_make_seed("parsnip_seed", "Parsnip Seeds", "parsnip", 20, "Spring"))
-	register_seed(_make_seed("cauliflower_seed", "Cauliflower Seeds", "cauliflower", 40, "Spring"))
-	register_seed(_make_seed("tomato_seed", "Tomato Seeds", "tomato", 25, "Summer"))
-	register_seed(_make_seed("melon_seed", "Melon Seeds", "melon", 60, "Summer"))
-	register_seed(_make_seed("pumpkin_seed", "Pumpkin Seeds", "pumpkin", 55, "Fall"))
-	register_seed(_make_seed("corn_seed", "Corn Seeds", "corn", 30, "Fall"))
-	register_seed(_make_seed("frost_kale_seed", "Frost Kale Seeds", "frost_kale", 35, "Winter"))
+	register_seed(_make_seed("rice_seed", "Rice Seeds", "rice", 20, "Spring"))
+	register_seed(_make_seed("daikon_seed", "Daikon Seeds", "daikon", 40, "Spring"))
+	register_seed(_make_seed("nasu_seed", "Nasu Seeds", "nasu", 25, "Summer"))
+	register_seed(_make_seed("watermelon_seed", "Watermelon Seeds", "watermelon", 60, "Summer"))
+	register_seed(_make_seed("sweet_potato_seed", "Sweet Potato Seeds", "sweet_potato", 55, "Fall"))
+	register_seed(_make_seed("edamame_seed", "Edamame Seeds", "edamame", 30, "Fall"))
+	register_seed(_make_seed("turnip_seed", "Turnip Seeds", "turnip", 35, "Winter"))
 
 func _make_seed(seed_id: String, display_name: String, crop_id: String, price: int, season: String) -> SeedDefinition:
 	var def := SeedDefinition.new()

@@ -3,7 +3,7 @@ class_name ShopOverlay
 ## Minimal Seed Shop overlay (issue #123, the UI-hook gap PR #122/ENG-91
 ## flagged): `FarmPlotManager.buy_seed(crop_id, quantity)` landed as a
 ## callable backend method with no scene/UI hook at all -- the starting
-## grant (8 parsnip seeds) covers day 1, but there was no restock path
+## grant (8 rice seeds) covers day 1, but there was no restock path
 ## once those ran out. This overlay is the smallest player-facing
 ## purchase surface: one row per purchasable seed type (display name +
 ## `CropDefinition.seed_price`), a Buy (x1) button that calls

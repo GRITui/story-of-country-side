@@ -10,9 +10,9 @@ extends Resource
 ## farming an infinite money printer (sprint-002 P1).
 ##
 ## Item-id convention: a seed's inventory item_id is "<crop_id>_seed"
-## (e.g. "parsnip_seed"), mirroring how FarmPlotManager encodes quality
-## tiers into harvested-item ids ("parsnip_gold"). The crop itself keeps
-## its plain id ("parsnip") for its harvested-item ids. One convention,
+## (e.g. "rice_seed"), mirroring how FarmPlotManager encodes quality
+## tiers into harvested-item ids ("rice_gold"). The crop itself keeps
+## its plain id ("rice") for its harvested-item ids. One convention,
 ## documented here and consumed by FarmPlotManager.get_seed_id() /
 ## ShopManager.
 ##

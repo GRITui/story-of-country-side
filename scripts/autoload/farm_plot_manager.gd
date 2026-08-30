@@ -12,7 +12,7 @@ signal seed_purchased(crop_id: String, quantity: int, total_cost: int)
 signal soil_tilled(position: Vector2i)
 signal soil_state_changed(position: Vector2i, new_state: int)
 
-const STARTING_SEED_CROP_ID := "parsnip"
+const STARTING_SEED_CROP_ID := "rice"
 const STARTING_SEED_QUANTITY := 8
 
 const QUALITY_NORMAL := "normal"
@@ -66,16 +66,15 @@ func _ready() -> void:
 		TimeManager.day_started.connect(_on_day_started)
 
 func _register_default_content() -> void:
-	# Existing roster (keep for compat)
-	register_crop(_make_crop("parsnip", "Parsnip", ["Spring"], 4, false, 0, 35, 4, 12))
-	register_crop(_make_crop("cauliflower", "Cauliflower", ["Spring"], 6, false, 0, 80, 8, 28))
-	register_crop(_make_crop("tomato", "Tomato", ["Summer"], 5, true, 3, 45, 6, 30))
-	register_crop(_make_crop("melon", "Melon", ["Summer"], 7, false, 0, 140, 12, 45))
-	register_crop(_make_crop("pumpkin", "Pumpkin", ["Fall"], 7, false, 0, 120, 12, 38))
-	register_crop(_make_crop("corn", "Corn", ["Fall"], 8, true, 4, 55, 6, 38))
-	register_crop(_make_crop("frost_kale", "Frost Kale", ["Winter"], 6, false, 0, 70, 7, 24))
-	# PO-16BIT-CORE-1 new crops
-	register_crop(_make_crop("turnip", "Turnip", ["Spring", "Fall"], 4, false, 0, 40, 5, 10))
+	# JRL pack (feat/jrl-art-pack, #195) — Western placeholders replaced.
+	# Stats/seasons preserved from original balance; ids now JRL canonical.
+	register_crop(_make_crop("rice", "Rice", ["Spring"], 4, false, 0, 35, 4, 12))
+	register_crop(_make_crop("daikon", "Daikon", ["Spring"], 6, false, 0, 80, 8, 28))
+	register_crop(_make_crop("nasu", "Nasu", ["Summer"], 5, true, 3, 45, 6, 30))
+	register_crop(_make_crop("watermelon", "Watermelon", ["Summer"], 7, false, 0, 140, 12, 45))
+	register_crop(_make_crop("sweet_potato", "Sweet Potato", ["Fall"], 7, false, 0, 120, 12, 38))
+	register_crop(_make_crop("edamame", "Edamame", ["Fall"], 8, true, 4, 55, 6, 38))
+	register_crop(_make_crop("turnip", "Turnip", ["Winter"], 6, false, 0, 70, 7, 24))
 	register_crop(_make_crop("radish", "Radish", ["Spring", "Summer"], 5, false, 0, 55, 6, 14))
 	register_crop(_make_crop("eggplant", "Eggplant", ["Summer", "Fall"], 7, false, 0, 90, 10, 22))
 	register_crop(_make_crop("strawberry", "Strawberry", ["Spring", "Summer"], 6, true, 3, 30, 5, 20))

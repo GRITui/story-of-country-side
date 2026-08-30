@@ -102,10 +102,10 @@ func _phase_retail() -> void:
 	var gold0: int = bin.gold
 
 	# UC01 - happy path: stock in, listed at a price, sits in bin overnight.
-	inv.add_item("parsnip", 10)
-	var r01 := inv.sell_item("parsnip", 10, 35)
+	inv.add_item("rice", 10)
+	var r01 := inv.sell_item("rice", 10, 35)
 	_check(r01, "UC01", "sell_item accepted full stock")
-	_check(inv.get_count("parsnip") == 0, "UC01", "inventory decremented to 0")
+	_check(inv.get_count("rice") == 0, "UC01", "inventory decremented to 0")
 	_check(bin.pending_item_count() == 10, "UC01", "bin holds 10 pending units")
 
 	# UC04 - oversell must be rejected with ledger untouched.
@@ -121,26 +121,26 @@ func _phase_retail() -> void:
 
 	# UC02 - retailer lists goods at price 0 (misconfigured price feed).
 	# EXPECTED: reject, stock stays. Watch for silent stock destruction.
-	inv.add_item("cauliflower", 3)
-	var r02 := inv.sell_item("cauliflower", 3, 0)
+	inv.add_item("daikon", 3)
+	var r02 := inv.sell_item("daikon", 3, 0)
 	if not _check(r02 == false, "UC02",
-			"zero-price listing rejected (got accept=%s, cauliflower_left=%d, pending=%d)"
-					% [str(r02), inv.get_count("cauliflower"), bin.pending_item_count()]):
+			"zero-price listing rejected (got accept=%s, daikon_left=%d, pending=%d)"
+					% [str(r02), inv.get_count("daikon"), bin.pending_item_count()]):
 		print("[SU3] UC02 DAMAGE: goods left inventory but no payable shipment exists")
 
 	# UC03 - negative price variant of the same contract hole.
-	inv.add_item("melon", 2)
-	var r03 := inv.sell_item("melon", 2, -5)
+	inv.add_item("watermelon", 2)
+	var r03 := inv.sell_item("watermelon", 2, -5)
 	if not _check(r03 == false, "UC03",
-			"negative-price listing rejected (got accept=%s, melon_left=%d)"
-					% [str(r03), inv.get_count("melon")]):
+			"negative-price listing rejected (got accept=%s, watermelon_left=%d)"
+					% [str(r03), inv.get_count("watermelon")]):
 		print("[SU3] UC03 DAMAGE: goods left inventory on a negative-price sale")
 
 	# UC06 - quality-tier style multi-line shipment, exact overnight math.
 	inv.add_item("turnip", 6)
 	inv.sell_item("turnip", 4, 12)  # normal tier
 	inv.sell_item("turnip", 2, 15)  # silver tier
-	# pending = 10 parsnip + (4x12 + 2x15 turnip) -> payout 350+48+30 = 428
+	# pending = 10 rice + (4x12 + 2x15 turnip) -> payout 350+48+30 = 428
 	_check(bin.pending_item_count() == 16, "UC06", "16 pending units across 3 price lines")
 
 	# UC07 - quit-mid-day persistence: save, corrupt in-memory state, reload.
@@ -187,5 +187,5 @@ func _phase_retail() -> void:
 	# quality ids to prices? Print the surface a future shop UI would need.
 	print("[SU3-NOTE] price sources today: CropDefinition.base_sell_price "
 			+ "(normal id only), FarmPlotManager quality multipliers, caller-supplied "
-			+ "unit_price into sell_item(); no canonical lookup for 'parsnip_silver' etc.")
+			+ "unit_price into sell_item(); no canonical lookup for 'rice_silver' etc.")
 

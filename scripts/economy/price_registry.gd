@@ -9,9 +9,9 @@ extends RefCounted
 ## Future refactors should migrate those tables here.
 ##
 ## Usage (static):
-##   PriceRegistry.get_price("parsnip", "gold") -> int
-##   PriceRegistry.get_base_price("parsnip") -> int
-##   PriceRegistry.register_price("parsnip", 35, "crop")
+##   PriceRegistry.get_price("rice", "gold") -> int
+##   PriceRegistry.get_base_price("rice") -> int
+##   PriceRegistry.register_price("rice", 35, "crop")
 
 const QUALITY_NORMAL := "normal"
 const QUALITY_SILVER := "silver"
@@ -40,16 +40,20 @@ static func _register_default_prices() -> void:
 	# consistent if callers migrate to this registry.
 	# Categories: crop, animal_product, fish, forage, mineral, artisan, cooked
 	# ------------------------------------------------------------------
-	# Crops (from FarmPlotManager)
-	register_price("parsnip", 35, "crop")
-	register_price("cauliflower", 80, "crop")
-	register_price("tomato", 45, "crop")
-	register_price("melon", 140, "crop")
-	register_price("pumpkin", 120, "crop")
-	register_price("corn", 55, "crop")
-	register_price("frost_kale", 70, "crop")
+	# Crops (from FarmPlotManager) — JRL pack (#195)
+	register_price("rice", 35, "crop")
+	register_price("daikon", 80, "crop")
+	register_price("nasu", 45, "crop")
+	register_price("watermelon", 140, "crop")
+	register_price("sweet_potato", 120, "crop")
+	register_price("edamame", 55, "crop")
+	register_price("turnip", 70, "crop")
+	# Legacy PO-16BIT extras still in FarmPlotManager
+	register_price("radish", 55, "crop")
+	register_price("eggplant", 90, "crop")
+	register_price("strawberry", 30, "crop")
 	# Quality-suffixed variants share base price (quality handled via multiplier)
-	# No need to register parsnip_silver etc. — get_price strips suffix.
+	# No need to register rice_silver etc. — get_price strips suffix.
 
 	# Animal products (from AnimalManager)
 	register_price("egg", 20, "animal_product")
@@ -83,11 +87,11 @@ static func _register_default_prices() -> void:
 	register_price("fruit", 15, "crop")
 	register_price("vegetable", 15, "crop")
 
-	# Cooked food (from CookingManager)
-	register_price("parsnip_soup", 50, "cooked")
-	register_price("cauliflower_stew", 90, "cooked")
-	register_price("tomato_soup", 60, "cooked")
-	register_price("pumpkin_pie", 130, "cooked")
+	# Cooked food (from CookingManager) — JRL pack (#195)
+	register_price("onigiri", 50, "cooked")
+	register_price("daikon_stew", 90, "cooked")
+	register_price("nasu_miso_soup", 60, "cooked")
+	register_price("sweet_potato_pie", 130, "cooked")
 	register_price("fish_stew", 70, "cooked")
 
 static func register_price(item_id: String, base_price: int, category: String = "misc") -> void:
@@ -135,7 +139,7 @@ static func get_all_prices() -> Dictionary:
 	return _prices.duplicate(true)
 
 static func _strip_quality_suffix(item_id: String) -> String:
-	# Item ids encode quality as suffix: "parsnip_gold", "parsnip_silver".
+	# Item ids encode quality as suffix: "rice_gold", "rice_silver".
 	# Registry stores base id only. Strip known suffixes.
 	if item_id.ends_with("_gold"):
 		return item_id.substr(0, item_id.length() - 5)

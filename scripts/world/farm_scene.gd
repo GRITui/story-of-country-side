@@ -60,7 +60,7 @@ class_name FarmScene
 ##
 ## Interaction (stretch goal, included): clicking a tile plants/waters/
 ## harvests it via FarmPlotManager's public methods, using a single
-## hardcoded seed choice ("parsnip") for planting since there is no seed-
+## hardcoded seed choice ("rice") for planting since there is no seed-
 ## selection UI/hotbar-binding yet (HUD's own docstring already flags the
 ## hotbar has no real item binding -- same gap, not re-solved here). This is
 ## a placeholder interaction model, not a designed one.
@@ -122,8 +122,8 @@ const STATE_COLORS := {
 }
 
 ## Hardcoded placeholder planting choice — see class docstring. Only used
-## by the click-to-plant stretch interaction below.
-const PLACEHOLDER_PLANT_CROP_ID := "parsnip"
+## by the click-to-plant stretch interaction below. JRL pack: "rice" (#195).
+const PLACEHOLDER_PLANT_CROP_ID := "rice"
 
 const ATLAS_SOURCE_ID := 0
 ## Matches NPCRoster.NPC_HOME_SCENE's "Farm" value -- see npc_roster.gd.

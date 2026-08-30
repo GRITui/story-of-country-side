@@ -20,7 +20,7 @@ extends Node
 signal item_changed(item_id: String, delta: int, total: int)
 
 const STARTER_SEEDS: Dictionary = {
-	"parsnip_seed": 15,
+	"rice_seed": 15,
 }
 
 var _counts: Dictionary = {} # item_id -> int

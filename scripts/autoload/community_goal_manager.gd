@@ -48,7 +48,7 @@ func _ready() -> void:
 ## touched, so no test needed updating.
 func _register_default_content() -> void:
 	register_bundle(_make_bundle("pantry_bundle", "Pantry Bundle",
-		{"parsnip": 3, "tomato": 2, "pumpkin": 1}))
+		{"rice": 3, "nasu": 2, "sweet_potato": 1}))
 	register_bundle(_make_bundle("coop_bundle", "Coop Bundle",
 		{"egg": 3, "milk": 2, "wool": 2}))
 	register_bundle(_make_bundle("fish_tank_bundle", "Fish Tank Bundle",
@@ -59,7 +59,7 @@ func _register_default_content() -> void:
 		{"wild_berries": 3, "mushroom": 2, "snow_truffle": 1}))
 
 	register_bundle(_make_bundle("orchard_bundle", "Orchard Bundle",
-		{"melon": 2, "corn": 3, "cauliflower": 2}))
+		{"watermelon": 2, "edamame": 3, "daikon": 2}))
 	register_bundle(_make_bundle("deluxe_coop_bundle", "Deluxe Coop Bundle",
 		{"duck_egg": 3, "goat_milk": 2}))
 	register_bundle(_make_bundle("night_anglers_bundle", "Night Angler's Bundle",

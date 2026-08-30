@@ -13,13 +13,13 @@ const STEPS = [
 	{
 		"id": "TUT_01_PLANT",
 		"title": "Welcome to the Valley!",
-		"desc": "Let's start your farm. Plant a parsnip seed.",
+		"desc": "Let's start your farm. Plant a rice seed.",
 		"condition": func(): return QuestManager.is_completed("TUT_01_PLANT")
 	},
 	{
 		"id": "TUT_02_WATER",
 		"title": "Nurture Your Crops",
-		"desc": "Plants need water to grow. Water your parsnip.",
+		"desc": "Plants need water to grow. Water your rice.",
 		"condition": func(): return QuestManager.is_completed("TUT_02_WATER")
 	},
 	{

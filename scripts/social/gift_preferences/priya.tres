@@ -4,7 +4,7 @@
 
 [resource]
 script = ExtResource("1")
-loved_items = Array[String](["cauliflower", "corn", "duck_egg"])
-liked_items = Array[String](["pumpkin", "tomato", "mushroom", "milk"])
+loved_items = Array[String](["daikon", "edamame", "duck_egg"])
+liked_items = Array[String](["sweet_potato", "nasu", "mushroom", "milk"])
 disliked_items = Array[String](["stone", "iron_ore"])
 hated_items = Array[String](["carp", "sardine"])

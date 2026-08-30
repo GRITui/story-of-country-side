@@ -3,7 +3,7 @@ extends Node
 ##
 ## Kitchen recipes: consume ingredients via InventoryManager, produce stamina
 ## food, gated on InfrastructureManager.is_cooking_unlocked(). Register via
-## register_recipe(). 5 starter recipes (parsnip soup, etc.)
+## register_recipe(). 5 starter recipes (onigiri, etc. — JRL pack #195)
 ## Issue #109. Placeholder MVP balance — no final cooking design exists.
 
 signal recipe_registered(recipe_id: String)
@@ -85,22 +85,22 @@ func _make_recipe(recipe_id: String, display_name: String, ingredients: Dictiona
 	return r
 
 func _register_default_recipes() -> void:
-	# 5 starter recipes — placeholder MVP balance, documented as such.
+	# 5 starter recipes — JRL pack (#195), balance preserved from Western set.
 	register_recipe(_make_recipe(
-		"parsnip_soup", "Parsnip Soup",
-		{"parsnip": 3}, "parsnip_soup", 1, 30,
-		"A warm soup that restores stamina."))
+		"onigiri", "Onigiri",
+		{"rice": 3}, "onigiri", 1, 30,
+		"A warm rice ball that restores stamina."))
 	register_recipe(_make_recipe(
-		"cauliflower_stew", "Cauliflower Stew",
-		{"cauliflower": 1, "parsnip": 1}, "cauliflower_stew", 1, 40,
+		"daikon_stew", "Daikon Stew",
+		{"daikon": 1, "rice": 1}, "daikon_stew", 1, 40,
 		"Hearty stew for a hard day's work."))
 	register_recipe(_make_recipe(
-		"tomato_soup", "Tomato Soup",
-		{"tomato": 2}, "tomato_soup", 1, 25,
+		"nasu_miso_soup", "Nasu Miso Soup",
+		{"nasu": 2}, "nasu_miso_soup", 1, 25,
 		"Light and tangy."))
 	register_recipe(_make_recipe(
-		"pumpkin_pie", "Pumpkin Pie",
-		{"pumpkin": 1, "egg": 1}, "pumpkin_pie", 1, 45,
+		"sweet_potato_pie", "Sweet Potato Pie",
+		{"sweet_potato": 1, "egg": 1}, "sweet_potato_pie", 1, 45,
 		"Sweet, filling, and great for stamina."))
 	register_recipe(_make_recipe(
 		"fish_stew", "Fish Stew",
