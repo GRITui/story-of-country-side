@@ -66,14 +66,15 @@ func _ready() -> void:
 		TimeManager.day_started.connect(_on_day_started)
 
 func _register_default_content() -> void:
-	# Existing roster (keep for compat)
-	register_crop(_make_crop("parsnip", "Parsnip", ["Spring"], 4, false, 0, 35, 4, 12))
-	register_crop(_make_crop("cauliflower", "Cauliflower", ["Spring"], 6, false, 0, 80, 8, 28))
-	register_crop(_make_crop("tomato", "Tomato", ["Summer"], 5, true, 3, 45, 6, 30))
-	register_crop(_make_crop("melon", "Melon", ["Summer"], 7, false, 0, 140, 12, 45))
-	register_crop(_make_crop("pumpkin", "Pumpkin", ["Fall"], 7, false, 0, 120, 12, 38))
-	register_crop(_make_crop("corn", "Corn", ["Fall"], 8, true, 4, 55, 6, 38))
-	register_crop(_make_crop("frost_kale", "Frost Kale", ["Winter"], 6, false, 0, 70, 7, 24))
+	# Existing roster (keep for compat) — sell/seed values from the
+	# econ-balance blueprint; growth days / seasons / xp unchanged.
+	register_crop(_make_crop("parsnip", "Parsnip", ["Spring"], 4, false, 0, 55, 4, 12))
+	register_crop(_make_crop("cauliflower", "Cauliflower", ["Spring"], 6, false, 0, 120, 8, 45))
+	register_crop(_make_crop("tomato", "Tomato", ["Summer"], 5, true, 3, 55, 6, 30))
+	register_crop(_make_crop("melon", "Melon", ["Summer"], 7, false, 0, 160, 12, 70))
+	register_crop(_make_crop("pumpkin", "Pumpkin", ["Fall"], 7, false, 0, 130, 12, 60))
+	register_crop(_make_crop("corn", "Corn", ["Fall"], 8, true, 4, 60, 6, 35))
+	register_crop(_make_crop("frost_kale", "Frost Kale", ["Winter"], 6, false, 0, 80, 7, 40))
 	# PO-16BIT-CORE-1 new crops
 	register_crop(_make_crop("turnip", "Turnip", ["Spring", "Fall"], 4, false, 0, 40, 5, 10))
 	register_crop(_make_crop("radish", "Radish", ["Spring", "Summer"], 5, false, 0, 55, 6, 14))
@@ -422,12 +423,23 @@ func get_item_id(crop_id: String, quality: String) -> String:
 		return crop_id
 	return "%s_%s" % [crop_id, quality]
 
+func get_base_sell_price(crop_id: String) -> int:
+	# Canonical source of truth is PriceRegistry (#96/#172); fall back to the
+	# CropDefinition for ids not yet registered so behavior stays backward-compatible.
+	var registry_price: int = PriceRegistry.get_base_price(crop_id)
+	if registry_price > 0:
+		return registry_price
+	var def: CropDefinition = _definitions.get(crop_id)
+	if def != null:
+		return def.base_sell_price
+	return 0
+
 func get_sell_price(crop_id: String, quality: String) -> int:
 	var def: CropDefinition = _definitions.get(crop_id)
 	if def == null:
 		return 0
 	var mult: float = QUALITY_PRICE_MULTIPLIER.get(quality, 1.0)
-	return int(round(def.base_sell_price * mult))
+	return int(round(get_base_sell_price(crop_id) * mult))
 
 func _roll_quality() -> String:
 	var r := _rng.randf() * 100.0

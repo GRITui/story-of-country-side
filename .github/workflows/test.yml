@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test-unit:
+    name: Godot headless unit + integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache Godot import cache
+        uses: actions/cache@v4
+        with:
+          path: .godot
+          key: ${{ runner.os }}-godot-${{ hashFiles('project.godot', 'scripts/**') }}
+          restore-keys: |
+            ${{ runner.os }}-godot-
+
+      - name: Download Godot 4.3-stable headless binary
+        run: |
+          mkdir -p godot-bin
+          curl -L -o godot.zip https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_linux.x86_64.zip
+          unzip -q -o godot.zip -d godot-bin
+          chmod +x godot-bin/Godot_v4.3-stable_linux.x86_64
+          echo "$(pwd)/godot-bin" >> "$GITHUB_PATH"
+
+      - name: Import project assets
+        run: godot --headless --path . --import
+
+      - name: Run unit + integration suite
+        run: godot --headless --path . --script res://tests/integration/test_16bit_qa_gdscript.gd
+
+  test-e2e:
+    name: Playwright e2e (mock canvas)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install chromium
+
+      - name: Run Playwright e2e spec
+        run: npm run test:e2e:headless
