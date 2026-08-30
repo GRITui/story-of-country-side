@@ -34,6 +34,7 @@ func _init() -> void:
 	ok = ok and _run_collision()
 	ok = ok and _run_ysort()
 	ok = ok and _run_soil_state_contract()
+	ok = ok and _run_price_registry()
 	_header("SUMMARY")
 	print("PASS %d  FAIL %d" % [_pass, _fail])
 	if _fail > 0:
@@ -413,3 +414,72 @@ func _run_soil_state_contract() -> bool:
 
 func add_root(n: Node) -> void:
 	get_root().add_child(n)
+
+# ---------------------------------------------------------------------------
+# Price registry enforcement + balance bands (#172) — PO-16BIT-QA-6
+# ---------------------------------------------------------------------------
+const _BANDS := {
+	"crop": {"min": 10, "max": 250},
+	"forage": {"min": 1, "max": 50},
+	"mineral": {"min": 1, "max": 150},
+	"fish": {"min": 10, "max": 200},
+	"animal_product": {"min": 10, "max": 100},
+	"artisan": {"min": 10, "max": 300},
+	"cooked": {"min": 20, "max": 200},
+}
+
+func _run_price_registry() -> bool:
+	_header("PRICE REGISTRY — enforcement + balance bands (#172)")
+	var reg_script: GDScript = load("res://scripts/economy/price_registry.gd") as GDScript
+	if reg_script == null:
+		_assert(false, "price_registry.gd loadable", "script not found")
+		return false
+	var prices: Dictionary = reg_script.get_all_prices()
+	_assert(prices.size() > 0, "registry has entries", "%d items" % prices.size())
+
+	var checked := 0
+	var out_of_band: Array[String] = []
+	for item_id in prices.keys():
+		var entry: Dictionary = prices[item_id]
+		var price: int = reg_script.get_base_price(item_id)
+		var category: String = entry.get("category", "misc")
+		_assert(price > 0, "price > 0: " + str(item_id), str(price))
+		checked += 1
+		if not _BANDS.has(category):
+			continue
+		var band: Dictionary = _BANDS[category]
+		if price < int(band["min"]) or price > int(band["max"]):
+			out_of_band.append("%s price=%d category=%s band=[%d..%d]" % [item_id, price, category, int(band["min"]), int(band["max"])])
+	_assert(checked == prices.size(), "every registry item price-checked", "%d items" % checked)
+	if out_of_band.is_empty():
+		_assert(true, "all prices within balance bands", "%d items in-band" % prices.size())
+	else:
+		_assert(false, "all prices within balance bands", "DIFF REPORT:\n" + "\n".join(out_of_band))
+
+	# Farm harvest path must resolve base price via registry, falling back to
+	# CropDefinition for ids not registered.
+	var fpm_script: GDScript = load("res://scripts/autoload/farm_plot_manager.gd") as GDScript
+	if fpm_script == null:
+		_assert(false, "farm_plot_manager.gd loadable", "script not found")
+		return false
+	var src: String = fpm_script.source_code
+	_assert(src.contains("PriceRegistry.get_base_price"), "farm_plot_manager reads registry (live source)", "")
+	_assert(src.contains("get_base_sell_price"), "farm_plot_manager has get_base_sell_price helper", "")
+	_assert(reg_script.get_base_price("parsnip") == 35, "registry parsnip = 35", str(reg_script.get_base_price("parsnip")))
+	_assert(reg_script.get_base_price("unregistered_crop_xyz") == 0, "unregistered id resolves 0", "")
+	if fpm_script.can_instantiate():
+		var fpm_probe: Node = fpm_script.new()
+		if fpm_probe.has_method("get_base_sell_price"):
+			_assert(fpm_probe.get_base_sell_price("parsnip") == 35, "harvest base price parsnip via registry 35", str(fpm_probe.get_base_sell_price("parsnip")))
+			_assert(fpm_probe.get_base_sell_price("turnip") == 40, "fallback: unregistered turnip -> CropDefinition 40", str(fpm_probe.get_base_sell_price("turnip")))
+			_assert(fpm_probe.get_base_sell_price("strawberry") == 30, "fallback: unregistered strawberry -> 30", str(fpm_probe.get_base_sell_price("strawberry")))
+			_assert(fpm_probe.get_sell_price("parsnip", "normal") == 35, "sell_price parsnip normal 35", str(fpm_probe.get_sell_price("parsnip", "normal")))
+			_assert(fpm_probe.get_sell_price("parsnip", "gold") == 53, "sell_price parsnip gold 53", str(fpm_probe.get_sell_price("parsnip", "gold")))
+		else:
+			_assert(false, "get_base_sell_price present on live FarmPlotManager", "")
+		fpm_probe.free()
+	else:
+		_assert(src.contains("def.base_sell_price"), "fallback to CropDefinition.base_sell_price present", "")
+		_assert(src.contains("registry_price > 0"), "registry-first fallback logic present", "")
+	print("  price registry section done")
+	return true
