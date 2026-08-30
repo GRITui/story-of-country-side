@@ -35,6 +35,7 @@ const DEFAULT_LINES: Array[String] = [
 
 const FREEZE_REASON := "intro"
 const ADVANCE_HINT := "Press [Space] to continue"
+const HINT_FADE_DURATION := 3.0
 
 ## Overridable before this node enters the tree (e.g. by a test, or a
 ## future writer-authored variant); defaults to DEFAULT_LINES otherwise.
@@ -42,20 +43,16 @@ const ADVANCE_HINT := "Press [Space] to continue"
 
 var _index: int = 0
 var _active: bool = false
+var _hint_label: Label = null
+var _hint_timer: float = 0.0
+var _hint_visible: bool = false
 
 @onready var _label: Label = get_node_or_null("Label")
-@onready var _hint_label: Label = get_node_or_null("ContinueHint")
 
 func _ready() -> void:
 	if lines.is_empty():
 		lines = DEFAULT_LINES.duplicate()
-	_update_hint()
 	start()
-
-func _update_hint() -> void:
-	if _hint_label:
-		_hint_label.text = ADVANCE_HINT
-		_hint_label.visible = true
 
 ## Idempotent -- calling start() while already active is a no-op, so a
 ## stray extra call (double-instantiation, re-entrant _ready) can't reset
@@ -91,21 +88,48 @@ func _show_current_line() -> void:
 	var text: String = lines[_index]
 	if _label:
 		_label.text = text
-	_update_hint()
 	line_changed.emit(_index, text)
+	if _index == lines.size() - 1:
+		_show_hint()
 
 func _finish() -> void:
 	_active = false
+	_hide_hint()
 	if TimeManager:
 		TimeManager.unfreeze(FREEZE_REASON)
-	if _hint_label:
-		_hint_label.visible = false
 	finished.emit()
+
+func _process(delta: float) -> void:
+	if _hint_visible and _hint_timer > 0.0:
+		_hint_timer -= delta
+		if _hint_timer <= 0.0:
+			_hide_hint()
+
+func _show_hint() -> void:
+	if _hint_label == null:
+		_hint_label = Label.new()
+		_hint_label.text = ADVANCE_HINT
+		_hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_hint_label.anchors_preset = Control.PRESET_CENTER_BOTTOM
+		_hint_label.offset_bottom = -40
+		_hint_label.offset_top = -70
+		_hint_label.modulate = Color(1, 1, 1, 0.8)
+		add_child(_hint_label)
+	_hint_visible = true
+	_hint_timer = HINT_FADE_DURATION
+
+func _hide_hint() -> void:
+	_hint_visible = false
+	if _hint_label != null:
+		_hint_label.queue_free()
+		_hint_label = null
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not _active:
 		return
-	var advances: bool = event.is_action_pressed("ui_accept") \
+	if _hint_visible and _index == lines.size() - 1:
+		_hide_hint()
+	var advances: bool = event.is_action_pressed("advance_dialog") \
 		or (event is InputEventMouseButton and event.pressed) \
 		or (event is InputEventScreenTouch and event.pressed) \
 		or (event is InputEventKey and event.pressed)
